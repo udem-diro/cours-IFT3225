@@ -1,0 +1,99 @@
+---
+/**
+ * Composant de résolution d'icônes Lucide.
+ * Centralise le mapping nom → composant pour tous les composants du site.
+ *
+ * Usage :
+ *   import Icon from './Icon.astro';
+ *   <Icon name="server" size={18} />
+ */
+
+import {
+  BookOpen,
+  Braces,
+  Calendar,
+  ClipboardList,
+  Cloud,
+  Code,
+  Database,
+  FileText,
+  FlaskConical,
+  Globe,
+  GraduationCap,
+  Laptop,
+  LineChart,
+  Lock,
+  Map,
+  Menu,
+  Moon,
+  Package,
+  Presentation,
+  Puzzle,
+  Radio,
+  RefreshCw,
+  Rocket,
+  Scale,
+  Server,
+  Settings,
+  Smartphone,
+  Sun,
+  Wrench,
+  X,
+} from "@lucide/astro";
+
+const icons: Record<string, any> = {
+  'book-open':    BookOpen,
+  'braces':       Braces,
+  'calendar':     Calendar,
+  'clipboard':    ClipboardList,
+  'cloud':        Cloud,
+  'code':         Code,
+  'database':     Database,
+  'file-text':    FileText,
+  'flask':        FlaskConical,
+  'globe':        Globe,
+  'graduation':   GraduationCap,
+  'laptop':       Laptop,
+  'chart-line':   LineChart,
+  'lock':         Lock,
+  'map':          Map,
+  'menu':         Menu,
+  'moon':         Moon,
+  'package':      Package,
+  'presentation': Presentation,
+  'puzzle':       Puzzle,
+  'radio':        Radio,
+  'refresh':      RefreshCw,
+  'rocket':       Rocket,
+  'scale':        Scale,
+  'server':       Server,
+  'settings':     Settings,
+  'smartphone':   Smartphone,
+  'sun':          Sun,
+  'wrench':       Wrench,
+  'x':            X,
+};
+
+interface Props {
+  name: string;
+  size?: number;
+  class?: string;
+}
+
+const { name, size = 18, class: className } = Astro.props;
+const IconComponent = icons[name];
+---
+
+{IconComponent ? (
+  <IconComponent size={size} class:list={["icon", className]} />
+) : (
+  <i class:list={["icon", className]}>{name}</i>
+)}
+
+<style>
+  .icon {
+    display: inline-block;
+    font-style: normal;
+    vertical-align: middle;
+  }
+</style>

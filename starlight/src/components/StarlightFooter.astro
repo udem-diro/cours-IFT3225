@@ -1,0 +1,79 @@
+---
+/**
+ * StarlightFooter.astro — Override du footer Starlight
+ * pour injecter le ZoneSwitcher dans la zone référence.
+ */
+import type { Props } from '@astrojs/starlight/props';
+import Default from '@astrojs/starlight/components/Footer.astro';
+---
+
+<Default {...Astro.props}><slot /></Default>
+
+<!-- Zone Switcher FAB -->
+<a
+  class="zone-fab-sl"
+  href="/"
+  aria-label="Retour au parcours"
+>
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+    <line x1="16" y1="2" x2="16" y2="6"/>
+    <line x1="8" y1="2" x2="8" y2="6"/>
+    <line x1="3" y1="10" x2="21" y2="10"/>
+  </svg>
+  <span class="zone-fab-sl__tooltip">Retour au parcours</span>
+</a>
+
+<style>
+  .zone-fab-sl {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--sl-color-bg, #fff);
+    border: 1px solid var(--sl-color-gray-5, rgba(0,0,0,0.1));
+    color: var(--sl-color-gray-3, #6B6A65);
+    text-decoration: none;
+    cursor: pointer;
+    transition: border-color 250ms ease, color 250ms ease, box-shadow 250ms ease;
+  }
+
+  .zone-fab-sl:hover {
+    border-color: var(--sl-color-accent, #534AB7);
+    color: var(--sl-color-accent, #534AB7);
+    box-shadow: 0 2px 12px rgba(83, 74, 183, 0.15);
+    text-decoration: none;
+  }
+
+  .zone-fab-sl__tooltip {
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: var(--sl-color-bg, #fff);
+    border: 1px solid var(--sl-color-gray-5, rgba(0,0,0,0.1));
+    color: var(--sl-color-gray-3, #6B6A65);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 150ms ease;
+  }
+
+  .zone-fab-sl:hover .zone-fab-sl__tooltip {
+    opacity: 1;
+  }
+
+  @media (max-width: 640px) {
+    .zone-fab-sl { bottom: 1rem; right: 1rem; width: 42px; height: 42px; }
+    .zone-fab-sl__tooltip { display: none; }
+  }
+</style>

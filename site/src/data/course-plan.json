@@ -1,0 +1,242 @@
+{
+  "meta": {
+    "id": "IFT3225",
+    "title": "Technologies de l'internet",
+    "session": "Été 2026",
+    "phases": [
+      { "id": "fondations", "label": "Fondations", "range": [1, 3], "icon": "📐", "description": "Concepts abstraits — on regarde les choses sans les toucher" },
+      { "id": "terrain",    "label": "Terrain",    "range": [4, 6], "icon": "🔧", "description": "Le monde physique entre en jeu — on construit le backend" },
+      { "id": "surface",    "label": "Surface",    "range": [7, 10], "icon": "🖥️", "description": "L'humain entre en jeu — on construit le frontend" },
+      { "id": "recul",      "label": "Recul",      "range": [11, 12], "icon": "🔭", "description": "On prend du recul — on regarde ce qu'on a construit" }
+    ]
+  },
+
+  "weeks": [
+    {
+      "number": 1,
+      "phase": "fondations",
+      "theme": "Communication entre systèmes",
+      "subtitle": "Protocoles, formats et le besoin de conventions",
+      "question": "Comment des entités indépendantes qui ne se voient pas peuvent-elles se coordonner?",
+      "notions": [
+        "Protocole : figer les règles quand l'observation continue est impossible",
+        "Les trois dimensions d'un protocole : quand, quoi, comment",
+        "Format d'échange : la forme transmissible d'une donnée",
+        "Sérialisation et désérialisation : mémoire ↔ message",
+        "Requête et réponse : le cycle fondamental de l'interaction client-serveur",
+        "L'intention précède la requête mais n'y est pas directement encodée",
+        "Vision pipeline : capteur → protocole → serveur → interface → utilisateur"
+      ],
+      "concepts": ["protocole", "format_echange", "requete", "reponse"]
+    },
+    {
+      "number": 2,
+      "phase": "fondations",
+      "theme": "Structure d'un échange",
+      "subtitle": "Anatomie d'une requête, d'une réponse, et des données qu'elles transportent",
+      "question": "Que contient un message échangé entre deux machines, et comment le lire?",
+      "notions": [
+        "HTTP comme instance concrète du concept de protocole",
+        "Stateless : chaque requête est autonome, le serveur ne conserve rien",
+        "Méthode, chemin, en-têtes, corps : les quatre parties d'une requête HTTP",
+        "Code de statut : le verdict du serveur (2xx, 4xx, 5xx)",
+        "JSON : un format texte indépendant du langage pour structurer des données",
+        "JSON.stringify / JSON.parse : la boucle sérialisation-désérialisation",
+        "DevTools Network : observer un protocole en action",
+        "Le format n'est pas garanti d'être partagé — au récepteur de savoir décoder"
+      ],
+      "concepts": ["protocole", "format_echange", "requete", "reponse", "http", "json"]
+    },
+    {
+      "number": 3,
+      "phase": "fondations",
+      "theme": "Conventions et prévisibilité",
+      "subtitle": "Interfaces programmatiques, ressources et conventions de nommage",
+      "question": "Comment rendre un système compréhensible sans que chaque interaction nécessite de la documentation?",
+      "notions": [
+        "Nommer les choses (ressources) plutôt que les actions",
+        "Méthode HTTP comme verbe, chemin comme nom : GET /measurements vs /getMeasurements",
+        "Endpoint = méthode + chemin : l'unité de l'API",
+        "Conventions REST : pluriel, minuscules, structure hiérarchique",
+        "Statelessness comme contrainte architecturale, pas comme limitation",
+        "Un serveur écoute en continu — il est réactif, pas proactif",
+        "Route : associer un chemin à un comportement",
+        "La distinction entre route (implémentation) et endpoint (interface)"
+      ],
+      "concepts": ["rest", "endpoint", "serveur", "route"]
+    },
+    {
+      "number": 4,
+      "phase": "terrain",
+      "theme": "Le monde physique comme source de données",
+      "subtitle": "Objets, capteurs et protocoles d'exposition",
+      "question": "Comment un phénomène physique devient-il une donnée numérique interrogeable à distance?",
+      "notions": [
+        "Objet connecté : utilité première distincte de ses capacités numériques",
+        "Capteur : transforme un phénomène physique en signal exploitable",
+        "Actuateur : le symétrique du capteur (signal → action physique)",
+        "La chaîne : phénomène → signal → échantillonnage → mesure → encodage",
+        "Protocole capteur : comment l'objet expose ses mesures (HTTP local, MQTT, série, BLE)",
+        "Réseau local : communication sans routage Internet",
+        "Le téléphone comme laboratoire IoT : micro, GPS, accéléromètre",
+        "Documenter un payload : le contrat entre la source et le consommateur"
+      ],
+      "concepts": ["objet", "capteur", "actuateur", "telephone", "micro", "gps", "protocole_capteur", "reseau_local"]
+    },
+    {
+      "number": 5,
+      "phase": "terrain",
+      "theme": "Acheminement et persistance",
+      "subtitle": "Relais, transformation et conservation des données",
+      "question": "Comment faire traverser une donnée de sa source physique jusqu'à un stockage durable?",
+      "notions": [
+        "Bridge : intermédiaire entre le réseau local et Internet",
+        "Polling : interroger périodiquement (modèle pull)",
+        "Mesure : prélèvement d'un signal à un instant donné (valeur, timestamp, source)",
+        "Traitement : pipeline d'étapes (lire, valider, transformer, persister, répondre)",
+        "Middleware : une étape réutilisable du pipeline",
+        "Persistance : conserver l'état au-delà de la session",
+        "Base de données : stockage structuré, interrogeable, durable",
+        "Schéma : le contrat de la donnée (champs, types, contraintes)",
+        "Le pipeline complet : capteur → bridge → serveur → base"
+      ],
+      "concepts": ["bridge", "mesure", "serveur", "route", "traitement", "persistance", "bd", "middleware"]
+    },
+    {
+      "number": 6,
+      "phase": "terrain",
+      "theme": "Identité et confiance",
+      "subtitle": "Authentification, autorisation et sécurité du transport",
+      "question": "Comment un système distingue-t-il qui a le droit de faire quoi?",
+      "notions": [
+        "Identité ≠ autorisation : savoir qui c'est vs savoir ce qu'il peut faire",
+        "Clé API : secret partagé, transmis dans un en-tête, identifie le client",
+        "Device : représentation persistée d'un client autorisé",
+        "Middleware d'authentification : vérifier avant de traiter",
+        "TLS : chiffrement et authentification entre TCP et HTTP",
+        "Certificat : document signé qui atteste l'identité du serveur",
+        "HTTPS : le standard moderne — HTTP + TLS",
+        "CORS : politique du navigateur qui contrôle les origines autorisées",
+        "La confiance repose sur des tiers (autorités de certification)"
+      ],
+      "concepts": ["api_key", "device", "https", "tls", "certificat", "cors", "middleware"]
+    },
+    {
+      "number": 7,
+      "phase": "surface",
+      "theme": "Composition et interfaces",
+      "subtitle": "Composants, encapsulation et surfaces de contact",
+      "question": "Comment construire un système complexe par assemblage de briques simples?",
+      "notions": [
+        "Interface au sens large : points d'entrée et de sortie avec règles d'usage",
+        "L'interface utilisateur (UI) : cas particulier où l'élément externe est un humain",
+        "Composant : brique réutilisable qui encapsule structure, comportement et état",
+        "Composition par imbrication : des briques simples forment un tout complexe",
+        "Props : données passées de l'extérieur au composant",
+        "La séparation des responsabilités : chaque composant fait une chose",
+        "Client : l'entité qui initie des demandes et interprète les réponses",
+        "La qualité de l'interface détermine la qualité de l'interaction"
+      ],
+      "concepts": ["interface", "composant", "client", "etat"]
+    },
+    {
+      "number": 8,
+      "phase": "surface",
+      "theme": "État et réactivité",
+      "subtitle": "État local, état distant, synchronisation et effets de bord",
+      "question": "Qu'est-ce qui change, qu'est-ce qui en découle, et comment garder le tout cohérent?",
+      "notions": [
+        "État : photographie du système à un instant donné",
+        "L'environnement de préservation détermine la durée de vie de l'état",
+        "État → rendu : quand l'état change, l'affichage change (réactivité)",
+        "Requête asynchrone : libérer le fil d'exécution pendant l'attente",
+        "Les quatre états d'une requête : idle, loading, error, success",
+        "Chaque état doit être représenté visuellement dans l'interface",
+        "Effet de bord : action qui affecte le monde extérieur au composant",
+        "Synchronisation état local / état distant : le pont entre navigateur et serveur"
+      ],
+      "concepts": ["etat", "requete_async", "fetch", "etats_async"]
+    },
+    {
+      "number": 9,
+      "phase": "surface",
+      "theme": "Représentation visuelle de données",
+      "subtitle": "Cartographies, séries temporelles et choix de représentation",
+      "question": "Comment encoder une donnée en forme perceptible et interprétable par un humain?",
+      "notions": [
+        "Visualiser = traduire : d'un format numérique à un format perceptuel",
+        "Position, couleur, taille, forme : les canaux visuels",
+        "Le choix de la représentation est un acte de communication",
+        "Série temporelle : valeur en fonction du temps (la mesure a un timestamp)",
+        "Carte géographique : valeur en fonction de l'espace (la mesure a des coordonnées)",
+        "L'intersection consumer × comm × iot : la visualisation n'est pas un domaine, c'est un croisement",
+        "Mettre en valeur certaines relations = en masquer d'autres",
+        "L'interface comme traduction finale du pipeline pour l'utilisateur"
+      ],
+      "concepts": ["interface", "mesure", "gps", "etat", "user"]
+    },
+    {
+      "number": 10,
+      "phase": "surface",
+      "theme": "L'utilisateur comme agent",
+      "subtitle": "Interaction, accessibilité et test utilisateur",
+      "question": "Comment savoir si ce qu'on a construit fonctionne pour quelqu'un d'autre que nous?",
+      "notions": [
+        "L'utilisateur observe, interprète et agit — il est un agent, pas un consommateur passif",
+        "Interaction : clic, saisie, scroll — chaque action est un événement",
+        "L'interface doit rendre les interactions possibles, visibles et prévisibles",
+        "Accessibilité : utilisable par tous, pas seulement par les personnes en situation de handicap",
+        "UX ≠ UI : l'expérience est la somme de toutes les micro-interactions",
+        "Test utilisateur : observer un humain utiliser l'interface sans intervenir",
+        "Les développeurs sont trop proches de leur code pour voir les problèmes",
+        "Concevoir pour un utilisateur moyen, c'est ne concevoir pour personne"
+      ],
+      "concepts": ["user", "interaction", "accessibilite", "test_utilisateur", "ux"]
+    },
+    {
+      "number": 11,
+      "phase": "recul",
+      "theme": "Disponibilité et temps réel",
+      "subtitle": "Déploiement, flux continus et modèles push/pull",
+      "question": "Comment rendre un système accessible en permanence et réactif aux événements?",
+      "notions": [
+        "Du local au distant : DNS, TLS, variables d'environnement",
+        "Le serveur en production est le même concept qu'en développement, dans un autre environnement",
+        "Polling (pull) : le client demande périodiquement — simple mais limité",
+        "Événements poussés (push) : le serveur envoie dès qu'il a quelque chose",
+        "EventSource / SSE : connexion HTTP persistante, unidirectionnelle",
+        "Le choix push vs pull dépend de la latence acceptable et de la complexité tolérée",
+        "Retry et backoff : résilience face aux pannes transitoires",
+        "Disponibilité = la promesse que le système répond quand on l'appelle"
+      ],
+      "concepts": ["eventSource", "polling", "retry_backoff", "https", "cors", "serveur"]
+    },
+    {
+      "number": 12,
+      "phase": "recul",
+      "theme": "Architecture et évolution",
+      "subtitle": "Vision système, dette technique et itération",
+      "question": "Comment les parties forment-elles un tout, et comment ce tout s'adapte-t-il?",
+      "notions": [
+        "L'architecture = l'ensemble des décisions qui contraignent les décisions futures",
+        "Chaque choix ouvre des possibilités et en ferme d'autres",
+        "La dette technique : le coût reporté d'un raccourci pris aujourd'hui",
+        "Le graphe de concepts comme outil de pensée systémique",
+        "Les quatre domaines comme perspectives sur un même système",
+        "Les arêtes cross-domain : là où vivent les vrais défis",
+        "Un bon système n'est pas parfait — il peut évoluer",
+        "Retour à la question de S1 : comment des entités indépendantes se coordonnent"
+      ],
+      "concepts": ["protocole", "format_echange", "requete", "reponse", "objet", "capteur", "serveur", "route", "traitement", "persistance", "client", "interface", "etat", "user"]
+    }
+  ],
+
+  "evaluations": [
+    { "id": "L1", "type": "lab", "weight": 10, "semaines": [2, 3], "description": "Labo exploratoire : anatomie HTTP et conception d'API" },
+    { "id": "L2", "type": "lab", "weight": 15, "semaines": [4, 5], "description": "Labo pipeline : capteur → bridge → serveur → base" },
+    { "id": "L3", "type": "lab", "weight": 20, "semaines": [7, 8, 9], "description": "Labo interface : dashboard, état, visualisation" },
+    { "id": "intra", "type": "exam", "weight": 20, "date": "2026-06-12", "description": "Examen intra (S1-S6)" },
+    { "id": "final", "type": "exam", "weight": 30, "date": "2026-07-28", "description": "Examen final (S1-S12)" },
+    { "id": "synthese", "type": "paper", "weight": 5, "description": "Synthèse individuelle (2-4 pages)" }
+  ]
+}

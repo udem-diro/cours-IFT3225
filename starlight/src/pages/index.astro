@@ -1,0 +1,223 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import CalendarGrid from '../components/CalendarGrid.astro';
+import ZoneSwitcher from '../components/ZoneSwitcher.astro';
+import { getCollection } from 'astro:content';
+
+const allSessions = await getCollection('sessions');
+const sessionsMeta = allSessions
+  .sort((a, b) => a.data.numero - b.data.numero)
+  .map((s) => ({
+    slug: s.id,
+    numero: s.data.numero,
+    title: s.data.title,
+    date: s.data.date,
+    tags: s.data.tags,
+    summary: s.data.summary,
+  }));
+
+// Dériver les mois automatiquement à partir des dates des séances
+const monthSet = new Map<string, { month: number; year: number }>();
+for (const s of sessionsMeta) {
+  const d = new Date(s.date + 'T12:00:00');
+  const key = `${d.getFullYear()}-${d.getMonth()}`;
+  if (!monthSet.has(key)) {
+    monthSet.set(key, { month: d.getMonth() + 1, year: d.getFullYear() });
+  }
+}
+const months = [...monthSet.values()].sort(
+  (a, b) => a.year - b.year || a.month - b.month
+);
+
+function monthLabel(m: number, y: number): string {
+  return new Date(y, m - 1, 1).toLocaleDateString('fr-CA', { month: 'long', year: 'numeric' });
+}
+
+// Trouver le mois initial (mois courant si présent, sinon le premier)
+const now = new Date();
+const initialIndex = Math.max(
+  0,
+  months.findIndex((m) => m.month === now.getMonth() + 1 && m.year === now.getFullYear())
+);
+---
+
+<BaseLayout title="Parcours">
+  <div class="home">
+    <header class="home__header">
+      <div class="home__brand">
+        <h1 class="home__title">IFT3225 &ndash; Technologies de l'internet</h1>
+      </div>
+      <nav class="month-nav" aria-label="Navigation par mois">
+        <button class="month-nav__btn" id="prevMonth" aria-label="Mois précédent">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <span class="month-nav__label" id="monthLabel">{monthLabel(months[initialIndex].month, months[initialIndex].year)}</span>
+        <button class="month-nav__btn" id="nextMonth" aria-label="Mois suivant">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+        </button>
+      </nav>
+    </header>
+
+    {months.map(({ month, year }, i) => (
+      <div
+        class="month-panel"
+        data-month-index={i}
+        data-month-label={monthLabel(month, year)}
+        style={i === initialIndex ? '' : 'display:none;'}
+      >
+        <CalendarGrid sessions={sessionsMeta} month={month} year={year} />
+      </div>
+    ))}
+  </div>
+
+  <ZoneSwitcher zone="cours" />
+</BaseLayout>
+
+<script>
+  const panels = document.querySelectorAll<HTMLElement>('.month-panel');
+  const label = document.getElementById('monthLabel')!;
+  const prevBtn = document.getElementById('prevMonth')!;
+  const nextBtn = document.getElementById('nextMonth')!;
+
+  // Lire les noms de mois depuis les data attributes
+  const monthNames = Array.from(panels).map(
+    (p) => p.dataset.monthLabel ?? ''
+  );
+
+  // Trouver l'index initial (le panel déjà visible)
+  let current = Array.from(panels).findIndex(
+    (p) => p.style.display !== 'none'
+  );
+  if (current < 0) current = 0;
+
+  function show(index: number) {
+    panels.forEach((p, i) => {
+      p.style.display = i === index ? '' : 'none';
+    });
+    label.textContent = monthNames[index];
+    prevBtn.classList.toggle('month-nav__btn--disabled', index === 0);
+    nextBtn.classList.toggle('month-nav__btn--disabled', index === monthNames.length - 1);
+    current = index;
+  }
+
+  prevBtn.addEventListener('click', () => { if (current > 0) show(current - 1); });
+  nextBtn.addEventListener('click', () => { if (current < monthNames.length - 1) show(current + 1); });
+
+  show(current);
+</script>
+
+<style>
+  .home {
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-6) var(--space-12);
+  }
+
+  .home__header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    margin-bottom: var(--space-6);
+    padding-bottom: var(--space-4);
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .home__title {
+    font-family: var(--font-display);
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    color: var(--c-text);
+    letter-spacing: -0.02em;
+  }
+
+  .home__subtitle {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 300;
+    color: var(--c-text-muted);
+    font-style: italic;
+    margin-top: var(--space-1);
+  }
+
+  .home__meta {
+    font-size: var(--text-sm);
+    color: var(--c-text-subtle);
+    margin-top: var(--space-1);
+  }
+
+  /* ── Month navigation ── */
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  .month-nav__label {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 500;
+    color: var(--c-text-muted);
+    text-transform: capitalize;
+    min-width: 10rem;
+    text-align: center;
+  }
+
+  .month-nav__btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 1px solid var(--c-border);
+    background: var(--c-surface);
+    color: var(--c-text-muted);
+    cursor: pointer;
+    transition: all var(--dur-fast) ease;
+  }
+
+  .month-nav__btn:hover:not(.month-nav__btn--disabled) {
+    border-color: var(--c-accent-mid);
+    color: var(--c-accent);
+  }
+
+  .month-nav__btn--disabled {
+    opacity: 0.3;
+    cursor: default;
+  }
+
+  /* ── Legend ── */
+  .home__legend {
+    display: flex;
+    gap: var(--space-6);
+    justify-content: center;
+    margin-top: var(--space-6);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--c-border);
+  }
+
+  .home__legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-xs);
+    color: var(--c-text-muted);
+  }
+
+  .home__legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .home__legend-dot--cours  { background: var(--c-cours-bg); border: 1px solid var(--c-cours); }
+  .home__legend-dot--labo   { background: var(--c-labo-bg);  border: 1px solid var(--c-labo); }
+  .home__legend-dot--devoir { background: var(--c-devoir-bg); border: 1px solid var(--c-devoir); }
+  .home__legend-dot--examen { background: var(--c-examen-bg); border: 1px solid var(--c-examen); }
+
+  @media (max-width: 640px) {
+    .home { padding: var(--space-4) var(--space-3) var(--space-8); }
+    .home__header { flex-direction: column; align-items: flex-start; gap: var(--space-3); }
+    .home__title { font-size: var(--text-2xl); }
+    .home__legend { flex-wrap: wrap; gap: var(--space-3); }
+  }
+</style>

@@ -1,0 +1,716 @@
+---
+/**
+ * Phase 1 — Infrastructure de collecte
+ * Page autonome hors Starlight.
+ */
+
+
+import Aside from '../../components/Aside.astro';
+import CardGrid from '../../components/CardGrid.astro';
+import Card from '../../components/Card.astro';
+
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 1 — Infrastructure de collecte · IFT3225</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <div class="hero__meta">
+          <span class="hero__course">IFT3225</span>
+          <span class="hero__badge">Livrable 1 · 10 %</span>
+        </div>
+        <h1 class="hero__title">Infrastructure de collecte</h1>
+        <p class="hero__subtitle">Phase 1</p>
+        <p class="hero__desc">
+          Construire un pipeline capable de recevoir, authentifier et persister
+          des données d'ambiance en quasi temps réel, puis de les rendre
+          interrogeables.
+        </p>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#contexte">Contexte</a>
+      <!-- <a href="#objectifs">Objectifs</a> -->
+      <a href="#travail">Travail</a>
+      <!-- <a href="#protocole">Protocole</a> -->
+      <a href="#livrables">Livrables</a>
+      <a href="#evaluation">Évaluation</a>
+      <a href="#echeancier">Échéancier</a>
+    </nav>
+
+    <main class="content">
+      <!-- ── 01 Contexte ───────────────────────────────────────── -->
+
+      <section id="contexte">
+        <h2><span class="h2-num">01</span> Contexte</h2>
+        <p>
+          L'ambiance d'un lieu (café, bibliothèque, parc) varie au fil des
+          heures et des jours. 
+          Ce projet vise à construire une infrastructure qui capte cette ambiance
+          en quasi temps réel
+          via des capteurs et la rend
+          <b>interrogeable</b> par n'importe quel client (via HTTP).
+        </p>
+        <p>Le système reçoit deux types de données :</p>
+        <div class="two-col">
+          <div class="source-card">
+            <div class="source-card__header source-card__header--auto">
+              <span class="source-card__icon">📡</span> Données capteurs
+            </div><p class="source-card__sub">
+              Collectées automatiquement via Phyphox
+            </p><ul><li>Amplitude audio (niveau sonore ambiant)</li></ul>
+          </div>
+          <div class="source-card">
+            <div class="source-card__header source-card__header--env">
+              <span class="source-card__icon">🌤️</span> Données environnementales
+            </div><p class="source-card__sub">
+              Méthode à proposer par l'équipe
+            </p><ul>
+              <li>Heure et jour de la semaine</li><li>
+                Proximité de la source de bruit humaine la plus proche
+              </li><li>Humeur / vibe générale du lieu</li>
+            </ul>
+          </div>
+        </div>
+       
+
+      </section>
+
+      <!-- ── 02 Objectifs ──────────────────────────────────────── -->
+
+      <!-- <section id="objectifs">
+        <h2><span class="h2-num">02</span> Objectifs d'apprentissage</h2>
+        <p>Cette phase met en pratique les concepts des semaines 1 à 6.</p>
+        <div class="objectives">
+          <div class="obj">
+            <span class="obj__week">S3</span> Concevoir un protocole de communication
+            REST adapté à un cas concret
+          </div>
+          <div class="obj">
+            <span class="obj__week">S4</span> Modéliser le passage du monde physique
+            au numérique
+          </div>
+          <div class="obj">
+            <span class="obj__week">S5</span> Construire un pipeline de bout en bout
+            : capteur → serveur → base
+          </div>
+          <div class="obj">
+            <span class="obj__week">S6</span> Distinguer et authentifier les sources
+            de données
+          </div>
+        </div>
+      </section> -->
+
+      <!-- ── 03 Travail à réaliser ─────────────────────────────── -->
+
+      <section id="travail">
+        <h2><span class="h2-num">02</span> Travail à réaliser</h2>
+
+        <p>
+          Le travail se décompose en six tâches. Elles suivent l'ordre de
+          l'échéancier mais peuvent se chevaucher.
+        </p>
+
+        <h3>Tâche 1 — Choisir un lieu et planifier la collecte</h3>
+        <p>
+          Choisir un lieu réel (café, parc, bibliothèque, etc.) que l'équipe
+          instrumentera avec un téléphone. Définir comment vous collecterez les
+          données environnementales (méthode automatique, manuelle, ou mixte).
+          Prévoyez au moins <strong>3 sessions de 20 minutes</strong>, à des moments
+            différents de la journée ou de la semaine.
+        </p>
+         <Aside type="caution" title="Fallback obligatoire">
+          Votre solution de collecte environnementale peut être automatique, manuelle, ou mixte. 
+          Cependant un mécanisme de saisie manuelle (fallback) doit être disponible si la collecte automatique échoue ou n'est pas praticable.
+          </Aside>
+            
+
+         <h3>Tâche 2 — Concevoir le protocole</h3>
+         <p>
+          Définir l'ensemble des règles qui régissent la communication avec votre système. 
+          Ce protocole sera documenté dans le rapport (voir <a href="#livrables">section 05</a>) et comprend :
+        </p>
+        <ul>
+          <li><strong>Ressources et endpoints</strong> — quels chemins existent, quelles méthodes, quels corps, quelles réponses</li>
+          <li><strong>Conventions</strong> — nommage des ressources, format des dates, structure des erreurs, enveloppe de réponse</li>
+          <li><strong>Filtrage et consultation</strong> — comment un client filtre par lieu, par période, par type</li>
+          <li><strong>Authentification</strong> — quel mécanisme, quel en-tête, quel flux</li>
+        </ul>
+        
+        <p>Le protocole doit inclure au minimum <strong>3 endpoints sémantiques</strong> de consultation au-delà des endpoints de collecte (voir <a href="#protocole">section 04</a>).</p>
+        <p>Les exemples ci-dessous sont un point de départ.</p>
+ 
+        <h4>Endpoints de collecte</h4>
+        <table class="endpoint-table endpoint-table--full">
+          <thead>
+            <tr>
+              <th>Méthode</th>
+              <th>Endpoint</th>
+              <th>Corps</th>
+              <th>Réponse</th>
+            </tr>
+          </thead><tbody>
+            <tr>
+              <td><span class="method method--post">POST</span></td>
+              <td><code>/measurements</code></td>
+              <td><code>{"{"}type, value, location, timestamp {"}"}</code></td>
+              <td><code>201</code> + document créé</td>
+            </tr>
+            <tr>
+              <td><span class="method method--post">POST</span></td>
+              <td><code>/observations</code></td>
+              <td><code>{"{"} location, proximity, vibe, notes {"}"}</code></td>
+              <td><code>201</code> + document créé</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <Aside type="note" title="Qui génère le timestamp?">
+          Le mécanisme de collecte fournit le timestamp (moment de la mesure). 
+          Le serveur peut ajouter un receivedAt (moment de la réception). 
+          La distinction est importante quand la collecte accumule des mesures avant de les envoyer en batch.
+        </Aside>
+
+        <h4>Endpoints de gestion</h4>
+        <table class="endpoint-table endpoint-table--full">
+          <thead>
+            <tr>
+              <th>Méthode</th>
+              <th>Endpoint</th>
+              <th>Corps</th>
+              <th>Réponse</th>
+            </tr>
+          </thead><tbody>
+            <tr>
+              <td><span class="method method--post">POST</span></td>
+              <td><code>/devices</code></td>
+              <td><code>{`{ name, location }`}</code></td>
+              <td><code>201</code> + <code>{"{"} id, apiKey {"}"}</code></td>
+            </tr>
+            <tr>
+              <td><span class="method method--get">GET</span></td>
+              <td><code>/devices</code></td>
+              <td>—</td><td><code>200</code> + tableau</td>
+          </tr>
+          </tbody>
+        </table>
+
+        <h4>Endpoints sémantiques (minimum 3)</h4>
+        <p>
+          Ces endpoints ne se contentent pas de retourner des données brutes.
+          Ils répondent à des questions concrètes sur l'ambiance d'un lieu.
+          Exemples :
+        </p>
+        <table class="endpoint-table endpoint-table--full">
+          <thead>
+            <tr>
+              <th>Méthode</th>
+              <th>Endpoint</th>
+              <th>Ce qu'il retourne</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><span class="method method--get">GET</span></td>
+              <td><code>/ambiance/:location/history?last=3h</code></td>
+              <td>Évolution par tranches de temps</td>
+            </tr>
+            <tr>
+              <td><span class="method method--get">GET</span></td>
+              <td><code>/ambiance/:location/quiet-hours</code></td>
+              <td>Créneaux typiquement calmes</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <Aside type="note" title="L'endpoint /ambiance est une vue dérivée">
+        Les endpoints <code>/ambiance</code> ne stocke pas de données.
+        Ils agrègent les mesures et observations récentes pour produire un portrait. 
+        La logique d'agrégation (seuils, moyenne, classification) fait partie de votre conception.
+        </Aside>
+
+        <h4>Gestion des lieux</h4>
+        <p>
+          La stratégie de gestion des lieux est à votre discrétion : création
+          explicite via un endpoint dédié, création implicite à la première
+          mesure, ou autre. Documentez votre choix.
+        </p>
+       
+
+        <h3>Tâche 3 — Implémenter le serveur</h3>
+        <p>
+          Mettre en place un serveur Express connecté à MongoDB Atlas qui
+          implémente tous les endpoints définis dans votre table. Le serveur
+          doit :
+        </p>
+        <ul>
+          <li>Parser le corps JSON des requêtes</li>
+          <li>Valider les données entrantes (champs requis, types)</li>
+          <li>Persister les mesures et observations en base</li>
+          <li>
+            Retourner les codes de statut appropriés (201, 400, 404, etc.)
+          </li>
+        </ul>
+
+        <h3>Tâche 4 — Mettre en place la collecte</h3>
+        <p>
+          Acheminer les données du capteur (Phyphox) vers le serveur. 
+          Le <strong>bridge</strong> — un script qui interroge le capteur à intervalle régulier et POST les
+          données vers l'API — est l'approche recommandée, mais votre équipe peut
+          proposer une alternative si elle la justifie.
+        </p>
+        <div class="arch-diagram">
+    <svg viewBox="0 0 840 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Pipeline">
+  <defs>
+    <marker id="ah" viewBox="0 0 10 10" refX="10" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9898ab" />
+    </marker>
+  </defs>
+
+  <g>
+    <rect x="10" y="40" width="140" height="70" rx="10" fill="#fef9ee" stroke="#d97706" stroke-width="1.5" />
+    <text x="80" y="70" font-family="DM Sans" font-size="13" font-weight="700" fill="#1a1a2e" text-anchor="middle">Téléphone</text>
+    <text x="80" y="88" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">(Phyphox)</text>
+  </g>
+
+  <g>
+    <rect x="220" y="40" width="140" height="70" rx="10" fill="#fef9ee" stroke="#d97706" stroke-width="1.5" />
+    <text x="290" y="70" font-family="DM Sans" font-size="13" font-weight="700" fill="#1a1a2e" text-anchor="middle">Collecte</text>
+    <text x="290" y="88" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">(bridge ou autre)</text>
+  </g>
+
+  <g>
+    <rect x="440" y="40" width="140" height="70" rx="10" fill="#eef3fb" stroke="#3b6fca" stroke-width="1.5" />
+    <text x="510" y="70" font-family="DM Sans" font-size="13" font-weight="700" fill="#1a1a2e" text-anchor="middle">Serveur</text>
+    <text x="510" y="88" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">(Express)</text>
+  </g>
+
+  <g>
+    <rect x="660" y="40" width="140" height="70" rx="10" fill="#eef3fb" stroke="#3b6fca" stroke-width="1.5" />
+    <text x="730" y="70" font-family="DM Sans" font-size="13" font-weight="700" fill="#1a1a2e" text-anchor="middle">Base</text>
+    <text x="730" y="88" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">(MongoDB)</text>
+  </g>
+
+  <g>
+    <rect x="440" y="155" width="140" height="50" rx="10" fill="#fff1f2" stroke="#e11d48" stroke-width="1.5" />
+    <text x="510" y="185" font-family="DM Sans" font-size="12" font-weight="700" fill="#1a1a2e" text-anchor="middle">Postman</text>
+  </g>
+
+  <!-- GET renversé : Collecte vers Téléphone -->
+  <line x1="220" y1="75" x2="150" y2="75" stroke="#9898ab" stroke-width="1.5" marker-end="url(#ah)" />
+  <text x="185" y="65" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">GET</text>
+
+  <line x1="360" y1="75" x2="440" y2="75" stroke="#9898ab" stroke-width="1.5" marker-end="url(#ah)" />
+  <text x="400" y="65" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">POST</text>
+
+  <line x1="580" y1="75" x2="660" y2="75" stroke="#9898ab" stroke-width="1.5" marker-end="url(#ah)" />
+
+  <!-- GET /ambiance renversé : Postman / Bruno vers Serveur -->
+  <line x1="510" y1="155" x2="510" y2="110" stroke="#9898ab" stroke-width="1.5" stroke-dasharray="5 3" marker-end="url(#ah)" />
+  <text x="560" y="138" font-family="JetBrains Mono" font-size="10" fill="#6b6b80" text-anchor="middle">GET /ambiance</text>
+
+  <text x="185" y="130" font-family="DM Sans" font-size="10" fill="#d97706" font-weight="600" text-anchor="middle">Wi-Fi local</text>
+  <text x="400" y="130" font-family="DM Sans" font-size="10" fill="#3b6fca" font-weight="600" text-anchor="middle">Internet</text>
+</svg>
+    </div>
+
+        <h3>Tâche 5 — Ajouter l'authentification</h3>
+        <p>
+          Protéger les endpoints d'écriture (<code>POST</code>) par une clé API
+          transmise dans l'en-tête <code>x-api-key</code>. Le serveur vérifie
+          que la clé correspond à un device enregistré.
+        </p>
+        <div class="status-grid">
+          <div class="status-item status-item--401">
+            <code>401</code> En-tête absent
+          </div>
+          <div class="status-item status-item--403">
+            <code>403</code> Clé invalide
+          </div>
+          <div class="status-item status-item--200">
+            <code>200</code> Requête autorisée
+          </div>
+        </div>
+        <p>Les requêtes de lecture (<code>GET</code>) restent publiques.</p>
+
+        <Aside type="note" title="Et POST /devices?">
+        En Phase 1, l'endpoint <code>POST /devices</code> n'est pas protégé. C'est une faille volontaire. 
+        Votre rapport doit identifier cette vulnérabilité et proposer une solution.
+        </Aside>
+
+        <h3>Tâche 6 — Collecter les données</h3>
+        <p>
+          Réaliser au moins 3 sessions de collecte de 20 minutes dans votre
+          lieu, à des moments différents. L'objectif est d'avoir suffisamment de
+          données pour que les endpoints sémantiques retournent des résultats
+          significatifs.
+        </p>
+      </section>
+
+      <!-- ── 04 Protocole — conseils ────────────────────────────── -->
+
+      <!-- <section id="protocole">
+        <h2><span class="h2-num">04</span> Conseils de conception</h2>
+
+        <p>
+          Ces pistes ne sont pas des exigences. Elles illustrent les qualités
+          attendues d'un protocole bien conçu.
+        </p>
+
+        <div class="pistes">
+          <article class="piste">
+            <div class="piste__num">1</div><div class="piste__body">
+              <h4>Concevoir à partir des questions</h4>
+              <p>
+                Plutôt que d'exposer vos tables de base de données, partez des
+                questions qu'un utilisateur poserait sur un lieu.
+              </p>
+              <div class="compare">
+                <div class="compare__bad">
+                  <div class="compare__header compare__header--bad">
+                    Générique
+                  </div><pre><code>GET /measurements?location=...&type=audio&from=...&to=...</code></pre><p
+                  >
+                    Le client doit tout interpréter.
+                  </p>
+                </div>
+                <div class="compare__good">
+                  <div class="compare__header compare__header--good">
+                    Sémantique
+                  </div><pre><code>GET /ambiance/cafe-olimpico</code></pre><p>
+                    Réponse directement exploitable.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="piste">
+            <div class="piste__num">2</div><div class="piste__body">
+              <h4>Des réponses qui s'expliquent</h4>
+              <p>
+                Incluez les unités, seuils et sources dans la réponse plutôt que
+                dans la documentation externe.
+              </p>
+              <pre
+                class="code-block"><code>{"{"}
+  "noise": {"{"}
+    "value": 0.72,
+    "unit": "amplitude (0-1)",
+    "label": "animé",
+    "thresholds": {"{"} "calme": [0, 0.3], "modéré": [0.3, 0.6], "animé": [0.6, 0.85] {"}"}
+  {"}"},
+  "basedOn": {"{"} "measurements": 142, "window": "30 min" {"}"}
+{"}"}</code></pre>
+            </div>
+          </article>
+
+          <article class="piste">
+            <div class="piste__num">3</div><div class="piste__body">
+              <h4>Guider le client vers la suite</h4>
+              <p>
+                Un champ <code>_links</code> indique les requêtes pertinentes après
+                celle-ci.
+              </p>
+              <pre
+                class="code-block"><code>{`{
+  "level": "animé",
+  "_links": {
+    "details": "/ambiance/cafe-olimpico/now",
+    "history": "/ambiance/cafe-olimpico/history?last=3h",
+    "raw":     "/measurements?location=cafe-olimpico&last=30m"
+  }
+}`}</code></pre>
+            </div>
+          </article>
+
+          <article class="piste">
+            <div class="piste__num">4</div><div class="piste__body">
+              <h4>Niveaux de détail progressifs</h4>
+              <table class="endpoint-table">
+                <thead
+                  ><tr><th>Niveau</th><th>Endpoint</th><th>Retourne</th></tr
+                  ></thead
+                ><tbody>
+                  <tr
+                    ><td>Résumé</td><td><code>/ambiance/:loc</code></td><td
+                      >Classification + chiffre clé</td
+                    ></tr
+                  >
+                  <tr
+                    ><td>Détail</td><td><code>/ambiance/:loc/now</code></td><td
+                      >Toutes les dimensions avec sources</td
+                    ></tr
+                  >
+                  <tr
+                    ><td>Historique</td><td
+                      ><code>/ambiance/:loc/history</code></td
+                    ><td>Évolution par tranches</td></tr
+                  >
+                  <tr
+                    ><td>Brut</td><td><code>/measurements?...</code></td><td
+                      >Mesures individuelles</td
+                    ></tr
+                  >
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <article class="piste">
+            <div class="piste__num">5</div><div class="piste__body">
+              <h4>Des erreurs utiles</h4>
+              <pre
+                class="code-block"><code>{`{
+  "error": "INVALID_LOCATION",
+  "message": "Le lieu 'cafe-olypmico' n'existe pas.",
+  "suggestion": "Vouliez-vous dire 'cafe-olimpico'?",
+  "available": "/locations"
+}`}</code></pre>
+            </div>
+          </article>
+        </div>
+
+        <aside class="callout callout--info">
+          <div class="callout__icon">📝</div><div class="callout__body">
+            Le champ <code>confidence</code> n'est pas requis en Phase 1. Votre rapport
+            peut toutefois discuter de la question : comment estimer la fiabilité
+            d'un portrait d'ambiance?
+          </div>
+        </aside>
+      </section> -->
+
+      <!-- ── 05 Livrables ──────────────────────────────────────── -->
+
+      <section id="livrables">
+        <h2><span class="h2-num">03</span> Livrables</h2>
+        
+        <h3>Implémentation <span class="tag">Dépôt Git</span></h3>
+            <p>Le serveur doit satisfaire les exigences suivantes :</p>
+        <ul>
+          <li><strong>Express connecté à MongoDB Atlas</strong> — connexion fonctionnelle au cluster, variables d'environnement pour les secrets</li>
+          <li><strong>Organisation facilitant l'évolution</strong> — séparation des routes, des modèles et des middlewares dans des fichiers distincts (pas tout dans un seul <code>index.js</code>)</li>
+          <li><strong>Toutes les routes du protocole implémentées</strong> — les endpoints de collecte, de gestion, et les 3+ endpoints sémantiques définis dans votre spécification</li>
+          <li><strong>Données seed</strong> — un script ou un fichier permettant de peupler la base avec des données de démonstration (devices, mesures, observations) pour tester les endpoints de consultation sans effectuer une collecte complète</li>
+          <li><strong>Authentification par clé API</strong> — middleware qui vérifie <code>x-api-key</code> sur les routes d'écriture, codes 401/403 appropriés</li>
+          <li><strong>Mécanisme de collecte fonctionnel</strong> — bridge, script, ou autre approche qui achemine les données du capteur vers le serveur. Le choix est justifié dans le rapport</li>
+        </ul>
+        
+        <!-- <h3>Démonstration <span class="tag">en labo, semaine 6 ou 7</span></h3> -->
+        <!-- <p>Pipeline en fonctionnement devant l'enseignant : capteur actif → collecte → données en base → endpoints de consultation qui retournent des résultats. Chaque membre de l'équipe doit pouvoir expliquer le fonctionnement de chaque composant.</p> -->
+
+        <h3>README.md <span class="tag">dans le dépôt</span></h3>
+        <p>
+          Document technique destiné à un développeur qui veut relancer le
+          projet :
+        </p>
+        <ul>
+          <li>Description du projet (2-3 phrases)</li>
+          <li>Prérequis (Node, MongoDB, Phyphox)</li>
+          <li>Installation et lancement (<code>npm install</code>, <code>.env</code>, <code>npm start</code>)</li>
+          <li>Table des endpoints</li>
+          <li>Tests (avec Postman)</li>
+          <li>Fichier <code>.env.example</code></li>
+        </ul>
+        
+
+        <h3>Rapport (un par équipe)<span class="tag">PDF sur Studium</span></h3>
+        <p>Le rapport est la <strong>spécification de votre protocole</strong> : 
+          un document qui décrit les règles de communication avec votre système. 
+          Il suit la structure suivante :</p>
+ 
+    <ol class="design-list">
+      <li><strong>Ressources et endpoints</strong> — table complète des endpoints avec méthodes, chemins, corps attendus, réponses et codes de statut. Justifier le découpage en ressources : pourquoi ces regroupements, quelles alternatives ont été envisagées, quelles entités du domaine sont devenues des ressources et lesquelles ne l'ont pas été.</li>
+      <li><strong>Conventions</strong> — nommage des ressources, format des horodatages (ISO 8601? Unix?), structure d'erreur (quels champs dans une réponse d'erreur), enveloppe de réponse (tableau nu ou objet avec métadonnées?). Pour chaque convention, expliquer l'intention : quel problème elle résout, quel comportement elle rend prévisible pour le client.</li>
+      <li><strong>Authentification</strong> — mécanisme choisi, flux complet (comment un client s'enregistre, obtient une clé, l'utilise), comportement en cas de clé absente ou invalide. Identifier la vulnérabilité de <code>POST /devices</code> non protégé et proposer une solution.</li>
+      <li><strong>Collecte</strong> — comment les données vont du capteur au serveur, pourquoi cette approche, à quelle fréquence, quel format pour les batches. Description de la méthode de collecte des données environnementales et du fallback manuel.</li>
+      <li><strong>Agrégation</strong> — comment les endpoints sémantiques (<code>/ambiance</code>) calculent leurs réponses à partir des données brutes. Quels seuils, quelle logique de classification, quelle fenêtre temporelle.</li>
+      <li><strong>Limites et évolution</strong> — vulnérabilités identifiées, compromis assumés, ce qui changerait avec plus de temps ou d'expérience.</li>
+    </ol>
+      </section>
+
+      <!-- ── 06 Évaluation ─────────────────────────────────────── -->
+
+      <section id="evaluation">
+        <h2><span class="h2-num">04</span> Évaluation</h2>
+         <table class="eval-table"><thead><tr><th>Critère</th><th>Poids</th><th>Ce qu'on évalue</th></tr></thead><tbody>
+      <tr><td>Conception du protocole</td><td>25 %</td><td>Cohérence des conventions, clarté de la spécification dans le rapport, endpoints bien structurés</td></tr>
+      <tr><td>Pipeline fonctionnel</td><td>25 %</td><td>Le pipeline fonctionne de bout en bout; les données sont vérifiables via les endpoints GET</td></tr>
+      <tr><td>Structure des données</td><td>15 %</td><td>Schéma pertinent, validations, choix justifiés dans le rapport</td></tr>
+      <tr><td>Données environnementales</td><td>10 %</td><td>Solution proposée, fallback fonctionnel</td></tr>
+      <tr><td>Authentification</td><td>10 %</td><td>Devices identifiables, clé vérifiée, codes de statut appropriés</td></tr>
+      <tr><td>README</td><td>5 %</td><td>Reproductible en moins de 10 minutes</td></tr>
+      <tr><td>Rapport</td><td>10 %</td><td>Analyse des choix, identification des limites</td></tr>
+    </tbody></table>
+
+        <!-- <h3>Contraintes techniques</h3>
+        <table class="endpoint-table">
+          <thead><tr><th>Élément</th><th>Choix de session</th></tr></thead
+          ><tbody>
+            <tr><td>Langage</td><td>JavaScript (Node.js)</td></tr>
+            <tr><td>Serveur</td><td>Express 5.x</td></tr>
+            <tr
+              ><td>Base de données</td><td
+                >MongoDB via Mongoose (Atlas free tier)</td
+              ></tr
+            >
+            <tr><td>Capteur</td><td>Phyphox</td></tr>
+            <tr><td>Test de l'API</td><td>Postman ou Bruno</td></tr>
+            <tr><td>Hébergement</td><td>Local (déploiement en Phase 3)</td></tr>
+          </tbody>
+        </table> -->
+      </section>
+
+      <!-- ── 05 Échéancier ─────────────────────────────────────── -->
+
+    <section id="echeancier">
+    <h2><span class="h2-num">05</span> Échéancier</h2>
+    <div class="timeline">
+      <div class="tl-item"><div class="tl-date">26 mai</div><div class="tl-desc">Protocole conçu (première version), premier endpoint fonctionnel</div></div>
+      <div class="tl-item"><div class="tl-date">29 mai</div><div class="tl-desc">API capteur explorée, payload documenté</div></div>
+      <div class="tl-item"><div class="tl-date">5 juin</div><div class="tl-desc">Pipeline complet : capteur → collecte → serveur → base</div></div>
+      <div class="tl-item"><div class="tl-date">12 juin</div><div class="tl-desc">Authentification, endpoints sémantiques, premières sessions de collecte</div></div>
+      <div class="tl-item tl-item--final"><div class="tl-date">15 juin</div><div class="tl-desc">Remise — dépôt Git + rapport PDF sur Studium</div></div>
+    </div>
+  </section>
+    </main>
+
+   
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--c-bg:#faf9f7;--c-surface:#fff;--c-border:#e0ded8;--c-border-s:#e8e6e1;--c-text:#1a1a2e;--c-mid:#44445a;--c-muted:#6b6b80;--c-dim:#9898ab;--c-accent:#0d9488;--c-accent-b:#f0fdfa;--c-accent-s:#ccfbf1;--c-warn:#d97706;--c-warn-b:#fffbeb;--c-blue:#3b6fca;--c-green:#2d8a4e;--c-red:#dc2626;--font:'DM Sans',system-ui,sans-serif;--serif:'Fraunces',Georgia,serif;--mono:'JetBrains Mono',Consolas,monospace}
+body{font-family:var(--font);color:var(--c-text);background:var(--c-bg);line-height:1.72;-webkit-font-smoothing:antialiased}
+ 
+.hero{background:linear-gradient(165deg,#0f766e,#134e4a);color:#fff;padding:4rem 2rem 3.5rem}
+.hero__inner{max-width:780px;margin:0 auto}
+.hero__meta{display:flex;gap:12px;align-items:center;margin-bottom:1.25rem}
+.hero__course{font-family:var(--mono);font-size:.82rem;font-weight:600;letter-spacing:.08em;opacity:.7}
+.hero__badge{font-size:.72rem;font-weight:700;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px}
+.hero__title{font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);font-weight:800;line-height:1.15;margin-bottom:.25rem}
+.hero__subtitle{font-size:1.1rem;opacity:.6;font-weight:500;margin-bottom:1.5rem}
+.hero__question{font-family:var(--serif);font-size:1.35rem;font-style:italic;border-left:3px solid rgba(255,255,255,.3);padding-left:1.25rem;margin-bottom:1.25rem;opacity:.9}
+.hero__desc{font-size:.95rem;opacity:.75;line-height:1.7;max-width:600px}
+ 
+.toc{position:sticky;top:0;z-index:100;display:flex; justify-content: center; background:var(--c-surface);border-bottom:1px solid var(--c-border);overflow-x:auto;scrollbar-width:none}
+.toc::-webkit-scrollbar{display:none}
+.toc a{flex-shrink:0;padding:12px 18px;font-size:.78rem;font-weight:600;color:var(--c-muted);text-decoration:none;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
+.toc a:hover{color:var(--c-accent);border-bottom-color:var(--c-accent)}
+ 
+.content{max-width:780px;margin:0 auto;padding:0 2rem 6rem}
+section{scroll-margin-top:52px}
+ 
+h2{font-family:var(--serif);font-size:1.5rem;font-weight:700;margin-top:3.5rem;margin-bottom:1rem;padding-bottom:.4rem;border-bottom:2px solid var(--c-accent);display:flex;align-items:baseline;gap:12px}
+.h2-num{font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--c-accent);opacity:.5}
+h3{font-size:1.08rem;font-weight:700;margin-top:2rem;margin-bottom:.6rem}
+h3 .tag{font-size:.68rem;font-weight:600;background:var(--c-accent-b);color:var(--c-accent);padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:8px;text-transform:uppercase;letter-spacing:.04em}
+h4{font-size:.95rem;font-weight:700;color:var(--c-mid);margin-top:1.25rem;margin-bottom:.4rem}
+p{margin-bottom:.8rem}
+ul,ol{padding-left:1.25rem;margin-bottom:1rem}
+li{margin-bottom:.3rem}
+li::marker{color:var(--c-accent)}
+code{font-family:var(--mono);font-size:.87em;background:var(--c-accent-b);color:var(--c-accent);padding:1px 5px;border-radius:3px}
+pre{overflow-x:auto}
+ 
+.callout{display:flex;gap:14px;padding:16px 18px;border-radius:10px;margin:1.25rem 0;font-size:.9rem;line-height:1.6;border:1px solid var(--c-border-s)}
+.callout--info{background:var(--c-accent-b);border-color:var(--c-accent-s)}
+.callout--warn{background:var(--c-warn-b);border-color:#fde68a}
+.callout__icon{font-size:1.2rem;flex-shrink:0;margin-top:1px}
+.callout__body code{font-size:.84em}
+ 
+.objectives{display:flex;flex-direction:column;gap:10px;margin:1rem 0}
+.obj{display:flex;gap:14px;align-items:baseline;padding:10px 14px;background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:8px;font-size:.92rem}
+.obj__week{font-family:var(--mono);font-size:.72rem;font-weight:700;color:var(--c-accent);background:var(--c-accent-b);padding:2px 8px;border-radius:4px;flex-shrink:0}
+ 
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:1rem 0}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+.source-card{background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:10px;padding:18px}
+.source-card__header{font-weight:700;font-size:.92rem;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.source-card__header--auto{color:var(--c-accent)}
+.source-card__header--env{color:var(--c-warn)}
+.source-card__icon{font-size:1.1rem}
+.source-card__sub{font-size:.82rem;color:var(--c-muted);margin-bottom:8px}
+.source-card ul{margin:0;font-size:.9rem}
+ 
+.arch-diagram{margin:1.5rem -2rem;padding:1.5rem 2rem;background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:12px;overflow-x:auto}
+.arch-diagram svg{width:100%;height:auto;min-width:600px}
+.arch-caption{font-size:.88rem;color:var(--c-muted);font-style:italic;margin-top:.5rem}
+ 
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1rem 0}
+@media(max-width:640px){.compare{grid-template-columns:1fr}}
+.compare__bad,.compare__good{border-radius:10px;overflow:hidden;border:1px solid var(--c-border-s)}
+.compare__header{padding:8px 14px;font-weight:700;font-size:.82rem}
+.compare__header--bad{background:#fef2f2;color:var(--c-red)}
+.compare__header--good{background:#f0fdf4;color:var(--c-green)}
+.compare__bad pre,.compare__good pre{margin:0;border-radius:0;border:none;background:#1e1e2e;color:#cdd6f4;padding:12px 14px;font-size:.82rem}
+.compare__bad pre code,.compare__good pre code{background:none;color:inherit;padding:0}
+.compare__bad p,.compare__good p{padding:10px 14px;font-size:.86rem;margin:0}
+ 
+.pistes{margin-top:1.5rem}
+.piste{display:flex;gap:18px;margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--c-border-s)}
+.piste:last-child{border-bottom:none}
+.piste__num{font-family:var(--serif);font-size:2rem;font-weight:800;color:var(--c-accent);opacity:.25;flex-shrink:0;width:36px;text-align:right;line-height:1.1;padding-top:4px}
+.piste__body{flex:1;min-width:0}
+.piste__body h4{margin-top:0}
+ 
+.code-block{background:#1e1e2e;color:#cdd6f4;border-radius:10px;padding:1.1rem 1.3rem;margin:1rem 0;font-family:var(--mono);font-size:.82rem;line-height:1.6;border:1px solid #313244;overflow-x:auto;white-space:pre}
+.code-block code{background:none;color:inherit;padding:0;font-size:inherit}
+.code-block--compact{padding:10px 16px;display:inline-block}
+ 
+.endpoint-table,
+.eval-table{width:100%;border-collapse:separate;border-spacing:0;margin:1rem 0;font-size:.86rem;border:1px solid var(--c-border);border-radius:8px;overflow:hidden}
+.endpoint-table thead,.eval-table thead{background:var(--c-accent-b)}
+.endpoint-table th,.eval-table th{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-accent);padding:9px 12px;text-align:left;border-bottom:2px solid var(--c-accent)}
+.endpoint-table td,.eval-table td{padding:9px 12px;vertical-align:top;border-bottom:1px solid var(--c-border-s)}
+.endpoint-table tr:last-child td,.eval-table tr:last-child td{border-bottom:none}
+.endpoint-table tbody tr:hover,.eval-table tbody tr:hover{background:var(--c-bg)}
+.method{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.method--get{background:#dcfce7;color:#166534}
+.method--post{background:#dbeafe;color:#1e40af}
+.eval-table td:nth-child(2){font-family:var(--mono);font-weight:700;color:var(--c-green);text-align:right;white-space:nowrap}
+ 
+.status-grid{display:flex;gap:10px;margin:1rem 0;flex-wrap:wrap}
+.status-item{padding:8px 16px;border-radius:8px;font-size:.88rem;font-weight:500}
+.status-item code{font-weight:700;font-size:.92em;margin-right:6px;background:none;color:inherit;padding:0}
+.status-item--401{background:#fee2e2;color:#991b1b}
+.status-item--403{background:#fef3c7;color:#92400e}
+.status-item--200{background:#dcfce7;color:#166534}
+ 
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.25rem 0}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+.card{background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:10px;padding:20px;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:var(--c-accent);box-shadow:0 2px 20px rgba(13,148,136,.06)}
+.card__icon{font-size:1.5rem;margin-bottom:8px}
+.card h4{font-weight:700;color:var(--c-accent);margin-bottom:6px;margin-top:0}
+.card p{font-size:.88rem;color:var(--c-mid);margin:0;line-height:1.55}
+ 
+.design-list{counter-reset:design;padding-left:0;list-style:none}
+.design-list li{counter-increment:design;padding:10px 14px 10px 44px;position:relative;margin-bottom:8px;background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:8px;font-size:.92rem}
+.design-list li::before{content:counter(design);position:absolute;left:14px;top:10px;font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--c-accent);background:var(--c-accent-b);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+ 
+.timeline{margin:1.5rem 0;padding-left:28px;border-left:2px solid var(--c-accent-s)}
+.tl-item{position:relative;padding:12px 0 12px 20px}
+.tl-item::before{content:'';position:absolute;left:-7px;top:18px;width:12px;height:12px;border-radius:50%;background:var(--c-surface);border:2px solid var(--c-accent)}
+.tl-item--final::before{background:var(--c-accent)}
+.tl-date{font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--c-muted);margin-bottom:2px}
+.tl-item--final .tl-date{color:var(--c-accent)}
+.tl-desc{font-size:.9rem}
+.tl-desc code{font-size:.84em}
+ 
+@media print{.hero{background:#134e4a!important;-webkit-print-color-adjust:exact}.toc{display:none}.content{max-width:none;padding:0 1rem}h2{break-after:avoid}.piste,.card,.callout,table,pre{break-inside:avoid}}
+</style>
+ 
+</body>
+</html>

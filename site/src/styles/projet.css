@@ -1,0 +1,328 @@
+/* =============================================================
+   projet-phase1.css
+   Style d'énoncé de projet — document de spécification.
+   Scoped via .projet-phase wrapper dans le MDX.
+   ============================================================= */
+
+/* ── Variables ─────────────────────────────────────────────── */
+
+.projet-phase {
+  --pj-font:        'Segoe UI', 'DM Sans', system-ui, sans-serif;
+  --pj-mono:        Consolas, 'JetBrains Mono', monospace;
+  --pj-serif:       'Fraunces', Georgia, serif;
+
+  --pj-bg:          #faf9f7;
+  --pj-surface:     #ffffff;
+  --pj-border:      #e0ded8;
+  --pj-border-soft: #e8e6e1;
+
+  --pj-text:        #1a1a2e;
+  --pj-text-mid:    #44445a;
+  --pj-text-muted:  #6b6b80;
+  --pj-text-dim:    #9898ab;
+
+  --pj-accent:      #0d9488;
+  --pj-accent-bg:   #f0fdfa;
+  --pj-accent-soft: #ccfbf1;
+
+  --pj-warn:        #d97706;
+  --pj-warn-bg:     #fffbeb;
+
+  --pj-blue:        #3b6fca;
+  --pj-green:       #2d8a4e;
+  --pj-purple:      #7c3aed;
+  --pj-red:         #e11d48;
+}
+
+/* ── Page layout ───────────────────────────────────────────── */
+
+.projet-phase {
+  font-family: var(--pj-font);
+  color: var(--pj-text);
+  line-height: 1.72;
+}
+
+/* ── Headings ──────────────────────────────────────────────── */
+
+.projet-phase h2 {
+  font-family: var(--pj-serif);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--pj-text);
+  margin-top: 3rem;
+  margin-bottom: 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 2px solid var(--pj-accent);
+}
+
+.projet-phase h2:first-of-type {
+  margin-top: 0.5rem;
+}
+
+.projet-phase h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--pj-text);
+  margin-top: 2rem;
+  margin-bottom: 0.6rem;
+}
+
+.projet-phase h4 {
+  font-family: var(--pj-mono);
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pj-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ── Prose ──────────────────────────────────────────────────── */
+
+.projet-phase p {
+  margin-bottom: 0.75rem;
+}
+
+.projet-phase strong {
+  font-weight: 650;
+  color: var(--pj-text);
+}
+
+.projet-phase > p:first-of-type strong {
+  color: var(--pj-accent);
+}
+
+/* ── Lists ─────────────────────────────────────────────────── */
+
+.projet-phase ul,
+.projet-phase ol {
+  padding-left: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.projet-phase li {
+  margin-bottom: 0.35rem;
+  line-height: 1.6;
+}
+
+.projet-phase li::marker {
+  color: var(--pj-accent);
+}
+
+.projet-phase li strong:first-child {
+  color: var(--pj-text-mid);
+}
+
+/* ── Tables ────────────────────────────────────────────────── */
+
+.projet-phase table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1.25rem 0 1.5rem;
+  font-size: 0.87rem;
+  line-height: 1.5;
+  border: 1px solid var(--pj-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.projet-phase thead {
+  background: var(--pj-accent-bg);
+}
+
+.projet-phase thead th {
+  font-weight: 650;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--pj-accent);
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 2px solid var(--pj-accent);
+}
+
+.projet-phase tbody tr {
+  transition: background 0.15s ease;
+}
+
+.projet-phase tbody tr:hover {
+  background: var(--pj-bg);
+}
+
+.projet-phase tbody tr:not(:last-child) td {
+  border-bottom: 1px solid var(--pj-border-soft);
+}
+
+.projet-phase td {
+  padding: 10px 14px;
+  vertical-align: top;
+}
+
+/* Endpoint tables: first col is method, second is path */
+.projet-phase td:first-child code {
+  font-weight: 700;
+  font-size: 0.82rem;
+}
+
+/* Évaluation table: weight column */
+.projet-phase td[align="right"],
+.projet-phase td:nth-child(2):has(~ td:nth-child(3)) {
+  font-family: var(--pj-mono);
+  font-weight: 700;
+  color: var(--pj-green);
+  white-space: nowrap;
+}
+
+/* ── Code ──────────────────────────────────────────────────── */
+
+/* Inline code */
+.projet-phase :not(pre) > code {
+  font-family: var(--pj-mono);
+  font-size: 0.87em;
+  background: var(--pj-accent-bg);
+  color: var(--pj-accent);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Code blocks */
+.projet-phase pre {
+  background: #1e1e2e;
+  color: #cdd6f4;
+  border-radius: 10px;
+  padding: 1.2rem 1.4rem;
+  margin: 1.2rem 0;
+  overflow-x: auto;
+  font-family: var(--pj-mono);
+  font-size: 0.83rem;
+  line-height: 1.65;
+  border: 1px solid #313244;
+}
+
+.projet-phase pre code {
+  background: none;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+}
+
+/* Architecture diagram — light bg for ASCII art */
+.projet-phase pre:not(:has(.language-json)):not(:has(.language-js)):not(:has(.language-javascript)) {
+  background: var(--pj-bg);
+  color: var(--pj-text-mid);
+  border-color: var(--pj-border);
+  font-size: 0.75rem;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+/* JSON examples get a subtle accent border */
+.projet-phase pre:has(.language-json),
+.projet-phase pre:has(code:first-child) {
+  border-left: 3px solid var(--pj-accent);
+}
+
+/* ── Aside tweaks ──────────────────────────────────────────── */
+
+.projet-phase aside {
+  border-radius: 8px;
+  margin: 1.25rem 0;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* ── Card tweaks ───────────────────────────────────────────── */
+
+.projet-phase .card {
+  border-radius: 10px;
+  border: 1px solid var(--pj-border);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.projet-phase .card:hover {
+  border-color: var(--pj-accent);
+  box-shadow: 0 2px 16px rgba(13, 148, 136, 0.06);
+}
+
+/* ── Tabs ──────────────────────────────────────────────────── */
+
+.projet-phase [role="tablist"] {
+  border-radius: 8px 8px 0 0;
+}
+
+.projet-phase [role="tabpanel"] pre {
+  margin-top: 0;
+  border-radius: 0 0 10px 10px;
+}
+
+/* ── Échéancier — timeline feel ────────────────────────────── */
+
+.projet-phase table:last-of-type {
+  border-left: 3px solid var(--pj-accent);
+}
+
+.projet-phase table:last-of-type td:first-child {
+  font-family: var(--pj-mono);
+  font-size: 0.82rem;
+  color: var(--pj-text-muted);
+  white-space: nowrap;
+}
+
+.projet-phase table:last-of-type tr:last-child td {
+  color: var(--pj-accent);
+  font-weight: 600;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .projet-phase h2 {
+    font-size: 1.3rem;
+    margin-top: 2.25rem;
+  }
+
+  .projet-phase table {
+    font-size: 0.8rem;
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .projet-phase thead th {
+    font-size: 0.72rem;
+    padding: 8px 10px;
+  }
+
+  .projet-phase td {
+    padding: 8px 10px;
+  }
+
+  .projet-phase pre {
+    font-size: 0.78rem;
+    padding: 0.9rem 1rem;
+    border-radius: 8px;
+  }
+}
+
+/* ── Print ─────────────────────────────────────────────────── */
+
+@media print {
+  .projet-phase h2 {
+    break-after: avoid;
+  }
+
+  .projet-phase table,
+  .projet-phase pre,
+  .projet-phase aside {
+    break-inside: avoid;
+  }
+
+  .projet-phase pre {
+    background: #f5f5f5 !important;
+    color: #333 !important;
+    border: 1px solid #ddd !important;
+  }
+}

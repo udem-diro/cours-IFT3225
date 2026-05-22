@@ -1,0 +1,27 @@
+---
+title: "Calendrier"
+description: "Les 12 semaines du cours et la période d'examens."
+---
+
+import CourseCalendar from '../components/CourseCalendar.astro';
+import plan from '../data/course-plan.json';
+
+# Calendrier — Été 2026
+
+Le cours s'étend du **4 mai au 24 juillet 2026**, suivi de l'**examen final le mardi 28 juillet**. Les séances de théorie ont lieu les **mardis (1 h)** et **vendredis (2 h)**; les laboratoires les **mardis (2 h)**, à partir de la semaine 2.
+
+La phase courante s'ouvre automatiquement. Les semaines passées sont grisées.
+
+<CourseCalendar weeks={plan.weeks} phases={plan.meta.phases} />
+
+## Jalons d'évaluation
+
+| Date | Évaluation |
+|------|------------|
+| Vendredi 12 juin | Examen intra (20 %) |
+| Dimanche 14 juin | Livrable 1 (10 %) |
+| Vendredi 10 juillet | Livrable 2 (15 %) |
+| Vendredi 24 juillet | Livrable 3 (20 %) + Synthèse (5 %) |
+| Mardi 28 juillet | Examen final (30 %) |
+
+Voir le [syllabus](/syllabus) pour les détails sur chaque évaluation.

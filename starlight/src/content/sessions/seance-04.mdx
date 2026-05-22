@@ -1,0 +1,125 @@
+---
+numero: 3
+title: "Conventions et prévisibilité"
+date: "2026-05-19"
+tags: [cours, labo]
+summary: "Nommer les ressources, endpoints, routes, serveur Express"
+---
+import Aside from '../../components/Aside.astro';
+
+## Question directrice
+
+> Comment rendre un système compréhensible sans que chaque interaction nécessite de la documentation?
+
+Les deux premières semaines ont couvert le *comment* de la communication (protocoles, formats, échanges). Cette semaine aborde le *pourquoi* des conventions : rendre un système prévisible par sa structure même.
+
+<Aside type="prerequis">
+Anatomie d'un échange HTTP (semaine 2) : méthodes, codes de statut, en-têtes, corps. Cycle sérialisation/désérialisation.
+</Aside>
+
+## Nommer les choses, pas les actions
+
+Le principe fondamental des conventions REST : on nomme des **ressources** (les choses qui existent dans le système), pas des actions.
+
+<Aside type="erreur">
+Nommer les actions dans l'URL :
+```
+GET /getUser?id=12        ❌ L'action est dans l'URL
+POST /createUser          ❌ Redondant avec la méthode POST
+
+GET /users/12             ✅ La ressource est nommée
+POST /users               ✅ La méthode porte l'action
+```
+L'URL identifie *quoi*; la méthode HTTP dit *quoi faire*.
+</Aside>
+
+### Conventions de nommage
+
+Des conventions partagées rendent un système **prévisible** — un développeur qui connaît les conventions peut deviner les URLs sans documentation.
+
+<Aside type="syntaxe" title="Conventions REST">
+```
+GET    /cafes           → liste des cafés
+GET    /cafes/7         → le café #7
+POST   /cafes           → créer un café
+PUT    /cafes/7         → remplacer le café #7
+PATCH  /cafes/7         → modifier partiellement
+DELETE /cafes/7         → supprimer le café #7
+```
+Pluriel, minuscule, kebab-case. Les relations s'expriment par imbrication : `GET /cafes/7/avis` (les avis du café #7).
+</Aside>
+
+## Endpoint et route
+
+<Aside type="definition" title="Endpoint">
+L'unité de l'interface programmatique. C'est ce que le monde extérieur voit : une combinaison méthode + chemin qui promet un certain comportement. L'endpoint est un **contrat** — il décrit ce qu'on peut demander.
+</Aside>
+
+<Aside type="definition" title="Route">
+L'implémentation côté serveur qui répond à un endpoint. La route associe un chemin à un comportement concret (une fonction). La distinction est importante : l'endpoint est l'**interface**, la route est l'**implémentation**.
+</Aside>
+
+## Un serveur écoute en continu
+
+Un serveur est un système **réactif** : il ne fait rien tant qu'aucune requête n'arrive. Il écoute en permanence sur un port, prêt à répondre.
+
+<Aside type="syntaxe" title="Serveur Express minimal">
+```js
+import express from 'express';
+const app = express();
+
+app.use(express.json());
+
+// Route : associe GET /cafes à un comportement
+app.get('/cafes', (req, res) => {
+  res.json([
+    { id: 1, nom: 'Café Névé', quartier: 'Villeray' },
+    { id: 2, nom: 'Pikolo', quartier: 'Mile End' },
+  ]);
+});
+
+app.get('/cafes/:id', (req, res) => {
+  // req.params.id contient la valeur du segment :id
+  res.json({ id: req.params.id, nom: 'Café Névé' });
+});
+
+app.listen(3000, () => {
+  console.log('Serveur en écoute sur le port 3000');
+});
+```
+</Aside>
+
+<Aside type="exemple">
+Avec ce serveur en marche, on peut tester dans le navigateur ou avec Bruno :
+- `GET http://localhost:3000/cafes` → la liste
+- `GET http://localhost:3000/cafes/1` → un café spécifique
+
+Chaque URL correspond à un endpoint. Chaque `app.get(...)` est une route.
+</Aside>
+
+## Statelessness comme contrainte architecturale
+
+<Aside type="definition" title="Statelessness">
+Le serveur ne conserve aucun contexte entre les requêtes. Chaque requête doit contenir toute l'information nécessaire à son traitement. Ce n'est pas une limitation technique — c'est une **décision architecturale** qui simplifie le serveur, facilite la montée en charge, et rend le système plus prévisible.
+</Aside>
+
+<Aside type="erreur">
+Stocker l'état de la conversation dans une variable globale du serveur. Si le serveur redémarre ou si un deuxième serveur est ajouté, cet état disparaît. Les mécanismes de session et d'authentification (vus à la semaine 6) résolvent ce problème proprement.
+</Aside>
+
+## Labo — Premiers endpoints
+
+Créer un serveur Express avec au minimum trois endpoints qui respectent les conventions REST. Les données sont en mémoire (pas de base de données pour l'instant).
+
+<Aside type="resultat">
+Un serveur Express fonctionnel avec :
+- `GET /ressources` → liste
+- `GET /ressources/:id` → détail
+- `POST /ressources` → ajout (avec validation minimale du corps)
+
+Testable avec Bruno ou les outils développeur.
+</Aside>
+
+<Aside type="plusloin">
+Les conventions REST s'inspirent de la thèse de Roy Fielding (2000). Pour comprendre les principes architecturaux derrière REST (et pourquoi ce n'est pas qu'une convention d'URLs), le chapitre 5 de sa thèse est la source primaire.
+</Aside>

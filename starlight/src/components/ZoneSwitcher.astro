@@ -1,0 +1,116 @@
+---
+/**
+ * ZoneSwitcher.astro — Bouton flottant pour basculer entre
+ * la zone Parcours (Astro libre) et la zone Référence (Starlight).
+ *
+ * Props :
+ *   zone — 'cours' | 'reference' (zone active courante)
+ */
+
+interface Props {
+  zone: 'cours' | 'reference';
+}
+
+const { zone } = Astro.props;
+
+const targetUrl = zone === 'cours' ? '/reference/' : '/';
+const label     = zone === 'cours' ? 'Ouvrir la référence' : 'Retour au parcours';
+const icon      = zone === 'cours' ? 'book' : 'calendar';
+---
+
+<a
+  class="zone-fab"
+  href={targetUrl}
+  aria-label={label}
+  data-zone={zone}
+>
+  <svg class="zone-fab__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    {icon === 'book' ? (
+      <Fragment>
+        <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+        <path d="M8 7h6"/>
+        <path d="M8 11h4"/>
+      </Fragment>
+    ) : (
+      <Fragment>
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+        <line x1="16" y1="2" x2="16" y2="6"/>
+        <line x1="8" y1="2" x2="8" y2="6"/>
+        <line x1="3" y1="10" x2="21" y2="10"/>
+      </Fragment>
+    )}
+  </svg>
+  <span class="zone-fab__tooltip">{label}</span>
+</a>
+
+<style>
+  .zone-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 900;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--c-surface, #fff);
+    border: 1px solid var(--c-border, rgba(0,0,0,0.1));
+    color: var(--c-text-muted, #6B6A65);
+
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      border-color var(--dur-norm, 250ms) var(--ease-out, ease),
+      color var(--dur-norm, 250ms) var(--ease-out, ease),
+      box-shadow var(--dur-norm, 250ms) var(--ease-out, ease);
+  }
+
+  .zone-fab:hover {
+    border-color: var(--c-accent, #534AB7);
+    color: var(--c-accent, #534AB7);
+    box-shadow: 0 2px 12px rgba(83, 74, 183, 0.15);
+    text-decoration: none;
+  }
+
+  .zone-fab__icon {
+    flex-shrink: 0;
+  }
+
+  .zone-fab__tooltip {
+    position: absolute;
+    right: calc(100% + 12px);
+    top: 50%;
+    transform: translateY(-50%);
+
+    padding: 5px 12px;
+    border-radius: var(--radius-md, 8px);
+    background: var(--c-surface, #fff);
+    border: 1px solid var(--c-border, rgba(0,0,0,0.1));
+    color: var(--c-text-muted, #6B6A65);
+    font-family: var(--font-body, system-ui);
+    font-size: var(--text-xs, 0.75rem);
+    white-space: nowrap;
+
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-fast, 150ms) ease;
+  }
+
+  .zone-fab:hover .zone-fab__tooltip {
+    opacity: 1;
+  }
+
+  @media (max-width: 640px) {
+    .zone-fab {
+      bottom: 1rem;
+      right: 1rem;
+      width: 42px;
+      height: 42px;
+    }
+    .zone-fab__tooltip { display: none; }
+  }
+</style>

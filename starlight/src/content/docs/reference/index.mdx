@@ -1,0 +1,33 @@
+---
+title: Référence
+description: Fiches de référence rapide — syntaxe, propriétés, et aide-mémoire
+template: splash
+hero:
+  title: Référence
+  tagline: Fiches de consultation rapide pour HTML, CSS, JavaScript, HTTP et Node.js. Cherchez, trouvez, repartez.
+---
+
+import { LinkCard, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid>
+  <LinkCard
+    title="Balises HTML"
+    description="Structure, texte, sectionnement, liens, médias et listes."
+    href="/reference/html-balises/"
+  />
+  <LinkCard
+    title="Sélecteurs CSS"
+    description="Sélecteurs de base, combinateurs, pseudo-classes, spécificité."
+    href="/reference/css-selecteurs/"
+  />
+  <LinkCard
+    title="Codes de statut HTTP"
+    description="1xx à 5xx — signification et usage en API REST."
+    href="/reference/http-statuts/"
+  />
+  <LinkCard
+    title="Méthodes Array JS"
+    description="map, filter, reduce, find, sort, spread et déstructuration."
+    href="/reference/js-tableaux/"
+  />
+</CardGrid>

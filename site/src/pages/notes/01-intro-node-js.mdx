@@ -1,0 +1,822 @@
+---
+title: Node.js et JavaScript
+description: Introduction à Node.js, npm, et les bases de JavaScript — avec comparaisons Python et Java
+---
+
+## Introduction à Node.js
+
+**Node.js** est un environnement d'exécution qui permet d'utiliser JavaScript en dehors du navigateur. Il est construit sur **V8**, le moteur JavaScript de Google Chrome — le même moteur qui exécute le JS dans votre navigateur, mais libéré du contexte d'une page web.
+
+Avec Node.js, on peut écrire des serveurs web, des scripts d'automatisation, des outils en ligne de commande, et bien plus — le tout en JavaScript.
+
+### Navigateur vs Node.js
+
+JavaScript est le même langage dans les deux cas, mais l'environnement disponible change radicalement.
+
+| | Navigateur | Node.js |
+|---|---|---|
+| **Moteur** | V8 (Chrome), SpiderMonkey (Firefox) | V8 |
+| **Contexte** | Page web (onglet) | Processus sur une machine |
+| **APIs disponibles** | `document`, `window`, `fetch`, DOM | `fs`, `http`, `path`, `process` |
+| **Accès système** | Interdit (bac à sable) | Fichiers, réseau, OS |
+| **Modules** | `<script type="module">` | CommonJS ou ES Modules |
+| **Utilisation** | Interfaces utilisateur | Serveurs, scripts, outils |
+
+> **Analogie** — JavaScript est une langue. Le navigateur et Node.js sont deux pays où on la parle : mêmes mots, mêmes règles de grammaire, mais des lois locales et des ressources différentes.
+
+### Pourquoi Node.js pour le web ?
+
+Dans ce cours, on construit des applications web complètes. Node.js nous permet d'utiliser **un seul langage** pour le client (navigateur) et le serveur. C'est l'approche dite *full-stack JavaScript*.
+
+En pratique, Node.js est aussi l'outil qui fait tourner nos outils de développement : bundlers, linters, frameworks comme Astro ou Next.js — tous sont des programmes Node.js.
+
+
+---
+
+## Installation de Node.js
+
+Rendez-vous sur [nodejs.org](https://nodejs.org) et téléchargez la version **LTS** (*Long Term Support*) — c'est la version stable recommandée pour le développement.
+
+L'installateur inclut deux programmes :
+
+- **`node`** — l'interpréteur JavaScript
+- **`npm`** — le gestionnaire de paquets (*Node Package Manager*)
+
+### Vérification
+
+Après l'installation, ouvrez un terminal et vérifiez :
+
+```bash
+node --version    # ex: v22.15.0
+npm --version     # ex: 10.9.2
+```
+
+### Exécuter du JavaScript
+
+**Exécuter un fichier :**
+```bash
+node mon_script.js
+```
+
+**Mode interactif (REPL)** — utile pour tester rapidement :
+```bash
+node
+> 2 + 2
+4
+> "Bonjour".toUpperCase()
+'BONJOUR'
+> .exit
+```
+
+Pour ceux qui connaissent Python, le REPL de Node est l'équivalent de lancer `python` sans argument dans le terminal.
+
+
+---
+
+## Démarrer un projet Node.js
+
+Un projet Node.js est un dossier contenant au minimum un fichier `package.json` qui décrit le projet et ses dépendances.
+
+### Initialisation
+
+```bash
+mkdir mon-projet
+cd mon-projet
+npm init -y
+```
+
+La commande `npm init -y` génère un `package.json` avec des valeurs par défaut. Sans `-y`, npm pose une série de questions (nom, version, description, etc.).
+
+### Installer un paquet
+
+npm donne accès à un registre de plus de 2 millions de paquets open source.
+
+```bash
+npm install express
+```
+
+Cette commande fait trois choses :
+
+1. Télécharge `express` et toutes ses dépendances dans le dossier `node_modules/`
+2. Ajoute `express` à la section `dependencies` de `package.json`
+3. Crée ou met à jour `package-lock.json` (verrouillage des versions exactes)
+
+### Comparaison avec Python et Java
+
+| Action | Node.js (npm) | Python (pip) | Java (Maven) |
+|---|---|---|---|
+| Initialiser un projet | `npm init -y` | `python -m venv env` | `mvn archetype:generate` |
+| Installer un paquet | `npm install express` | `pip install flask` | Ajouter au `pom.xml` |
+| Fichier de dépendances | `package.json` | `requirements.txt` | `pom.xml` |
+| Dossier des dépendances | `node_modules/` | `env/lib/` | `~/.m2/repository/` |
+| Verrouillage des versions | `package-lock.json` | `pip freeze` | `pom.xml` (versions fixes) |
+| Registre | npmjs.com | pypi.org | Maven Central |
+
+
+---
+
+## Structure d'un projet Node.js
+
+```
+mon-projet/
+├── node_modules/        ← dépendances (généré, ne pas modifier)
+├── src/
+│   ├── index.js         ← point d'entrée
+│   ├── routes/          ← définition des routes
+│   └── utils/           ← fonctions utilitaires
+├── public/              ← fichiers statiques (HTML, CSS, images)
+├── package.json         ← manifeste du projet
+├── package-lock.json    ← versions verrouillées exactes
+└── .gitignore           ← doit contenir node_modules/
+```
+
+### Règles essentielles
+
+**`node_modules/`** doit toujours apparaître dans `.gitignore`. Ce dossier peut contenir des milliers de fichiers et se régénère avec `npm install`. On ne versionne jamais les dépendances elles-mêmes — seulement la *liste* des dépendances dans `package.json`.
+
+**`package-lock.json`** doit être versionné. Il garantit que tous les développeurs d'une équipe installent exactement les mêmes versions.
+
+Un collaborateur qui clone le projet fait simplement :
+
+```bash
+git clone <url>
+cd mon-projet
+npm install        # recrée node_modules/ à partir de package.json
+```
+
+
+---
+
+## Le fichier `package.json`
+
+C'est le manifeste du projet — l'équivalent du `pom.xml` en Java ou du `pyproject.toml` en Python. Il décrit le projet, ses dépendances, et ses scripts.
+
+```json
+{
+  "name": "mon-serveur",
+  "version": "1.0.0",
+  "description": "Serveur web pour IFT3225",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "prettier": "^3.3.0"
+  }
+}
+```
+
+### Champs importants
+
+**`"type": "module"`** — Active la syntaxe `import`/`export` (ES Modules). Sans cette ligne, Node.js utilise l'ancien système `require()` (CommonJS). Dans ce cours, on utilise toujours ES Modules.
+
+**`"scripts"`** — Définit des commandes personnalisées exécutables via `npm run <nom>`. Le script `"dev"` ci-dessus utilise `--watch`, un mode qui redémarre automatiquement le serveur quand un fichier change.
+
+**`"dependencies"`** — Les paquets nécessaires en production (le serveur en a besoin pour fonctionner).
+
+**`"devDependencies"`** — Les paquets utilisés seulement pendant le développement (formateurs, outils de test, etc.).
+
+**Le préfixe `^`** dans les versions (ex: `"^4.21.0"`) signifie « compatible avec 4.21.0 » — npm pourra installer 4.21.5 ou 4.22.0, mais pas 5.0.0.
+
+
+---
+
+## Actions courantes avec npm
+
+### Commandes essentielles
+
+| Commande | Effet |
+|---|---|
+| `npm install` | Installe toutes les dépendances listées dans `package.json` |
+| `npm install axios` | Ajoute `axios` aux `dependencies` |
+| `npm install -D prettier` | Ajoute aux `devDependencies` |
+| `npm uninstall axios` | Retire un paquet |
+| `npm run dev` | Exécute le script `"dev"` défini dans `package.json` |
+| `npm start` | Exécute le script `"start"` (raccourci, pas besoin de `run`) |
+| `npm update` | Met à jour les paquets selon les plages de versions autorisées |
+| `npm list` | Affiche l'arbre des dépendances installées |
+
+### Équivalences avec d'autres écosystèmes
+
+| Action | npm | pip (Python) | Maven (Java) |
+|---|---|---|---|
+| Installer les dépendances | `npm install` | `pip install -r requirements.txt` | `mvn install` |
+| Ajouter un paquet | `npm install <pkg>` | `pip install <pkg>` | Modifier `pom.xml` |
+| Exécuter un script | `npm run dev` | `python manage.py runserver` | `mvn exec:java` |
+| Paquet dev seulement | `npm install -D <pkg>` | Section `[dev]` dans `pyproject.toml` | `<scope>test</scope>` |
+
+
+---
+
+## Introduction à JavaScript
+
+JavaScript est un langage **interprété** et **dynamiquement typé**, créé en 1995 par Brendan Eich. Aujourd'hui standardisé sous le nom **ECMAScript**, la version moderne (ES6/ES2015 et après) est celle qu'on utilise dans ce cours.
+
+### Caractéristiques en bref
+
+- Sensible à la casse (`nom` ≠ `Nom` ≠ `NOM`)
+- Points-virgules optionnels (mais recommandés pour la lisibilité)
+- Commentaires : `//` pour une ligne, `/* */` pour un bloc
+- Affichage avec `console.log()`
+
+```js
+// Premier programme
+console.log("Bonjour IFT3225!");
+```
+
+### Comparaison syntaxique rapide
+
+| Concept | JavaScript | Python | Java |
+|---|---|---|---|
+| Afficher | `console.log("allo")` | `print("allo")` | `System.out.println("allo")` |
+| Commentaire ligne | `// commentaire` | `# commentaire` | `// commentaire` |
+| Bloc de code | `{ ... }` (accolades) | Indentation | `{ ... }` (accolades) |
+| Point-virgule | Optionnel | Aucun | Obligatoire |
+| Typage | Dynamique | Dynamique | Statique |
+| Compilation | Aucune | Aucune | Requise (`javac`) |
+
+### Paradigme
+
+JavaScript est **multi-paradigme** : on peut écrire du code impératif, orienté objet, ou fonctionnel. Dans ce cours, on privilégie un style fonctionnel avec les fonctions fléchées, `map`, `filter`, et `reduce`.
+
+
+---
+
+## Variables et types de données
+
+### Déclaration de variables
+
+JavaScript offre trois mots-clés. Dans la pratique moderne, on n'en utilise que deux :
+
+```js
+const PI = 3.14159;         // constante — ne peut pas être réassignée
+let compteur = 0;           // variable — peut changer de valeur
+
+// var est l'ancienne syntaxe — on l'évite (portée problématique)
+```
+
+**Règle simple :** utiliser `const` par défaut, `let` seulement quand la valeur doit changer.
+
+### Comparaison : déclaration de variables
+
+| JavaScript | Python | Java |
+|---|---|---|
+| `const x = 5;` | `x = 5` (convention MAJUSCULE pour constantes) | `final int x = 5;` |
+| `let y = 10;` | `y = 10` | `int y = 10;` |
+| Pas de type déclaré | Pas de type déclaré | Type obligatoire |
+
+### Types primitifs
+
+```js
+let nom = "Alice";            // string (guillemets simples ou doubles)
+let age = 25;                 // number (pas de distinction int/float)
+let estInscrit = true;        // boolean
+let moyenne = null;           // null — absence intentionnelle de valeur
+let prenom;                   // undefined — valeur pas encore assignée
+```
+
+> En Python, on distingue `int` et `float`. En Java, on a `int`, `long`, `float`, `double`. En JavaScript, **tout est `number`** — un seul type numérique (en virgule flottante 64 bits). C'est plus simple, mais attention aux arrondis : `0.1 + 0.2` donne `0.30000000000000004`.
+
+### Types structurels
+
+```js
+// Tableau (array) — comme une liste Python ou un ArrayList Java
+const fruits = ["pomme", "banane", "kiwi"];
+fruits.push("mangue");          // ajouter à la fin
+console.log(fruits[0]);         // "pomme"
+console.log(fruits.length);     // 4
+
+// Objet — comme un dictionnaire Python ou un HashMap Java
+const etudiant = {
+  nom: "Alice",
+  age: 25,
+  cours: ["IFT3225", "IFT3150"]
+};
+console.log(etudiant.nom);        // "Alice"
+console.log(etudiant["age"]);     // 25 (notation alternative)
+```
+
+### Template literals (interpolation de chaînes)
+
+```js
+const nom = "Alice";
+const age = 25;
+console.log(`${nom} a ${age} ans`);   // backticks (`) obligatoires
+```
+
+| JavaScript | Python | Java |
+|---|---|---|
+| `` `${nom} a ${age} ans` `` | `f"{nom} a {age} ans"` | `nom + " a " + age + " ans"` ou `String.format(...)` |
+
+### Vérifier le type
+
+```js
+typeof "allo"    // "string"
+typeof 42        // "number"
+typeof true      // "boolean"
+typeof null      // "object"  ← bug historique de JS !
+typeof undefined // "undefined"
+Array.isArray([1, 2, 3])  // true
+```
+
+
+---
+
+## Conditions
+
+```js
+const note = 78;
+
+if (note >= 90) {
+  console.log("A");
+} else if (note >= 75) {
+  console.log("B");
+} else if (note >= 60) {
+  console.log("C");
+} else {
+  console.log("Échec");
+}
+```
+
+### Comparaison des syntaxes
+
+```python
+# Python
+if note >= 90:
+    print("A")
+elif note >= 75:
+    print("B")
+else:
+    print("Échec")
+```
+
+```java
+// Java — identique à JavaScript (même syntaxe C)
+if (note >= 90) {
+    System.out.println("A");
+} else if (note >= 75) {
+    System.out.println("B");
+} else {
+    System.out.println("Échec");
+}
+```
+
+### Égalité stricte vs lâche
+
+C'est une particularité importante de JavaScript qui n'existe ni en Python ni en Java :
+
+```js
+5 == "5"     // true  — conversion automatique (coercition) ⚠️
+5 === "5"    // false — types différents, pas de conversion
+
+null == undefined   // true
+null === undefined  // false
+```
+
+**Règle absolue :** toujours utiliser `===` et `!==`. L'opérateur `==` a des règles de conversion surprenantes qui mènent à des bugs subtils.
+
+### Opérateur ternaire
+
+```js
+const statut = note >= 60 ? "Réussite" : "Échec";
+```
+
+Équivalent Python : `statut = "Réussite" if note >= 60 else "Échec"`
+
+### Opérateurs logiques
+
+| Opérateur | JavaScript | Python | Java |
+|---|---|---|---|
+| ET | `&&` | `and` | `&&` |
+| OU | `\|\|` | `or` | `\|\|` |
+| NON | `!` | `not` | `!` |
+
+
+---
+
+## Boucles
+
+### `for` classique
+
+```js
+for (let i = 0; i < 5; i++) {
+  console.log(i);  // 0, 1, 2, 3, 4
+}
+```
+
+### `for...of` — itérer sur les éléments
+
+```js
+const cours = ["IFT3225", "IFT2255", "IFT3150"];
+
+for (const c of cours) {
+  console.log(c);
+}
+```
+
+C'est l'équivalent du `for c in cours:` de Python ou du `for (String c : cours)` de Java.
+
+### `while`
+
+```js
+let n = 3;
+while (n > 0) {
+  console.log(n);
+  n--;
+}
+```
+
+### Comparaison : itérer sur un tableau
+
+```js
+// JavaScript
+for (const fruit of fruits) {
+  console.log(fruit);
+}
+```
+
+```python
+# Python
+for fruit in fruits:
+    print(fruit)
+```
+
+```java
+// Java
+for (String fruit : fruits) {
+    System.out.println(fruit);
+}
+```
+
+### Méthodes fonctionnelles sur les tableaux
+
+Ces méthodes sont très idiomatiques en JavaScript moderne. Elles prennent une fonction en argument et retournent un nouveau tableau (sauf `forEach`).
+
+```js
+const nombres = [1, 2, 3, 4, 5];
+
+// forEach — exécuter une action pour chaque élément
+nombres.forEach(n => console.log(n));
+
+// map — transformer chaque élément
+const doubles = nombres.map(n => n * 2);        // [2, 4, 6, 8, 10]
+
+// filter — garder les éléments qui satisfont une condition
+const pairs = nombres.filter(n => n % 2 === 0);  // [2, 4]
+
+// find — trouver le premier élément qui satisfait une condition
+const premier = nombres.find(n => n > 3);         // 4
+
+// reduce — réduire à une seule valeur
+const somme = nombres.reduce((acc, n) => acc + n, 0);  // 15
+```
+
+Équivalents Python : `map()`, `filter()`, et les compréhensions de liste. Java : l'API Stream (`stream().map().filter().collect()`).
+
+
+---
+
+## Fonctions
+
+### Déclaration classique
+
+```js
+function saluer(nom) {
+  return `Bonjour, ${nom}!`;
+}
+
+saluer("Alice");  // "Bonjour, Alice!"
+```
+
+### Fonction fléchée (*arrow function*) — syntaxe moderne
+
+```js
+const saluer = (nom) => {
+  return `Bonjour, ${nom}!`;
+};
+
+// Version courte (retour implicite, une seule expression)
+const saluer = (nom) => `Bonjour, ${nom}!`;
+```
+
+Les fonctions fléchées sont le style privilégié en JavaScript moderne, surtout pour les callbacks et les fonctions courtes.
+
+### Comparaison
+
+```js
+// JavaScript
+const carre = (x) => x * x;
+```
+
+```python
+# Python — lambda pour les fonctions courtes
+carre = lambda x: x * x
+
+# ou avec def
+def carre(x):
+    return x * x
+```
+
+```java
+// Java — depuis Java 8, les lambdas
+Function<Integer, Integer> carre = x -> x * x;
+```
+
+### Paramètres par défaut
+
+```js
+const calculerTaxe = (prix, taux = 0.14975) => {
+  return prix * (1 + taux);
+};
+
+calculerTaxe(100);          // 114.975 (TPS+TVQ du Québec)
+calculerTaxe(100, 0.05);    // 105 (taux personnalisé)
+```
+
+Python a la même fonctionnalité (`def f(x, taux=0.15)`). En Java, on ne peut pas — il faut surcharger la méthode (*method overloading*).
+
+### Les fonctions sont des valeurs
+
+En JavaScript, les fonctions sont des citoyens de première classe — on peut les stocker dans des variables, les passer en argument, et les retourner depuis d'autres fonctions.
+
+```js
+const nombres = [3, 1, 4, 1, 5, 9];
+
+// Passer une fonction en argument
+nombres.sort((a, b) => a - b);     // tri croissant
+
+// Stocker dans une variable
+const operation = (a, b) => a + b;
+console.log(operation(2, 3));       // 5
+```
+
+C'est le même principe qu'en Python (tout est objet, les fonctions aussi). En Java, c'est possible depuis Java 8 avec les interfaces fonctionnelles, mais c'est plus verbeux.
+
+### Déstructuration dans les paramètres
+
+Un patron courant quand une fonction reçoit un objet :
+
+```js
+// Sans déstructuration
+const afficher = (etudiant) => {
+  console.log(etudiant.nom, etudiant.age);
+};
+
+// Avec déstructuration
+const afficher = ({ nom, age }) => {
+  console.log(nom, age);
+};
+
+afficher({ nom: "Alice", age: 25 });
+```
+
+
+---
+
+## Modules `import` / `export`
+
+Les modules permettent de découper le code en fichiers réutilisables. Chaque fichier est un module isolé — rien n'est partagé par défaut.
+
+### Exporter
+
+```js
+// math.js
+
+// Export nommé — on peut en avoir plusieurs par fichier
+export const PI = 3.14159;
+
+export function carre(x) {
+  return x * x;
+}
+
+export function cube(x) {
+  return x * x * x;
+}
+```
+
+On peut aussi regrouper les exports à la fin du fichier :
+
+```js
+// math.js
+const PI = 3.14159;
+function carre(x) { return x * x; }
+function cube(x) { return x * x * x; }
+
+export { PI, carre, cube };
+```
+
+### Export par défaut
+
+Un seul export par défaut par fichier — c'est la valeur « principale » du module :
+
+```js
+// serveur.js
+export default function demarrer(port) {
+  console.log(`Serveur sur le port ${port}`);
+}
+```
+
+### Importer
+
+```js
+// index.js
+
+// Import nommé — les noms doivent correspondre
+import { PI, carre } from "./math.js";
+
+// Import par défaut — on choisit le nom
+import demarrer from "./serveur.js";
+
+// Combiner les deux
+import demarrer, { PI, carre } from "./module.js";
+
+// Renommer un import
+import { carre as square } from "./math.js";
+```
+
+### Importer un paquet npm
+
+```js
+import express from "express";
+```
+
+npm résout automatiquement le chemin vers `node_modules/express`.
+
+### Rappel
+
+Pour que les `import`/`export` fonctionnent dans Node.js, le `package.json` doit contenir :
+
+```json
+{
+  "type": "module"
+}
+```
+
+### Comparaison des systèmes de modules
+
+| | JavaScript (ES Modules) | Python | Java |
+|---|---|---|---|
+| Exporter | `export function f() {}` | Automatique (tout est public) | `public class ...` |
+| Importer | `import { f } from "./m.js"` | `from m import f` | `import pkg.ClassName` |
+| Par défaut | `export default` / `import x` | `import m` | — |
+| Chemin | Relatif (`"./..."`) ou paquet npm | Nom du module | Nom qualifié (`pkg.Class`) |
+
+
+---
+
+## `fetch` — Requêtes HTTP
+
+`fetch` est l'API standard pour effectuer des requêtes HTTP en JavaScript. Elle est disponible nativement dans les navigateurs et dans Node.js (depuis la version 18).
+
+### Requête GET
+
+```js
+const reponse = await fetch("https://api.example.com/cours");
+const data = await reponse.json();
+console.log(data);
+```
+
+Deux étapes : `fetch` retourne un objet `Response`, puis `.json()` extrait et parse le corps en objet JavaScript.
+
+### Requête POST
+
+```js
+const reponse = await fetch("https://api.example.com/cours", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    sigle: "IFT3225",
+    titre: "Technologies de l'internet",
+    session: "E26"
+  })
+});
+
+const resultat = await reponse.json();
+```
+
+### Vérifier le statut
+
+`fetch` ne lance **pas** d'erreur pour les réponses 4xx ou 5xx — seulement pour les problèmes réseau. Il faut vérifier manuellement :
+
+```js
+const reponse = await fetch(url);
+
+if (!reponse.ok) {
+  throw new Error(`Erreur HTTP : ${reponse.status}`);
+}
+
+const data = await reponse.json();
+```
+
+### Comparaison
+
+| | JavaScript | Python | Java |
+|---|---|---|---|
+| Librairie | `fetch` (natif) | `requests` | `HttpClient` (Java 11+) |
+| Requête GET | `await fetch(url)` | `requests.get(url)` | `client.send(request, BodyHandlers.ofString())` |
+| Parser JSON | `.json()` | `.json()` | `new Gson().fromJson(...)` |
+| Asynchrone | Oui (Promise) | Non (sauf `aiohttp`) | Optionnel (`sendAsync`) |
+
+
+---
+
+## `async` / `await`
+
+### Le problème
+
+Les opérations réseau, lecture de fichiers, et requêtes à une base de données prennent du temps. JavaScript est **mono-thread** : s'il bloquait en attendant chaque réponse, l'application entière serait figée.
+
+La solution de JavaScript : les **Promises** — un objet qui représente une valeur qui n'existe pas encore mais qui arrivera éventuellement.
+
+### Sans `await` : on obtient la Promise, pas la valeur
+
+```js
+const data = fetch("https://api.example.com/cours");
+console.log(data);  // Promise { <pending> }  ← pas le résultat !
+```
+
+### Avec `async` / `await` : on attend le résultat
+
+```js
+async function chargerCours() {
+  const reponse = await fetch("https://api.example.com/cours");
+  const data = await reponse.json();
+  console.log(data);  // les données sont là
+  return data;
+}
+```
+
+Le mot-clé `await` **suspend l'exécution de la fonction** jusqu'à ce que la Promise soit résolue, puis retourne sa valeur. Pendant ce temps, le reste du programme peut continuer à s'exécuter — ce n'est pas un blocage du thread.
+
+### Règles
+
+- `await` ne peut être utilisé que dans une fonction marquée `async`
+- Une fonction `async` retourne toujours une Promise
+- Au niveau supérieur d'un module (fichier avec `"type": "module"`), on peut utiliser `await` directement (*top-level await*)
+
+```js
+// top-level await dans un module
+const reponse = await fetch("https://api.example.com/cours");
+const data = await reponse.json();
+```
+
+### Gestion d'erreurs avec `try`/`catch`
+
+```js
+async function chargerCours() {
+  try {
+    const reponse = await fetch("https://api.example.com/cours");
+
+    if (!reponse.ok) {
+      throw new Error(`HTTP ${reponse.status}`);
+    }
+
+    const data = await reponse.json();
+    return data;
+  } catch (erreur) {
+    console.error("Impossible de charger les cours:", erreur.message);
+    return [];
+  }
+}
+```
+
+### Comparaison des modèles asynchrones
+
+| | JavaScript | Python | Java |
+|---|---|---|---|
+| Mécanisme | Promises + `async`/`await` | `asyncio` + `async`/`await` | `CompletableFuture` |
+| Syntaxe | `const data = await fetch(url)` | `data = await session.get(url)` | `future.thenApply(...)` |
+| Modèle | Boucle d'événements (event loop) | Boucle d'événements (`asyncio`) | Pool de threads |
+| Bloquant par défaut | Non | Oui | Oui |
+
+> En Python, `requests.get()` est bloquant — le programme attend la réponse avant de continuer. En JavaScript, **tout I/O est non-bloquant par défaut** : `fetch`, lecture de fichiers, requêtes BD. C'est un changement de mentalité important pour ceux qui viennent de Python.
+
+### Exemple complet
+
+```js
+async function afficherMeteo(ville) {
+  try {
+    const url = `https://api.example.com/meteo?ville=${ville}`;
+    const reponse = await fetch(url);
+
+    if (!reponse.ok) {
+      throw new Error(`Ville non trouvée (${reponse.status})`);
+    }
+
+    const meteo = await reponse.json();
+    console.log(`${meteo.ville}: ${meteo.temperature}°C, ${meteo.condition}`);
+  } catch (erreur) {
+    console.error(erreur.message);
+  }
+}
+
+// Appel
+await afficherMeteo("Montréal");
+```

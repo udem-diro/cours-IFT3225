@@ -1,0 +1,169 @@
+---
+/**
+ * TopStrip.astro — Bande horizontale de navigation entre séances.
+ * Affiche toutes les séances avec date, titre tronqué, et tags.
+ * La séance active est mise en évidence.
+ *
+ * Props :
+ *   sessions   — tableau de métadonnées de séances
+ *   currentSlug — slug de la séance active
+ */
+
+interface SessionMeta {
+  slug: string;
+  numero: number;
+  title: string;
+  date: string;
+  tags: string[];
+}
+
+interface Props {
+  sessions: SessionMeta[];
+  currentSlug: string;
+}
+
+const { sessions, currentSlug } = Astro.props;
+
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('fr-CA', { day: 'numeric', month: 'short' });
+}
+---
+
+<nav class="top-strip" aria-label="Navigation entre séances">
+  <div class="top-strip__scroll">
+    {sessions.map((s) => {
+      const isActive = s.slug === currentSlug;
+      return (
+        <a
+          class:list={['top-strip__cell', { 'top-strip__cell--active': isActive }]}
+          href={`/cours/${s.slug}/`}
+          aria-current={isActive ? 'page' : undefined}
+        >
+          <span class="top-strip__num">{formatDate(s.date)}</span>
+          <span class="top-strip__label">{s.title}</span>
+          <span class="top-strip__tags">
+            {s.tags.map((t) => (
+              <span class={`top-strip__tag top-strip__tag--${t}`}>{t}</span>
+            ))}
+          </span>
+        </a>
+      );
+    })}
+  </div>
+</nav>
+
+<script>
+  document.addEventListener('astro:page-load', () => {
+    const active = document.querySelector('.top-strip__cell--active');
+    if (active) {
+      active.scrollIntoView({ behavior: 'instant', inline: 'center', block: 'nearest' });
+    }
+  });
+</script>
+
+<style>
+  .top-strip {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--c-bg, #FAFAF8);
+    border-bottom: 1px solid var(--c-border, rgba(0,0,0,0.1));
+    padding: var(--space-2, 0.5rem) 0;
+  }
+
+  .top-strip__scroll {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+    padding: 0 var(--space-6, 1.5rem);
+    scrollbar-width: thin;
+    scroll-behavior: smooth;
+  }
+
+  .top-strip__scroll::-webkit-scrollbar {
+    height: 4px;
+  }
+  .top-strip__scroll::-webkit-scrollbar-thumb {
+    background: var(--c-border, rgba(0,0,0,0.1));
+    border-radius: 2px;
+  }
+
+  .top-strip__cell {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 12px;
+    border-radius: var(--radius-md, 8px);
+    background: var(--c-surface-alt, #F3F2EE);
+    border: 1px solid transparent;
+    text-decoration: none;
+    max-width: 150px;
+    transition: all var(--dur-fast, 150ms) ease;
+  }
+
+  .top-strip__cell:hover {
+    background: var(--c-surface, #fff);
+    border-color: var(--c-border, rgba(0,0,0,0.1));
+    text-decoration: none;
+  }
+
+  .top-strip__cell--active {
+    background: var(--c-accent-light, #EEEDFE);
+    border-color: var(--c-accent-mid, #AFA9EC);
+  }
+
+  .top-strip__num {
+    font-size: var(--text-xs, 0.75rem);
+    font-weight: 500;
+    color: var(--c-text-muted, #6B6A65);
+  }
+
+  .top-strip__cell--active .top-strip__num {
+    color: var(--c-accent, #534AB7);
+  }
+
+  .top-strip__label {
+    font-size: 11px;
+    color: var(--c-text-subtle, #9C9B96);
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .top-strip__cell--active .top-strip__label {
+    color: var(--c-accent-dark, #3C3489);
+  }
+
+  .top-strip__tags {
+    display: flex;
+    gap: 3px;
+    margin-top: 2px;
+  }
+
+  .top-strip__tag {
+    font-size: 9px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+
+  .top-strip__tag--cours  { background: var(--c-cours-bg, #EEEDFE); color: var(--c-cours, #534AB7); }
+  .top-strip__tag--labo   { background: var(--c-labo-bg, #E1F5EE);  color: var(--c-labo, #0F6E56); }
+  .top-strip__tag--devoir { background: var(--c-devoir-bg, #FAEEDA); color: var(--c-devoir, #854F0B); }
+  .top-strip__tag--examen { background: var(--c-examen-bg, #FAECE7); color: var(--c-examen, #993C1D); }
+
+  .top-strip__cell--active .top-strip__tag--cours {
+    background: var(--c-accent-mid, #AFA9EC);
+    color: var(--c-accent-text, #26215C);
+  }
+
+  @media (max-width: 640px) {
+    .top-strip__scroll { padding: 0 var(--space-3, 0.75rem); }
+    .top-strip__cell { max-width: 120px; padding: 6px 10px; }
+  }
+</style>

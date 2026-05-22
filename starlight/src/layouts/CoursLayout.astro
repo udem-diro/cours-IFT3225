@@ -1,0 +1,266 @@
+---
+/**
+ * CoursLayout.astro — Layout pour les pages de séances.
+ * Affiche la TopStrip en haut, puis le contenu de la séance
+ * dans une zone de lecture centrée.
+ */
+import BaseLayout from './BaseLayout.astro';
+import TopStrip from '../components/TopStrip.astro';
+import ZoneSwitcher from '../components/ZoneSwitcher.astro';
+import { getCollection } from 'astro:content';
+
+interface Props {
+  title: string;
+  date: string;
+  tags: string[];
+  currentSlug: string;
+}
+
+const { title, date, tags, currentSlug } = Astro.props;
+
+// Charger toutes les séances pour la TopStrip
+const allSessions = await getCollection('sessions');
+const sessionsMeta = allSessions
+  .sort((a, b) => a.data.numero - b.data.numero)
+  .map((s) => ({
+    slug: s.id,
+    numero: s.data.numero,
+    title: s.data.title,
+    date: s.data.date,
+    tags: s.data.tags,
+  }));
+
+function formatDateLong(dateStr: string): string {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('fr-CA', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+---
+
+<BaseLayout title={title}>
+  <TopStrip sessions={sessionsMeta} currentSlug={currentSlug} />
+
+  <main class="cours-main">
+    <header class="cours-header">
+      <div class="cours-header__tags">
+        {tags.map((t) => (
+          <span class={`cours-header__tag cours-header__tag--${t}`}>{t}</span>
+        ))}
+      </div>
+      <h1 class="cours-header__title">{title}</h1>
+      <time class="cours-header__date" datetime={date}>
+        {formatDateLong(date)}
+      </time>
+    </header>
+
+    <article class="cours-content">
+      <slot />
+    </article>
+
+    <nav class="cours-nav" aria-label="Séance précédente / suivante">
+      {(() => {
+        const idx = sessionsMeta.findIndex((s) => s.slug === currentSlug);
+        const prev = idx > 0 ? sessionsMeta[idx - 1] : null;
+        const next = idx < sessionsMeta.length - 1 ? sessionsMeta[idx + 1] : null;
+        return (
+          <>
+            {prev ? (
+              <a class="cours-nav__link cours-nav__link--prev" href={`/cours/${prev.slug}/`}>
+                <span class="cours-nav__arrow">←</span>
+                <span class="cours-nav__meta">
+                  <span class="cours-nav__label">Précédente</span>
+                  <span class="cours-nav__title">{prev.title}</span>
+                </span>
+              </a>
+            ) : <span />}
+            {next ? (
+              <a class="cours-nav__link cours-nav__link--next" href={`/cours/${next.slug}/`}>
+                <span class="cours-nav__meta">
+                  <span class="cours-nav__label">Suivante</span>
+                  <span class="cours-nav__title">{next.title}</span>
+                </span>
+                <span class="cours-nav__arrow">→</span>
+              </a>
+            ) : <span />}
+          </>
+        );
+      })()}
+    </nav>
+  </main>
+
+  <ZoneSwitcher zone="cours" />
+</BaseLayout>
+
+<style>
+  .cours-main {
+    max-width: 80rem;
+    margin: 0 auto;
+    padding: var(--space-6) var(--space-6) var(--space-12);
+  }
+
+  .cours-header {
+    margin-bottom: var(--space-8);
+    padding-bottom: var(--space-6);
+    border-bottom: 1px solid var(--c-border);
+  }
+
+  .cours-header__tags {
+    display: flex;
+    gap: 6px;
+    margin-bottom: var(--space-3);
+  }
+
+  .cours-header__tag {
+    font-size: var(--text-xs);
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cours-header__tag--cours  { background: var(--c-cours-bg); color: var(--c-cours); }
+  .cours-header__tag--labo   { background: var(--c-labo-bg);  color: var(--c-labo); }
+  .cours-header__tag--devoir { background: var(--c-devoir-bg); color: var(--c-devoir); }
+  .cours-header__tag--examen { background: var(--c-examen-bg); color: var(--c-examen); }
+
+  .cours-header__title {
+    font-size: var(--text-2xl);
+    font-family: var(--font-display);
+    color: var(--c-text);
+    margin-top: var(--space-2);
+  }
+
+  .cours-header__date {
+    display: block;
+    margin-top: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--c-text-muted);
+  }
+
+  /* ── Contenu ── */
+  .cours-content {
+    line-height: 1.75;
+    position: relative; 
+    overflow: visible
+  }
+
+  .cours-content :global(h2) {
+    font-family: var(--font-display);
+    font-size: var(--text-xl);
+    font-weight: 500;
+    margin-top: var(--space-8);
+    margin-bottom: var(--space-3);
+    color: var(--c-text);
+  }
+
+  .cours-content :global(h3) {
+    font-family: var(--font-display);
+    font-size: var(--text-lg);
+    font-weight: 500;
+    margin-top: var(--space-6);
+    margin-bottom: var(--space-2);
+  }
+
+  .cours-content :global(p) {
+    margin-bottom: var(--space-4);
+  }
+
+  .cours-content :global(ul),
+  .cours-content :global(ol) {
+    margin-bottom: var(--space-4);
+    padding-left: 1.5em;
+  }
+
+  .cours-content :global(li) {
+    margin-bottom: var(--space-1);
+  }
+
+  .cours-content :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    padding: 0.15em 0.4em;
+    border-radius: var(--radius-sm);
+    background: var(--c-surface-alt);
+  }
+
+  .cours-content :global(pre) {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    background: var(--c-surface-alt);
+    border: 1px solid var(--c-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    overflow-x: auto;
+    margin-bottom: var(--space-4);
+  }
+
+  .cours-content :global(pre code) {
+    padding: 0;
+    background: none;
+  }
+
+  /* ── Navigation prev/next ── */
+  .cours-nav {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-4);
+    margin-top: var(--space-12);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--c-border);
+  }
+
+  .cours-nav__link {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--c-border);
+    text-decoration: none;
+    transition: border-color var(--dur-fast) ease;
+    max-width: 45%;
+  }
+
+  .cours-nav__link:hover {
+    border-color: var(--c-accent-mid);
+    text-decoration: none;
+  }
+
+  .cours-nav__link--next {
+    margin-left: auto;
+    text-align: right;
+  }
+
+  .cours-nav__arrow {
+    font-size: var(--text-lg);
+    color: var(--c-text-muted);
+  }
+
+  .cours-nav__label {
+    display: block;
+    font-size: var(--text-xs);
+    color: var(--c-text-subtle);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .cours-nav__title {
+    display: block;
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--c-text);
+    margin-top: 2px;
+  }
+
+  @media (max-width: 640px) {
+    .cours-main { padding: var(--space-4) var(--space-3) var(--space-8); }
+    .cours-header__title { font-size: var(--text-xl); }
+    .cours-nav { flex-direction: column; }
+    .cours-nav__link { max-width: 100%; }
+  }
+</style>

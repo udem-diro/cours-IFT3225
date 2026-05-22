@@ -1,0 +1,79 @@
+---
+import Icon from './Icon.astro';
+---
+
+<button
+  id="theme-toggle"
+  class="theme-toggle"
+  type="button"
+  aria-label="Basculer le thème (clair / sombre)"
+>
+  <span class="icon-sun" aria-hidden="true">
+    <Icon name="sun" size={18} />
+  </span>
+  <span class="icon-moon" aria-hidden="true">
+    <Icon name="moon" size={18} />
+  </span>
+</button>
+
+<script>
+  const KEY = 'ift3225-theme';
+
+  function getStoredTheme(): 'light' | 'dark' | null {
+    return localStorage.getItem(KEY) as 'light' | 'dark' | null;
+  }
+
+  function applyTheme(theme: 'light' | 'dark') {
+    document.documentElement.dataset.theme = theme;
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.dataset.theme;
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem(KEY, next);
+  }
+
+  // Initialisation: les préférences stockées priment, sinon prefers-color-scheme
+  // (note: cette logique est aussi dans le script inline du <head> pour éviter le flash)
+  function init() {
+    const button = document.getElementById('theme-toggle');
+    if (button) {
+      button.addEventListener('click', toggleTheme);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+</script>
+
+<style>
+  .theme-toggle {
+    background: transparent;
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+    cursor: pointer;
+    color: var(--color-text);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s, border-color 0.15s;
+    line-height: 0;
+  }
+
+  .theme-toggle:hover {
+    background: var(--color-surface);
+    border-color: var(--color-border-strong);
+  }
+
+  /* Affichage conditionnel des icônes */
+  .icon-sun { display: none; }
+  .icon-moon { display: inline-flex; }
+
+  :global([data-theme="dark"]) .theme-toggle .icon-sun { display: inline-flex; }
+  :global([data-theme="dark"]) .theme-toggle .icon-moon { display: none; }
+</style>
