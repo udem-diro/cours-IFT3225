@@ -1,0 +1,25 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+import ReadingProgress from "../components/ReadingProgress.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+  /** Afficher l'indicateur de progression + outline (défaut : true) */
+  progress?: boolean;
+}
+const { title, description, progress = true } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  {progress && <ReadingProgress />}
+  <article class="prose sl-markdown-content">
+    <slot />
+  </article>
+</BaseLayout>
+
+<style>
+  .prose {
+    margin: 0 auto;
+  }
+</style>

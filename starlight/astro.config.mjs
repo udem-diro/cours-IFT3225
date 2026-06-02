@@ -7,7 +7,7 @@ import react from '@astrojs/react';
 export default defineConfig({
 	integrations: [
 		starlight({
-			title: 'IFT3225 — Référence',
+			title: 'IFT3225',
 			defaultLocale: 'fr',
 			locales: { fr: { label: 'Français' } },
 			components: {
@@ -24,6 +24,10 @@ export default defineConfig({
 				{
 					label: 'Reference',
 					items: [{ autogenerate: { directory: 'reference' } }],
+				},
+				{
+					label: 'Guides',
+					items: [{ autogenerate: { directory: 'guides' } }],
 				},
 			],
 		}),

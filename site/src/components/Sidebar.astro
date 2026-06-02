@@ -1,0 +1,129 @@
+---
+import { navigation } from "../nav";
+
+const { pathname } = Astro.url;
+// Normaliser : retirer le slash final sauf pour la racine
+const current = pathname !== "/" ? pathname.replace(/\/$/, "") : "/";
+---
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar__head">
+    <a href="/" class="sidebar__brand">
+      <span class="sidebar__sigle">IFT3225</span>
+      <span class="sidebar__nom">Technologies de l'internet</span>
+    </a>
+  </div>
+
+  <nav class="sidebar__nav" aria-label="Navigation du cours">
+    {navigation.map((groupe) => (
+      <div class="navgroup">
+        <div class="navgroup__titre">{groupe.titre}</div>
+        <ul class="navgroup__list">
+          {groupe.items.map((item) => {
+            const href = item.href !== "/" ? item.href.replace(/\/$/, "") : "/";
+            const active = current === href;
+            return (
+              <li>
+                <a
+                  href={item.href}
+                  class={`navlink ${active ? "navlink--active" : ""}`}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {item.label}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    ))}
+  </nav>
+</aside>
+
+<style>
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--nav-width);
+    background: var(--c-surface);
+    border-right: 1px solid var(--c-border);
+    overflow-y: auto;
+    padding: 0 0 2rem;
+    z-index: 50;
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sidebar__head {
+    padding: 1.5rem 1.5rem 1.2rem;
+    border-bottom: 1px solid var(--c-border);
+    margin-bottom: 1rem;
+    position: sticky;
+    top: 0;
+    background: var(--c-surface);
+    z-index: 1;
+  }
+  .sidebar__brand { text-decoration: none; display: block; }
+  .sidebar__sigle {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--c-accent);
+  }
+  .sidebar__nom {
+    display: block;
+    font-family: var(--serif);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--c-text);
+    margin-top: 2px;
+    line-height: 1.25;
+  }
+
+  .sidebar__nav { padding: 0 0.85rem; }
+
+  .navgroup { margin-bottom: 1.5rem; }
+  .navgroup__titre {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--c-dim);
+    padding: 0 0.65rem;
+    margin-bottom: 0.4rem;
+  }
+  .navgroup__list { list-style: none; margin: 0; padding: 0; }
+
+  .navlink {
+    display: block;
+    padding: 6px 0.65rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.92rem;
+    color: var(--c-mid);
+    text-decoration: none;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .navlink:hover {
+    background: var(--c-bg);
+    color: var(--c-text);
+  }
+  .navlink--active {
+    background: var(--c-accent-b);
+    color: var(--c-accent);
+    font-weight: 600;
+    border-left-color: var(--c-accent);
+  }
+
+  /* Mobile : la sidebar se cache et se révèle */
+  @media (max-width: 920px) {
+    .sidebar {
+      transform: translateX(-100%);
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.15);
+    }
+    .sidebar.open { transform: translateX(0); }
+  }
+</style>

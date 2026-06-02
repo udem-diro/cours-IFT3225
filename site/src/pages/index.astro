@@ -1,17 +1,88 @@
 ---
-
+import BaseLayout from "../layouts/BaseLayout.astro";
+import { navigation } from "../nav";
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout title="IFT3225 — Technologies de l'internet">
+  <div class="home">
+    <header class="home__hero">
+      <span class="home__eyebrow">Université de Montréal · Été 2026</span>
+      <h1 class="home__title">Technologies de l'internet</h1>
+      <p class="home__lede">
+        Comprendre comment les systèmes communiquent : des protocoles aux API,
+        du serveur à la base de données, du concept au code.
+      </p>
+    </header>
+
+    <section class="home__grid">
+      {navigation.filter((g) => g.titre !== "Le cours").map((groupe) => (
+        <div class="home__card">
+          <h2 class="home__card-titre">{groupe.titre}</h2>
+          <ul class="home__card-list">
+            {groupe.items.map((item) => (
+              <li><a href={item.href}>{item.label}</a></li>
+            ))}
+          </ul>
+        </div>
+      ))}
+    </section>
+  </div>
+
+  <style>
+    .home { max-width: 860px; margin: 0 auto; }
+    .home__hero { padding: 2rem 0 3rem; border-bottom: 1px solid var(--c-border); margin-bottom: 3rem; }
+    .home__eyebrow {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: var(--c-accent);
+      text-transform: uppercase;
+    }
+    .home__title {
+      font-family: var(--serif);
+      font-size: clamp(2.4rem, 6vw, 3.6rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin: 0.6rem 0 1rem;
+      color: var(--c-text);
+    }
+    .home__lede {
+      font-size: 1.25rem;
+      line-height: 1.6;
+      color: var(--c-muted);
+      max-width: 620px;
+      margin: 0;
+    }
+    .home__grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+    }
+    .home__card {
+      padding: 1.5rem;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--radius);
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .home__card:hover { border-color: var(--c-accent); transform: translateY(-2px); }
+    .home__card-titre {
+      font-family: var(--serif);
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin: 0 0 0.8rem;
+      color: var(--c-text);
+    }
+    .home__card-list { list-style: none; margin: 0; padding: 0; }
+    .home__card-list li { margin: 0.4rem 0; }
+    .home__card-list a {
+      color: var(--c-mid);
+      text-decoration: none;
+      font-size: 0.95rem;
+      transition: color 0.15s;
+    }
+    .home__card-list a:hover { color: var(--c-accent); }
+  </style>
+</BaseLayout>

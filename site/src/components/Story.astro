@@ -1,0 +1,410 @@
+---
+/**
+ * Story.astro — Contenu narratif complémentaire (cas, histoires, digressions).
+ *
+ * Desktop (≥1100px) : marqueur dans la marge droite → panneau latéral au clic.
+ * Mobile (<1100px) : bloc inline repliable.
+ *
+ * Props :
+ *   title — Titre court affiché dans le marqueur et en tête du panneau
+ *   icon  — Optionnel : 'case' | 'history' | 'explore' (défaut: 'case')
+ */
+
+interface Props {
+  title: string;
+  icon?: 'case' | 'history' | 'explore';
+}
+
+const { title, icon = 'case' } = Astro.props;
+const uid = `story-${Math.random().toString(36).slice(2, 8)}`;
+
+const icons: Record<string, string> = {
+  case: `<path d="M4 5a2 2 0 0 1 2-2h6l4 4v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5Z" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M10 3v4h4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/><path d="M7 10h4M7 13h6" stroke="currentColor" stroke-width="1.3" fill="none" stroke-linecap="round"/>`,
+  history: `<circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M9 5v4.5l3 2" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`,
+  explore: `<circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M12.5 5.5l-2 5-5 2 2-5 5-2Z" fill="currentColor" opacity="0.7"/>`,
+};
+
+const iconSvg = icons[icon] ?? icons.case;
+---
+
+<!-- Marqueur inline (mobile) / marge (desktop) -->
+<div class="story" id={uid}>
+  <button
+    class="story__trigger"
+    aria-expanded="false"
+    aria-controls={`${uid}-panel`}
+  >
+    <span class="story__icon" aria-hidden="true">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 18 18" fill="none">
+        <Fragment set:html={iconSvg} />
+      </svg>
+    </span>
+    <span class="story__label">{title}</span>
+    <span class="story__chevron" aria-hidden="true">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </span>
+  </button>
+</div>
+
+<!-- Panneau (desktop: drawer droit, mobile: expansion inline) -->
+<div class="story__panel" id={`${uid}-panel`} aria-hidden="true">
+  <div class="story__panel-inner">
+    <div class="story__panel-header">
+      <span class="story__panel-icon" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18" fill="none">
+          <Fragment set:html={iconSvg} />
+        </svg>
+      </span>
+      <h3 class="story__panel-title">{title}</h3>
+      <button class="story__close" aria-label="Fermer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="story__panel-body">
+      <slot />
+    </div>
+  </div>
+</div>
+
+<!-- Backdrop (desktop seulement) -->
+<div class="story__backdrop" id={`${uid}-backdrop`}></div>
+
+<script>
+  function initStories() {
+    document.querySelectorAll('.story:not([data-init])').forEach((story) => {
+      story.setAttribute('data-init', '');
+      const id = story.id;
+      const trigger = story.querySelector('.story__trigger') as HTMLButtonElement;
+      const panel = document.getElementById(`${id}-panel`)!;
+      const backdrop = document.getElementById(`${id}-backdrop`)!;
+      const close = panel.querySelector('.story__close') as HTMLButtonElement;
+
+      function open() {
+        trigger.setAttribute('aria-expanded', 'true');
+        panel.setAttribute('aria-hidden', 'false');
+        panel.classList.add('story__panel--open');
+        backdrop.classList.add('story__backdrop--visible');
+        document.body.style.overflow = window.innerWidth >= 1100 ? 'hidden' : '';
+      }
+
+      function shut() {
+        trigger.setAttribute('aria-expanded', 'false');
+        panel.setAttribute('aria-hidden', 'true');
+        panel.classList.remove('story__panel--open');
+        backdrop.classList.remove('story__backdrop--visible');
+        document.body.style.overflow = '';
+      }
+
+      trigger.addEventListener('click', () => {
+        const isOpen = panel.classList.contains('story__panel--open');
+        if (isOpen) shut(); else open();
+      });
+
+      close.addEventListener('click', shut);
+      backdrop.addEventListener('click', shut);
+
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && panel.classList.contains('story__panel--open')) {
+          shut();
+        }
+      });
+    });
+  }
+
+  // Fonctionne que le DOM soit déjà chargé ou non
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initStories);
+  } else {
+    initStories();
+  }
+  // Support View Transitions si activées
+  document.addEventListener('astro:page-load', initStories);
+</script>
+
+<style>
+  /* ── Trigger : le marqueur cliquable ────────────────────── */
+  .story {
+    position: relative;
+    margin: var(--space-4, 1rem) 0;
+  }
+
+  .story__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px 6px 10px;
+    border: 1px solid var(--c-border, rgba(0,0,0,0.1));
+    border-radius: var(--radius-md, 8px);
+    background: var(--c-surface, #fff);
+    color: var(--c-text-muted, #6B6A65);
+    font-family: var(--font-body, system-ui);
+    font-size: var(--text-sm, 0.8125rem);
+    cursor: pointer;
+    transition: all 150ms ease;
+    text-align: left;
+    line-height: 1.4;
+  }
+
+  .story__trigger:hover {
+    border-color: #B8860B;
+    color: #8B6914;
+    background: #FDF8EE;
+  }
+
+  .story__icon {
+    display: flex;
+    align-items: center;
+    color: #C49520;
+    flex-shrink: 0;
+  }
+
+  .story__label {
+    font-weight: 500;
+  }
+
+  .story__chevron {
+    display: flex;
+    align-items: center;
+    margin-left: 2px;
+    color: var(--c-text-subtle, #9C9B96);
+    transition: transform 200ms ease;
+  }
+
+  /* ── Desktop ≥1100px : marqueur dans la marge ──────────── */
+  @media (min-width: 1100px) {
+    .story {
+      position: absolute;
+      right: -220px;
+      width: 200px;
+      margin: 0;
+    }
+
+    .story__trigger {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 4px;
+      padding: 10px 12px;
+      width: 100%;
+      border-left: 2.5px solid #D4A843;
+      border-radius: 0 var(--radius-md, 8px) var(--radius-md, 8px) 0;
+    }
+
+    .story__chevron {
+      position: absolute;
+      top: 10px;
+      right: 8px;
+    }
+
+    .story__icon {
+      margin-bottom: 0;
+    }
+  }
+
+  /* ── Panel : le contenu de l'histoire ──────────────────── */
+  .story__panel {
+    /* Mobile : expansion inline */
+    display: none;
+    margin: 0 0 var(--space-4, 1rem);
+    border: 1px solid var(--c-border, rgba(0,0,0,0.1));
+    border-top: none;
+    border-radius: 0 0 var(--radius-md, 8px) var(--radius-md, 8px);
+    background: var(--c-surface, #fff);
+    overflow: hidden;
+  }
+
+  .story__panel--open {
+    display: block;
+  }
+
+  .story__panel-inner {
+    padding: 0;
+  }
+
+  .story__panel-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px 8px;
+    border-bottom: 1px solid var(--c-border, rgba(0,0,0,0.1));
+  }
+
+  .story__panel-icon {
+    display: flex;
+    align-items: center;
+    color: #C49520;
+    flex-shrink: 0;
+  }
+
+  .story__panel-title {
+    font-family: var(--font-display, Georgia, serif);
+    font-size: var(--text-base, 0.9375rem);
+    font-weight: 500;
+    color: var(--c-text, #1C1C1A);
+    flex: 1;
+    margin: 0;
+  }
+
+  .story__close {
+    display: none; /* Caché en mobile, visible en desktop */
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--c-text-muted, #6B6A65);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 150ms ease;
+  }
+
+  .story__close:hover {
+    background: var(--c-surface-alt, #F3F2EE);
+  }
+
+  .story__panel-body {
+    padding: 12px 16px 16px;
+    font-size: var(--text-sm, 0.8125rem);
+    line-height: 1.7;
+    color: var(--c-text, #1C1C1A);
+  }
+
+  .story__panel-body :global(p) { margin: 0.5em 0; }
+  .story__panel-body :global(p:first-child) { margin-top: 0; }
+  .story__panel-body :global(p:last-child) { margin-bottom: 0; }
+  .story__panel-body :global(table) { font-size: 0.8rem; width: 100%; }
+  .story__panel-body :global(th),
+  .story__panel-body :global(td) { padding: 4px 8px; }
+  .story__panel-body :global(pre) {
+    font-size: 0.78rem;
+    padding: 10px 12px;
+    border-radius: var(--radius-sm, 4px);
+    background: var(--c-surface-alt, #F3F2EE);
+    overflow-x: auto;
+  }
+  .story__panel-body :global(code) {
+    font-size: 0.85em;
+    padding: 0.15em 0.35em;
+    border-radius: 3px;
+    background: var(--c-surface-alt, #F3F2EE);
+  }
+  .story__panel-body :global(pre code) { padding: 0; background: none; }
+
+  /* ── Backdrop ──────────────────────────────────────────── */
+  .story__backdrop {
+    display: none;
+  }
+
+  /* ── Desktop ≥1100px : drawer droit ────────────────────── */
+  @media (min-width: 1100px) {
+    .story__panel {
+      /* Repositionner en drawer fixe */
+      display: block;
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 440px;
+      max-width: 90vw;
+      margin: 0;
+      border: none;
+      border-left: 1px solid var(--c-border, rgba(0,0,0,0.1));
+      border-radius: 0;
+      z-index: 1000;
+      overflow-y: auto;
+      box-shadow: -4px 0 24px rgba(0,0,0,0.08);
+
+      /* Caché par défaut, slide in */
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+      transition:
+        transform 300ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 200ms ease;
+    }
+
+    .story__panel--open {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .story__panel-inner {
+      padding: 0;
+    }
+
+    .story__panel-header {
+      position: sticky;
+      top: 0;
+      background: var(--c-surface, #fff);
+      padding: 20px 24px 12px;
+      z-index: 1;
+    }
+
+    .story__close {
+      display: flex;
+    }
+
+    .story__panel-body {
+      padding: 8px 24px 32px;
+      font-size: var(--text-base, 0.9375rem);
+    }
+
+    .story__backdrop {
+      display: block;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.15);
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 250ms ease;
+    }
+
+    .story__backdrop--visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+  }
+
+  /* ── Mobile : chevron rotation quand ouvert ────────────── */
+  @media (max-width: 1099px) {
+    .story__trigger[aria-expanded='true'] .story__chevron {
+      transform: rotate(90deg);
+    }
+
+    .story__panel-header {
+      display: none; /* Le titre est déjà dans le trigger */
+    }
+
+    .story__panel-body {
+      padding: 12px 14px 16px;
+    }
+  }
+
+  /* ── Thème sombre ──────────────────────────────────────── */
+  :global([data-theme='dark']) .story__trigger:hover,
+  :global(.dark) .story__trigger:hover {
+    border-color: #D4A843;
+    color: #E8C560;
+    background: hsl(40 30% 13%);
+  }
+
+  :global([data-theme='dark']) .story__icon,
+  :global(.dark) .story__icon,
+  :global([data-theme='dark']) .story__panel-icon,
+  :global(.dark) .story__panel-icon {
+    color: #E8C560;
+  }
+
+  :global([data-theme='dark']) .story__panel,
+  :global(.dark) .story__panel {
+    background: var(--c-surface, #1E1E1C);
+  }
+
+  :global([data-theme='dark']) .story__backdrop,
+  :global(.dark) .story__backdrop {
+    background: rgba(0,0,0,0.4);
+  }
+</style>

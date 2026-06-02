@@ -1,0 +1,79 @@
+---
+numero: 2
+title: "Structure d'un échange"
+date: "2026-05-12"
+tags: [cours]
+summary: "HTTP en pratique, stateless, anatomie d'un échange, codes de statut"
+layout: ../../layouts/CoursLayout.astro
+---
+import Aside from '../../components/Aside.astro';
+
+## Question directrice
+
+> Que contient un message échangé entre deux machines, et comment le lire?
+
+La semaine précédente a posé les concepts abstraits : protocole, format, requête/réponse. Cette semaine, on les instancie concrètement avec HTTP.
+
+<Aside type="prerequis">
+Maîtriser les concepts de protocole (quand/quoi/comment), de format d'échange, et du cycle requête-réponse (semaine 1).
+</Aside>
+
+## HTTP comme instance concrète d'un protocole
+
+HTTP est une **instanciation** des concepts vus la semaine dernière. C'est un protocole applicatif qui définit comment un client et un serveur échangent des ressources. Mais HTTP n'est pas *le* protocole — c'est *un* protocole parmi d'autres, qui incarne les trois dimensions (quand, quoi, comment) d'une façon particulière.
+
+<Aside type="definition" title="Stateless">
+Chaque requête HTTP est **autonome** — le serveur ne conserve rien d'une requête à l'autre. Le client doit fournir toute l'information nécessaire à chaque interaction. C'est une contrainte architecturale, pas un défaut.
+</Aside>
+
+## Anatomie d'un échange
+
+Tout échange HTTP se décompose en quatre éléments, indépendamment de la méthode ou du contenu :
+
+| Composante | Rôle | Exemple |
+|------------|------|---------|
+| **Intention** | Ce que l'utilisateur veut accomplir | « Voir le profil d'Alice » |
+| **Cible** | La ressource visée | `/users/12` |
+| **Métadonnées** | Contexte de l'échange | `Accept: application/json`, `Authorization: Bearer ...` |
+| **Charge utile** | Les données transportées | Le corps JSON de la réponse |
+
+<Aside type="erreur">
+Confondre intention et requête. L'intention (« je veux voir les prévisions météo pour demain ») n'est jamais encodée directement dans la requête (`GET /weather?city=Montreal`). Comprendre cette distinction est essentiel pour concevoir des interfaces programmatiques claires.
+</Aside>
+
+## Codes de statut — le verdict du serveur
+
+Les codes de statut sont la réponse structurée du serveur : ils disent si la requête a réussi, échoué, ou nécessite une action supplémentaire.
+
+| Famille | Signification | Exemples |
+|---------|---------------|----------|
+| `1xx` | Information | `101 Switching Protocols` |
+| `2xx` | Succès | `200 OK`, `201 Created`, `204 No Content` |
+| `3xx` | Redirection | `301 Moved Permanently`, `304 Not Modified` |
+| `4xx` | Erreur client | `400 Bad Request`, `401 Unauthorized`, `404 Not Found` |
+| `5xx` | Erreur serveur | `500 Internal Server Error`, `503 Service Unavailable` |
+
+<Aside type="erreur">
+Croire qu'un `404 Not Found` est une erreur du serveur. C'est une erreur **client** — le client a demandé une ressource qui n'existe pas. Le serveur a bien fonctionné : il a évalué la requête et rendu un verdict correct.
+</Aside>
+
+## Format texte structuré comme lingua franca
+
+JSON est devenu la lingua franca des échanges web modernes. Mais le format n'est pas garanti d'être partagé entre client et serveur — d'où l'importance des en-têtes `Content-Type` et `Accept` vus la semaine dernière.
+
+<Aside type="syntaxe" title="Boucle sérialisation–désérialisation">
+```
+Objet JS (mémoire) → JSON.stringify() → texte JSON (message)
+                                           ↓
+texte JSON (message) → JSON.parse() → Objet JS (mémoire)
+```
+La sérialisation transforme un objet en mémoire en un format transmissible. La désérialisation fait l'inverse. Ce cycle est au cœur de chaque échange.
+</Aside>
+
+## Observer un protocole en action
+
+Les outils développeur du navigateur permettent d'observer HTTP en temps réel. L'onglet **Réseau** montre chaque requête avec ses en-têtes, son corps, et le temps de réponse.
+
+<Aside type="exemple">
+Ouvrez les outils développeur (`F12` → onglet Réseau), puis naviguez vers `umontreal.ca`. Chaque ligne est un échange HTTP complet. Cliquez sur une requête pour voir son anatomie : méthode, URL, en-têtes de requête, en-têtes de réponse, et corps.
+</Aside>

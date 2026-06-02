@@ -1,0 +1,956 @@
+---
+title: "Application Lino - Boîtes à livres"
+description: "De la collecte de données au stockage : concevoir une API REST avec des endpoints qui répondent à des questions."
+---
+
+import FluxCard from "../../../components/FluxCard.astro";
+import ExchangeSimulator from "../../../components/ExchangeSimulator.jsx"
+import { Steps } from "@astrojs/starlight/components";
+
+
+<style>{`
+.flux {
+  margin: 1.5rem 0;
+  border: 1px solid var(--sl-color-gray-5, #e0ded8);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.flux__scenario {
+  padding: 16px 20px;
+  background: var(--sl-color-gray-7, #faf9f7);
+  line-height: 1.65;
+}
+.flux__scenario strong { color: var(--sl-color-text, #1a1a2e); }
+.flux__actors {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 8px;
+}
+.flux__actor {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  border-radius: 20px;
+  background: #dbeafe;
+  color: #1e40af;
+}
+.flux__actor--system {
+  background: #f0fdfa;
+  color: #0d9488;
+}
+
+.flux details {
+  border-top: 1px solid var(--sl-color-gray-5, #e0ded8);
+}
+.flux details summary {
+  padding: 10px 20px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+  list-style: none;
+}
+.flux details summary::-webkit-details-marker { display: none; }
+.flux details summary::before {
+  content: "▸ ";
+  font-size: 0.8em;
+  margin-right: 4px;
+  transition: transform 0.15s;
+  display: inline-block;
+}
+.flux details[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.flux__rest > summary {
+  background: #eef3fb;
+  color: #1e40af;
+}
+.flux__rest > summary:hover { background: #dbeafe; }
+
+.flux__integrated > summary {
+  background: #f0fdf4;
+  color: #166534;
+}
+.flux__integrated > summary:hover { background: #dcfce7; }
+
+.flux__rest-body,
+.flux__integrated-body {
+  padding: 16px 20px;
+}
+
+.flux__mapping {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.flux__map-row {
+  display: grid;
+  grid-template-columns: 140px 20px 1fr;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 0.88rem;
+  line-height: 1.5;
+}
+.flux__map-label {
+  color: var(--sl-color-gray-2, #6b6b80);
+  text-align: right;
+  font-size: 0.82rem;
+}
+.flux__map-arrow { color: var(--sl-color-gray-3, #9898ab); text-align: center; }
+.flux__map-value code {
+  font-size: 0.84em;
+  background: #eef3fb;
+  color: #1e40af;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.flux__flow-steps {
+  counter-reset: fstep;
+  padding: 0;
+  margin: 12px 0;
+  list-style: none;
+  border-left: 2px solid #a7f3d0;
+  padding-left: 0;
+}
+.flux__flow-step {
+  counter-increment: fstep;
+  padding: 8px 0 8px 20px;
+  position: relative;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+.flux__flow-step::before {
+  content: counter(fstep);
+  position: absolute;
+  left: -9px;
+  top: 10px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #166534;
+  color: white;
+  font-size: 0.68rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.flux__flow-step code {
+  font-size: 0.84em;
+  background: #f0fdf4;
+  color: #166534;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+.flux__flow-comment {
+  color: var(--sl-color-gray-2, #6b6b80);
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+`}</style>
+
+## Lino — un exemple de bout en bout
+
+Lino est un réseau de boîtes à livres en libre-service disséminées dans une ville. Des citoyens y déposent et prennent des livres librement. L'application aide à localiser les boîtes, suivre les livres, et mettre en relation les lecteurs.
+
+On va construire l'API de Lino en suivant la démarche suivante : partir des questions que les utilisateurs posent, en déduire les endpoints, puis concevoir le modèle de données qui les supporte.
+
+---
+
+## Les flux
+
+**Chaque flux a trois niveaux.** 
+
+<Steps>
+  1. *Description du scénario*: ce qu'un citoyen veut faire
+  2. *Correspondance REST*: comment ça se traduit en ressources et méthodes
+  3. *Flux intégré*: La séquence complète avec le code et les réponses
+</Steps>
+
+Utilisez les boutons pour naviguer.
+
+<FluxCard
+  numero={1}
+  titre="Trouver des boîtes à proximité"
+  acteurs={[{ nom: "Clara — citoyenne", type: "user" }]}
+  intention="Voir les boîtes autour de soi, avec assez d'information pour décider de s'y rendre ou non."
+>
+  <Fragment slot="scenario">
+    Clara ouvre l'application en marchant dans le Plateau. Elle veut savoir s'il y a
+    des boîtes à livres autour d'elle — et si elles contiennent quelque chose d'intéressant.
+    Elle ne veut pas se déplacer pour rien.
+
+    L'app utilise sa position GPS et affiche les boîtes proches avec leur distance,
+    leur activité récente, et une estimation du contenu.
+  </Fragment>
+
+  <Fragment slot="rest">
+    <dl class="fmap">
+      <dt>Ressource</dt><dd><code>/boites</code> — les boîtes à livres</dd>
+      <dt>Action</dt><dd><code>GET</code> — lire, pas modifier</dd>
+      <dt>Filtrage</dt><dd><code>?lat=45.523&lon=-73.587&rayon=2km</code></dd>
+      <dt>Route Express</dt><dd><code>router.get("/boites", handler)</code></dd>
+    </dl>
+
+    La réponse inclut la **distance calculée** et l'**activité récente** — le client
+    n'a pas à faire ces calculs lui-même.
+  </Fragment>
+
+  <Fragment slot="integre">
+    <ol class="fsteps">
+      <li>
+        <code>GET /boites?lat=45.523&lon=-73.587&rayon=2km</code>
+        <div class="fnote">La position GPS est envoyée à l'ouverture de l'app.</div>
+      </li>
+      <li>Le serveur interroge MongoDB avec un index <code>2dsphere</code>, calcule les distances et trie du plus proche au plus loin.</li>
+      <li>
+        Réponse <code>200</code> :
+        ```json
+        [{
+          "id": "boite-14",
+          "nom": "Boîte du parc Laurier",
+          "distance": "450m",
+          "derniere_activite": "il y a 2 heures",
+          "livres_estimes": 12,
+          "_links": { "detail": "/boites/boite-14" }
+        }]
+        ```
+      </li>
+      <li>Clara voit la boîte à 450m, active — elle s'y rend. Clic → <code>GET /boites/boite-14</code></li>
+    </ol>
+  </Fragment>
+</FluxCard>
+
+<FluxCard
+  numero={2}
+  titre="Déposer un livre et notifier les chercheurs"
+  acteurs={[
+    { nom: "Marc — donneur", type: "user" },
+    { nom: "Système", type: "system" },
+    { nom: "Sophie — chercheuse", type: "user" }
+  ]}
+  intention="Marc signale un dépôt. Sophie veut être prévenue quand le livre qu'elle cherche apparaît."
+>
+  <Fragment slot="scenario">
+    Marc est devant la boîte du parc Laurier. Il dépose un exemplaire de *Dune*.
+    Quelque part dans le quartier, Sophie cherche ce livre depuis deux semaines.
+
+    Marc scanne le code QR et confirme le dépôt. Le système vérifie si quelqu'un
+    cherche ce titre. Sophie, la prochaine fois qu'elle consulte sa recherche,
+    voit que *Dune* a été trouvé à 450m.
+  </Fragment>
+
+  <Fragment slot="rest">
+    <dl class="fmap">
+      <dt>Dépôt</dt><dd><code>POST /boites/:id/livres</code></dd>
+      <dt>Alerte</dt><dd><code>POST /recherches</code></dd>
+      <dt>Consultation</dt><dd><code>GET /recherches/:id</code></dd>
+      <dt>Effet de bord</dt><dd>Le <code>POST</code> de Marc met à jour la recherche de Sophie — sans qu'elle agisse</dd>
+    </dl>
+  </Fragment>
+
+  <Fragment slot="integre">
+    <p><strong>Sophie crée son alerte (avant) :</strong></p>
+    <ol class="fsteps">
+      <li><code>POST /recherches</code> → <code>201 {"{ id: \"rech-5\", statut: \"en attente\" }"}</code></li>
+    </ol>
+    <p><strong>Marc dépose :</strong></p>
+    <ol class="fsteps">
+      <li><code>POST /boites/boite-14/livres</code> avec <code>{"{ titre, code_qr }"}</code></li>
+      <li>Le serveur insère l'événement, met à jour la boîte, et cherche les recherches actives pour « Dune »</li>
+      <li>Réponse <code>201</code> avec <code>recherches_notifiees: 1</code></li>
+    </ol>
+    <p><strong>Sophie revient (après) :</strong></p>
+    <ol class="fsteps">
+      <li><code>GET /recherches/rech-5</code> — même endpoint, réponse différente</li>
+      <li>
+        Réponse <code>200</code> :
+        ```json
+        {
+          "statut": "trouvé",
+          "resultats": [{ "boite": "boite-14", "distance": "450m" }]
+        }
+        ```
+      </li>
+    </ol>
+  </Fragment>
+</FluxCard>
+
+<FluxCard
+  numero={3}
+  titre="Suivre le parcours d'un livre"
+  acteurs={[{ nom: "Léa — curieuse", type: "user" }]}
+  intention="Voir l'histoire d'un livre : son parcours à travers les boîtes de la ville."
+>
+  <Fragment slot="scenario">
+    Léa a trouvé un livre avec un code QR sur la couverture. Elle le scanne par
+    curiosité : qui l'a lu avant elle? D'où vient-il? Combien de boîtes a-t-il traversées?
+
+    L'app affiche le parcours complet : chaque boîte où il est passé, les dates,
+    la distance totale parcourue.
+  </Fragment>
+
+  <Fragment slot="rest">
+    <dl class="fmap">
+      <dt>Ressource</dt><dd><code>/livres/:code_qr</code></dd>
+      <dt>Action</dt><dd><code>GET</code> — lecture seule</dd>
+      <dt>Données</dt><dd>Agrégation des événements (dépôts + retraits), pas un document stocké tel quel</dd>
+    </dl>
+
+    C'est un endpoint **sémantique** : il ne retourne pas une ligne de base de données,
+    il *raconte une histoire* en agrégeant des événements.
+  </Fragment>
+
+  <Fragment slot="integre">
+    <ol class="fsteps">
+      <li><code>GET /livres/QR-7890</code> — Léa scanne le QR</li>
+      <li>Le serveur agrège : <code>db.evenements.find({"{ code_qr: \"QR-7890\" }"}).sort({"{ date: 1 }"})</code></li>
+      <li>
+        Réponse <code>200</code> :
+        ```json
+        {
+          "titre": "Dune",
+          "parcours": [
+            { "action": "déposé", "boite": "boite-7", "date": "2026-04-01" },
+            { "action": "pris", "boite": "boite-7", "date": "2026-04-18" },
+            { "action": "déposé", "boite": "boite-14", "date": "2026-05-12" }
+          ],
+          "distance_parcourue": "3.2km"
+        }
+        ```
+      </li>
+      <li>Léa voit que le livre a voyagé 3.2km. Elle décide de le lire et de le redéposer ailleurs.</li>
+    </ol>
+  </Fragment>
+</FluxCard>
+
+---
+
+La suite — table des endpoints, modèle de données MongoDB, implémentation Express — est dans la section suivante.
+
+### Les gens d'abord
+
+Avant de penser aux endpoints, il faut comprendre ce que les gens font *sans* l'application.
+
+Un citoyen marche dans son quartier. Il tombe sur une boîte à livres. Il feuillette, prend un roman, laisse un essai. Il ne connaît pas le propriétaire de la boîte. Il n'a pas de compte. Il ne signe rien. La confiance est implicite — c'est un acte communautaire.
+
+Un autre citoyen cherche un livre précis. Il fait le tour des boîtes de son quartier à pied. Parfois il trouve, souvent il ne trouve pas. Il n'a aucun moyen de savoir si le livre est quelque part dans une boîte à 3 rues de chez lui.
+
+L'application ne doit pas *remplacer* ces pratiques — elle doit les *faciliter* sans les alourdir.
+
+---
+
+## Les flux
+
+Chaque flux part d'un **scénario** (qui fait quoi et pourquoi), puis se traduit en **correspondance REST** (quelles ressources, quelles méthodes), puis se déploie en **flux intégré** (la séquence complète avec le code et les réponses).
+
+---
+
+### Flux 1 — Trouver des boîtes à proximité
+
+<div class="flux">
+<div class="flux__scenario">
+<div class="flux__actors">
+  <span class="flux__actor">Citoyen</span>
+</div>
+<strong>Scénario :</strong> Clara ouvre l'application en marchant dans le Plateau. Elle veut savoir s'il y a des boîtes à livres autour d'elle — et si elles contiennent quelque chose d'intéressant. Elle ne veut pas se déplacer pour rien.<br/><br/>
+<strong>Intention :</strong> voir ce qui est disponible à proximité, avec assez d'information pour décider de s'y rendre ou pas.<br/><br/>
+<strong>Interaction :</strong> l'app utilise la position GPS de Clara et affiche les boîtes proches avec leur distance, leur activité récente, et une estimation du contenu.
+</div>
+
+<details class="flux__rest">
+<summary>Correspondance REST →</summary>
+<div class="flux__rest-body">
+<div class="flux__mapping">
+<div class="flux__map-row">
+  <span class="flux__map-label">Ressource</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>/boites</code> — les boîtes à livres</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Action</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>GET</code> — lire, pas modifier</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Filtrage</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>?lat=45.523&lon=-73.587&rayon=2km</code></span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Route Express</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>router.get("/boites", async (req, res) => ...)</code></span>
+</div>
+</div>
+
+La réponse ne retourne pas juste des coordonnées — elle inclut la **distance calculée**, la **dernière activité**, et une **estimation du contenu**. Le client n'a pas à calculer les distances lui-même.
+
+<details class="flux__integrated">
+<summary>Flux intégré →</summary>
+<div class="flux__integrated-body">
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>GET /boites?lat=45.523&lon=-73.587&rayon=2km</code>
+<div class="flux__flow-comment">Clara ouvre l'app, la position GPS est envoyée automatiquement</div>
+</li>
+<li class="flux__flow-step">
+Le serveur interroge MongoDB avec un index géospatial <code>2dsphere</code>, calcule les distances, et retourne les boîtes triées du plus proche au plus loin
+</li>
+<li class="flux__flow-step">
+Réponse <code>200</code> :
+```json
+[
+  {
+    "id": "boite-14",
+    "nom": "Boîte du parc Laurier",
+    "distance": "450m",
+    "derniere_activite": "il y a 2 heures",
+    "livres_estimes": 12,
+    "statut": "active",
+    "_links": { "detail": "/boites/boite-14", "livres": "/boites/boite-14/livres" }
+  },
+  {
+    "id": "boite-7",
+    "nom": "Coin Fabre / Saint-Zotique",
+    "distance": "1.1km",
+    "derniere_activite": "il y a 3 jours",
+    "livres_estimes": 5,
+    "statut": "active"
+  }
+]
+```
+</li>
+<li class="flux__flow-step">
+Clara voit que la boîte du parc Laurier est à 450m et active — elle décide de s'y rendre. Elle clique → <code>GET /boites/boite-14</code>
+</li>
+</ol>
+</div>
+</details>
+
+</div>
+</details>
+</div>
+
+---
+
+### Flux 2 — Déposer un livre et notifier les chercheurs
+
+<div class="flux">
+<div class="flux__scenario">
+<div class="flux__actors">
+  <span class="flux__actor">Citoyen (donneur)</span>
+  <span class="flux__actor--system">Système (notification)</span>
+  <span class="flux__actor">Citoyen (chercheur)</span>
+</div>
+<strong>Scénario :</strong> Marc est devant la boîte du parc Laurier. Il dépose un exemplaire de <em>Dune</em>. Quelque part dans le quartier, Sophie cherche ce livre depuis deux semaines.<br/><br/>
+<strong>Intention :</strong> Marc veut signaler son dépôt. Sophie veut être prévenue quand le livre apparaît.<br/><br/>
+<strong>Interaction :</strong> Marc scanne le code QR du livre et confirme le dépôt. Le système vérifie si quelqu'un cherche ce titre et marque la correspondance. Sophie, la prochaine fois qu'elle consulte sa recherche, voit que <em>Dune</em> a été trouvé à 450m.
+</div>
+
+<details class="flux__rest">
+<summary>Correspondance REST →</summary>
+<div class="flux__rest-body">
+<p>Ce flux implique <strong>trois ressources</strong> et <strong>deux acteurs</strong> :</p>
+<div class="flux__mapping">
+<div class="flux__map-row">
+  <span class="flux__map-label">Dépôt</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>POST /boites/:id/livres</code> — créer un événement de dépôt</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Alerte</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>POST /recherches</code> — créer une alerte sur un titre</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Consultation</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>GET /recherches/:id</code> — vérifier l'état de l'alerte</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Effet de bord</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value">Le <code>POST</code> de Marc déclenche une mise à jour côté serveur des recherches de Sophie — sans qu'elle fasse quoi que ce soit</span>
+</div>
+</div>
+
+<details class="flux__integrated">
+<summary>Flux intégré →</summary>
+<div class="flux__integrated-body">
+<p><strong>Du côté de Sophie (avant le dépôt) :</strong></p>
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>POST /recherches</code> avec <code>{"{ titre: \"Dune\" }"}</code>
+<div class="flux__flow-comment">Sophie crée une alerte. Elle recevra une notification quand quelqu'un dépose ce titre.</div>
+</li>
+<li class="flux__flow-step">
+Réponse <code>201</code> : <code>{"{ id: \"rech-5\", statut: \"en attente\", correspondances: 0 }"}</code>
+</li>
+</ol>
+
+<p><strong>Du côté de Marc :</strong></p>
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>POST /boites/boite-14/livres</code> avec <code>{"{ titre: \"Dune\", auteur: \"Frank Herbert\", code_qr: \"QR-7890\" }"}</code>
+<div class="flux__flow-comment">Marc dépose le livre et scanne le QR.</div>
+</li>
+<li class="flux__flow-step">
+Le serveur : (a) insère l'événement de dépôt, (b) met à jour la boîte (<code>derniere_activite</code>, <code>livres_estimes++</code>), (c) cherche les recherches actives pour « Dune » et met à jour celle de Sophie
+</li>
+<li class="flux__flow-step">
+Réponse <code>201</code> :
+```json
+{
+  "message": "Livre déposé.",
+  "recherches_notifiees": 1,
+  "_links": {
+    "boite": "/boites/boite-14",
+    "livre": "/livres/QR-7890"
+  }
+}
+```
+</li>
+</ol>
+
+<p><strong>Du côté de Sophie (après le dépôt) :</strong></p>
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>GET /recherches/rech-5</code>
+<div class="flux__flow-comment">Sophie vérifie sa recherche — le même endpoint qu'avant, mais la réponse a changé.</div>
+</li>
+<li class="flux__flow-step">
+Réponse <code>200</code> :
+```json
+{
+  "statut": "trouvé",
+  "correspondances": 1,
+  "resultats": [{
+    "boite": "boite-14",
+    "nom": "Boîte du parc Laurier",
+    "distance": "450m",
+    "depose_le": "il y a 20 minutes"
+  }],
+  "_links": { "boite": "/boites/boite-14" }
+}
+```
+</li>
+</ol>
+</div>
+</details>
+
+</div>
+</details>
+</div>
+
+---
+
+### Flux 3 — Suivre le parcours d'un livre
+
+<div class="flux">
+<div class="flux__scenario">
+<div class="flux__actors">
+  <span class="flux__actor">Citoyen (curieux)</span>
+</div>
+<strong>Scénario :</strong> Léa a trouvé un livre avec un code QR collé sur la couverture. Elle le scanne par curiosité : qui l'a lu avant elle? D'où vient-il? Combien de boîtes a-t-il traversées?<br/><br/>
+<strong>Intention :</strong> voir l'histoire du livre — son parcours à travers les boîtes de la ville.<br/><br/>
+<strong>Interaction :</strong> Léa scanne le QR. L'app affiche le parcours complet du livre : chaque boîte où il est passé, quand il a été déposé et pris, la distance totale parcourue.
+</div>
+
+<details class="flux__rest">
+<summary>Correspondance REST →</summary>
+<div class="flux__rest-body">
+<div class="flux__mapping">
+<div class="flux__map-row">
+  <span class="flux__map-label">Ressource</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>/livres/:code_qr</code> — un livre identifié par son QR</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Action</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>GET</code> — lecture seule</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Données</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value">Agrégation des événements (dépôts + retraits) pour ce QR — pas un document stocké tel quel</span>
+</div>
+</div>
+
+C'est un endpoint **sémantique** : il ne retourne pas une ligne de base de données. Il *raconte une histoire* en agrégeant des événements.
+
+<details class="flux__integrated">
+<summary>Flux intégré →</summary>
+<div class="flux__integrated-body">
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>GET /livres/QR-7890</code>
+<div class="flux__flow-comment">Léa scanne le QR collé sur la couverture de Dune.</div>
+</li>
+<li class="flux__flow-step">
+Le serveur interroge la collection <code>evenements</code> : <code>db.evenements.find({"{ code_qr: \"QR-7890\" }"}).sort({"{ date: 1 }"})</code>
+</li>
+<li class="flux__flow-step">
+Réponse <code>200</code> :
+```json
+{
+  "code_qr": "QR-7890",
+  "titre": "Dune",
+  "auteur": "Frank Herbert",
+  "parcours": [
+    { "action": "déposé", "boite": "boite-7", "boite_nom": "Coin Fabre / Saint-Zotique", "date": "2026-04-01" },
+    { "action": "pris",   "boite": "boite-7", "date": "2026-04-18" },
+    { "action": "déposé", "boite": "boite-14", "boite_nom": "Boîte du parc Laurier", "date": "2026-05-12" }
+  ],
+  "position_actuelle": { "boite": "boite-14", "depuis": "2026-05-12" },
+  "distance_parcourue": "3.2km",
+  "lecteurs_estimes": 2,
+  "_links": { "boite_actuelle": "/boites/boite-14" }
+}
+```
+</li>
+<li class="flux__flow-step">
+Léa voit que le livre a voyagé 3.2km et qu'elle est le troisième lecteur estimé. Elle décide de le lire et de le redéposer ailleurs.
+</li>
+</ol>
+</div>
+</details>
+
+</div>
+</details>
+</div>
+
+---
+
+### Flux 4 — Signaler un problème
+
+<div class="flux">
+<div class="flux__scenario">
+<div class="flux__actors">
+  <span class="flux__actor">Citoyen</span>
+  <span class="flux__actor--system">Système (modération)</span>
+</div>
+<strong>Scénario :</strong> Thomas passe devant une boîte qu'il connaît bien. La vitre est cassée, les livres sont trempés. Il veut prévenir les autres pour qu'ils ne se déplacent pas inutilement.<br/><br/>
+<strong>Intention :</strong> signaler un problème sur une boîte pour que le système et les autres usagers en soient informés.<br/><br/>
+<strong>Interaction :</strong> Thomas ouvre la fiche de la boîte et soumet un signalement. Pas besoin de compte — la modération repose sur la communauté. Plusieurs signalements « retirée » peuvent changer le statut automatiquement.
+</div>
+
+<details class="flux__rest">
+<summary>Correspondance REST →</summary>
+<div class="flux__rest-body">
+<div class="flux__mapping">
+<div class="flux__map-row">
+  <span class="flux__map-label">Ressource</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>/boites/:id/signalements</code> — sous-ressource de la boîte</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Action</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>POST</code> — créer un signalement</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Conséquence</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value">Si le nombre de signalements « retirée » dépasse un seuil, le statut de la boîte passe automatiquement à <code>"inactive"</code></span>
+</div>
+</div>
+
+Pas d'authentification pour signaler. La fiabilité vient du nombre de signalements concordants, pas de l'identité des signaleurs.
+
+<details class="flux__integrated">
+<summary>Flux intégré →</summary>
+<div class="flux__integrated-body">
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>POST /boites/boite-14/signalements</code> avec <code>{"{ type: \"vandalisée\", note: \"vitre cassée, livres trempés\" }"}</code>
+</li>
+<li class="flux__flow-step">
+Le serveur insère le signalement, puis compte les signalements récents pour cette boîte
+</li>
+<li class="flux__flow-step">
+Réponse <code>201</code> :
+```json
+{
+  "message": "Signalement enregistré.",
+  "signalements_recents": 3,
+  "statut_boite": "active"
+}
+```
+</li>
+<li class="flux__flow-step">
+Si un 5e signalement « retirée » arrive dans la même semaine, le serveur passe le statut de la boîte à <code>"inactive"</code>. Les prochains <code>GET /boites?lat=...&lon=...</code> ne la retourneront plus (ou la marqueront comme inactive).
+</li>
+</ol>
+</div>
+</details>
+
+</div>
+</details>
+</div>
+
+---
+
+### Flux 5 — Proposer un échange entre lecteurs
+
+<div class="flux">
+<div class="flux__scenario">
+<div class="flux__actors">
+  <span class="flux__actor">Lecteur A</span>
+  <span class="flux__actor">Lecteur B</span>
+</div>
+<strong>Scénario :</strong> Nadia a un exemplaire de <em>L'Étranger</em> qu'elle a terminé. Elle cherche <em>Dune</em>. Elle voit que Léa a <em>Dune</em> et cherche justement un Camus. Elles pourraient s'arranger.<br/><br/>
+<strong>Intention :</strong> proposer un échange de livres entre deux lecteurs sans passer par une boîte.<br/><br/>
+<strong>Interaction :</strong> Nadia propose un échange. Léa reçoit la proposition la prochaine fois qu'elle consulte ses notifications. Elle accepte. Les deux conviennent d'un point de rencontre.
+</div>
+
+<details class="flux__rest">
+<summary>Correspondance REST →</summary>
+<div class="flux__rest-body">
+<div class="flux__mapping">
+<div class="flux__map-row">
+  <span class="flux__map-label">Proposition</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>POST /echanges</code> — créer une proposition</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Consultation</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>GET /echanges?destinataire=lea</code> — voir ses propositions reçues</span>
+</div>
+<div class="flux__map-row">
+  <span class="flux__map-label">Décision</span>
+  <span class="flux__map-arrow">→</span>
+  <span class="flux__map-value"><code>PUT /echanges/:id</code> avec <code>{"{ decision: \"accepte\" }"}</code></span>
+</div>
+</div>
+
+Ce flux est une **négociation asynchrone** : deux acteurs, trois étapes, un aller-retour. REST la modélise comme une ressource (<code>/echanges</code>) dont l'état évolue (proposé → accepté ou refusé).
+
+<details class="flux__integrated">
+<summary>Flux intégré →</summary>
+<div class="flux__integrated-body">
+<p><strong>Nadia propose :</strong></p>
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>POST /echanges</code> avec <code>{"{ offre: \"QR-1111\", demande: \"QR-7890\", message: \"Intéressée par Dune — j'ai L'Étranger\" }"}</code>
+</li>
+<li class="flux__flow-step">
+Réponse <code>201</code> : <code>{"{ id: \"ech-3\", statut: \"proposé\" }"}</code>
+</li>
+</ol>
+
+<p><strong>Léa consulte :</strong></p>
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>GET /echanges?destinataire=lea</code>
+</li>
+<li class="flux__flow-step">
+Réponse <code>200</code> :
+```json
+[{
+  "id": "ech-3",
+  "de": "nadia",
+  "offre": { "titre": "L'Étranger", "auteur": "Albert Camus" },
+  "demande": { "titre": "Dune", "auteur": "Frank Herbert" },
+  "message": "Intéressée par Dune — j'ai L'Étranger",
+  "statut": "proposé"
+}]
+```
+</li>
+</ol>
+
+<p><strong>Léa accepte :</strong></p>
+<ol class="flux__flow-steps">
+<li class="flux__flow-step">
+<code>PUT /echanges/ech-3</code> avec <code>{"{ decision: \"accepte\", lieu: \"Café Olimpico, 16h\" }"}</code>
+</li>
+<li class="flux__flow-step">
+Réponse <code>200</code> : <code>{"{ statut: \"accepté\", rendez_vous: \"Café Olimpico, 16h\" }"}</code>
+<div class="flux__flow-comment">Nadia peut consulter <code>GET /echanges/ech-3</code> pour voir que Léa a accepté et lire le point de rencontre.</div>
+</li>
+</ol>
+</div>
+</details>
+
+</div>
+</details>
+</div>
+
+---
+
+<ExchangeSimulator client:visible />
+
+## Table récapitulative des endpoints
+
+### Boîtes
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| `GET` | `/boites?lat=...&lon=...&rayon=...` | Boîtes à proximité avec distance et activité |
+| `GET` | `/boites/:id` | Détail d'une boîte |
+| `POST` | `/boites` | Ajouter une boîte |
+
+### Livres
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| `GET` | `/boites/:id/livres` | Livres dans une boîte |
+| `POST` | `/boites/:id/livres` | Déposer un livre |
+| `DELETE` | `/boites/:id/livres/:code_qr` | Signaler qu'on prend un livre |
+| `GET` | `/livres/:code_qr` | Parcours complet d'un livre |
+
+### Recherches
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| `POST` | `/recherches` | Créer une alerte |
+| `GET` | `/recherches/:id` | Vérifier l'état |
+| `DELETE` | `/recherches/:id` | Annuler |
+
+### Signalements
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| `POST` | `/boites/:id/signalements` | Signaler un problème |
+| `GET` | `/boites/:id/signalements` | Voir les signalements |
+
+### Échanges
+
+| Méthode | Endpoint | Description |
+|---|---|---|
+| `POST` | `/echanges` | Proposer un échange |
+| `GET` | `/echanges?destinataire=...` | Voir ses propositions |
+| `PUT` | `/echanges/:id` | Accepter ou refuser |
+| `GET` | `/echanges/:id` | Consulter l'état |
+
+---
+
+## Modèle de données
+
+Les endpoints et les flux déterminent le modèle — pas l'inverse. La question est : quelles lectures sont les plus fréquentes?
+
+### Collections MongoDB
+
+```javascript
+// Collection : boites
+{
+  _id: "boite-14",
+  nom: "Boîte du parc Laurier",
+  position: { type: "Point", coordinates: [-73.585, 45.527] },
+  description: "Grande boîte vitrée, côté est du parc",
+  statut: "active",
+  derniere_activite: ISODate("2026-05-12T14:20:00Z"),
+  livres_estimes: 12
+}
+
+// Collection : evenements
+{
+  _id: ObjectId("..."),
+  type: "depot",          // "depot" | "retrait"
+  code_qr: "QR-7890",
+  titre: "Dune",
+  auteur: "Frank Herbert",
+  boite_id: "boite-14",
+  date: ISODate("2026-05-12T14:20:00Z")
+}
+
+// Collection : recherches
+{
+  _id: "rech-5",
+  titre: "Dune",
+  statut: "trouvé",       // "en attente" | "trouvé" | "annulée"
+  correspondances: [
+    { boite_id: "boite-14", code_qr: "QR-7890", date: ISODate("...") }
+  ]
+}
+
+// Collection : signalements
+{
+  _id: ObjectId("..."),
+  boite_id: "boite-14",
+  type: "vandalisée",
+  note: "vitre cassée",
+  date: ISODate("2026-05-10T08:30:00Z")
+}
+
+// Collection : echanges
+{
+  _id: "ech-3",
+  de: "nadia",
+  destinataire: "lea",
+  offre: { code_qr: "QR-1111", titre: "L'Étranger" },
+  demande: { code_qr: "QR-7890", titre: "Dune" },
+  message: "Intéressée par Dune — j'ai L'Étranger",
+  statut: "accepté",
+  rendez_vous: "Café Olimpico, 16h",
+  date: ISODate("2026-05-13T10:00:00Z")
+}
+```
+
+### Pourquoi des événements séparés?
+
+Les livres dans une boîte pourraient être stockés *dans* le document de la boîte (un tableau `livres`). Mais chaque livre a un cycle de vie indépendant — il traverse plusieurs boîtes. Si les livres sont imbriqués, le parcours d'un livre (`GET /livres/QR-7890`) demande de chercher dans *tous* les documents boîtes.
+
+En séparant les événements, le parcours d'un livre est une simple requête :
+
+```javascript
+db.evenements.find({ code_qr: "QR-7890" }).sort({ date: 1 })
+```
+
+Les livres *actuellement* dans une boîte se déduisent des événements : les dépôts sans retrait correspondant. C'est un calcul, pas un stockage — et c'est un choix de conception (stocker l'état courant vs le recalculer à partir de l'historique).
+
+### Index
+
+```javascript
+db.boites.createIndex({ position: "2dsphere" });        // recherche géospatiale
+db.evenements.createIndex({ code_qr: 1, date: 1 });     // parcours d'un livre
+db.evenements.createIndex({ boite_id: 1, type: 1 });     // livres dans une boîte
+db.recherches.createIndex({ titre: 1, statut: 1 });      // correspondances lors d'un dépôt
+```
+
+---
+
+## TODO pour la suite
+
+Plusieurs décisions restent ouvertes :
+
+- **Authentification** — qui peut déposer, signaler, proposer un échange? Lino repose sur la confiance communautaire, mais les échanges impliquent un contact entre personnes.
+- **Pagination** — `GET /boites/:id/livres` retourne tout? Les 20 plus récents?
+- **Notifications push** — Sophie doit faire un `GET /recherches/rech-5` pour vérifier. Pour une vraie notification instantanée, il faudrait du push (SSE, WebSocket).
+- **Modération** — que faire des faux signalements? Seuil automatique vs modération manuelle?
+- **Vie privée des échanges** — Nadia et Léa échangent un lieu de rendez-vous via l'API. Ces données doivent être protégées.
+
+
+
+## Ce qu'on n'a pas résolu
+ 
+Concevoir, c'est aussi savoir ce qu'on laisse de côté — et le dire.
+ 
+La **notification de Sophie** se fait par polling : elle doit revenir demander. Un vrai système la *préviendrait*. Mais le push (Server-Sent Events, WebSocket) est un autre modèle de communication, qui sort du cadre requête-réponse. C'est une limite assumée, pas un oubli.
+ 
+La **modération** repose sur la confiance communautaire. Que faire si quelqu'un signale faussement qu'une boîte a disparu? On pourrait exiger un seuil de signalements concordants avant d'agir — mais sur-sécuriser un système fondé sur la confiance, c'est en trahir l'esprit. C'est une décision de conception, pas un bug à corriger.
+ 
+L'**authentification** est minimale. Lino marche parce que les gens se font confiance. Ajouter trop de contrôle découragerait la contribution. Le bon niveau de friction n'est pas zéro, mais il n'est pas maximal non plus.
+ 
+Aucune de ces questions n'a de réponse universelle. C'est précisément pour ça qu'elles méritent d'être documentées plutôt que tranchées en silence dans le code.
+ 
+---
+ 
+## Pour aller plus loin
+ 
+Quelques lectures qui prolongent la réflexion sur la conception d'API — moins sur la syntaxe, plus sur les intentions derrière les choix.
+ 
+- [**RESTful API Design: nouns are good, verbs are bad**](https://cloud.google.com/blog/products/api-management/restful-api-design-nouns-are-good-verbs-are-bad) (Google Cloud) — le billet classique sur la différence entre nommer des ressources et nommer des actions, et pourquoi le premier produit des API prévisibles.
+- [**REST APIs must be hypertext-driven**](https://roy.gbiv.com/untangled/2008/rest-apis-must-be-hypertext-driven) (Roy Fielding) — l'inventeur de REST explique, avec une certaine exaspération, ce que la plupart des « API REST » ratent : l'hypermédia comme moteur de l'état. Court, tranchant, fondateur.
+- [**Roy Fielding's Misappropriated REST Dissertation**](https://twobithistory.org/2020/06/28/rest.html) (Two-Bit History) — une histoire fascinante de comment le mot « REST » a dérivé de sa définition d'origine. Utile pour comprendre pourquoi tant de débats sur « est-ce vraiment du REST » tournent en rond.
+- [**REST, Explained for Beginners**](https://htmx.org/essays/rest-explained/) (htmx) — une relecture du chapitre 5 de la thèse de Fielding pour des développeurs non-académiques. Défend l'idée que l'hypermédia (HTML, justement) est plus proche de l'esprit REST que les API JSON modernes.
+- [**Web API Design Best Practices**](https://learn.microsoft.com/en-us/azure/architecture/best-practices/api-design) (Microsoft Azure) — un guide complet et pragmatique sur la modélisation des ressources, le filtrage, la pagination et le versionnage. Une bonne référence à garder sous la main.
+- [**Most RESTful APIs aren't really RESTful**](https://florian-kraemer.net/software-architecture/2025/07/07/Most-RESTful-APIs-are-not-really-RESTful.html) (Florian Krämer) — une discussion accessible de ce que le découplage client-serveur via l'hypermédia apporte réellement, au-delà du débat « verbes ou noms ».
+Le fil rouge de toutes ces lectures rejoint celui de cet article : une API n'est pas une projection de votre base de données sur le réseau. C'est une *interface* — au sens fort du terme. Elle existe pour que d'autres puissent comprendre et utiliser votre système sans avoir à lire votre code. Conçue ainsi, elle raconte une histoire. Conçue comme un miroir de vos tables, elle force chaque client à devenir archéologue.

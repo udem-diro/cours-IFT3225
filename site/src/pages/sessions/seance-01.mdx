@@ -1,0 +1,90 @@
+---
+numero: 0
+title: "Introduction"
+date: "2026-05-05"
+tags: [cours]
+summary: "Présentation, posture du cours, projet de session, l'intention comme discipline"
+layout: ../../layouts/CoursLayout.astro
+---
+
+import Aside from '../../components/Aside.astro';
+
+## Présentation
+
+Ce cours propose une introduction approfondie aux technologies fondamentales du web et de l'internet à travers la conception et le développement d'une application distribuée complète.
+
+On construit un système complet — du capteur physique à l'interface humaine — pour comprendre comment des entités indépendantes communiquent sur Internet.
+
+### Quatre perspectives, un même système
+
+Pour comprendre les différentes facettes de l'intenet, nous proposons le découpage suivant:
+
+1. **Communication**: Le besoin premier comblé par l'internet est celui d'augmenter et faciliter notre capacité à communiquer à grande distance. 
+Nous verrons donc les instruments créers pour faciliter cette communication comme les protocoles, formats, conventions et autres mécanismes mis
+en place pour garantir et permettre la saine communication à distance.
+2. **Objets augmentés**: L'internet repose sur une infrastructure physique mettant en réseaux des objets (principalement électronique) servant 
+divers rôles facilitant la transmission et reception d'information et même l'exécution d'action associé à l'information (comme unecommande). 
+3. **Serveur**: L'information transmise requiert souvent un traitement, une transformation ou nécessite d'être préservé au delà de la session de communication. 
+Ce rôle est rempli par l'unité appelé serveur reposant généralement sur un jeu de machines dédiés désigné comme serveur.
+4. **Consommateur**: Finalement, la dernière composante, souvent négligée, désigne les éléments qui permettront au destinataire finale (utilisateur) d'un message 
+de lire et interpréter correctement l'information transmise et l'état actuelle du système avec lequel il communique. 
+
+## Le projet
+
+Le projet est le **fil conducteur** du cours. 
+Nous construisons un système qui utilise un objet connecté comme source de données environnementales et alimente un pipeline de collecte, de persistance et de visualisation.
+
+<Aside type="exemple" title="La source de données">
+Notre téléphone via l'application **Phyphox** qui expose les capteurs physiques du téléphone (accéléromètre, baromètre, luminosité, GPS…) via une interface réseau. 
+</Aside>
+
+### Trois livrables progressifs
+
+| Livrable  | Quoi | Poids |
+|----------|------|-------|
+| **1. Pipeline de collecte** | Capteur → serveur → base de données | 10% |
+| **2. Interface de visualisation** | Interface React avec graphiques et cartes | 15% |
+| **3. Système déployé** | Système complet accessible publiquement | 20% |
+
+<Aside type="syntaxe" title="Les outils de la session">
+
+| Rôle conceptuel | Instanciation |
+|---|---|
+| Serveur | Express 5.x |
+| Persistance | Mongoose 8.x (MongoDB) |
+| Interface | React 19 (via Vite 5) |
+| Source de données | Phyphox |
+| Déploiement | Render + MongoDB Atlas |
+</Aside>
+
+## Questionner les pratiques
+
+<Aside type="plusloin" title="L'invitation">
+Ce cours ne vous demande pas d'appliquer des recettes. Il vous demande de comprendre **pourquoi ces recettes existent**.
+
+{/* Quand on dit « utilisez `const` par défaut » — pourquoi? Quand un tutoriel dit « ajoutez ce middleware » — que fait-il? Quand une convention dit « les URLs doivent être au pluriel » — qui a décidé ça? */}
+
+Les « bonnes pratiques » ne sont pas des lois. Ce sont des **consensus temporaires**. Certains ont fait leur preuve (HTTPS, validation des entrées). 
+D'autres sont des habitudes culturelles (REST vs GraphQL, SQL vs NoSQL). Il faut savoir les distinguer et reconnaitre les situation où elles sont pertinentes.
+
+Chaque fois que le cours présente un outil ou une convention, vous êtes encouragés à demander « pourquoi celui-là? » et 
+« que se passerait-il si on faisait autrement? ». Ce ne sont pas des questions de perturbation, mais une attitute à adopter
+comme ingénieur pour (tenter de) produire la meilleur solution.
+</Aside>
+
+## L'intention comme discipline
+
+Le concept qui ferme cette séance et qui reviendra tout au long du cours :
+
+> **Chaque ligne de code, chaque choix d'outil, chaque décision d'architecture devrait être traçable à une intention.**
+
+{/* Pourquoi Express et pas Fastify? Parce que l'écosystème middleware est plus mature pour un cours d'introduction. Pourquoi MongoDB et pas PostgreSQL? Parce que le modèle document est plus naturel pour des données de capteur hétérogènes. Pourquoi React? Parce que le modèle de composition par composants est le plus représentatif du paradigme actuel. */}
+
+Si on ne peut pas répondre « pourquoi », on utilise un outil par défaut, pas par choix. Et utiliser un outil par défaut, c'est lui confier les décisions qu'on devrait prendre soi-même et s'exposer aux conséquence d'un mauvais usage.
+
+<Aside type="definition" title="Intention">
+L'intention ne s'applique pas qu'aux outils. Elle s'applique au code (pourquoi cette structure ou ce langage?), 
+à l'interface (pourquoi ce bouton ou menu ici?), aux intégrations (pourquoi intégrer un LLM pour résoudre ce problème?), 
+et au projet (pourquoi ces données ou ces contraintes?). 
+Le cours entraîne ce réflexe : **avant de faire, nommer pourquoi on fait**.
+</Aside>

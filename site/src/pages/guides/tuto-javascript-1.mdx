@@ -1,0 +1,399 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Node.js et JavaScript"
+description: "Introduction à Node.js, npm, et les bases de JavaScript — avec comparaisons Python et Java"
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+
+<MarginNote type="prerequis">
+Ce guide suppose une familiarité avec au moins un langage de programmation de haut niveau comme Python ou Java. 
+</MarginNote>
+
+## Introduction à JavaScript
+
+JavaScript est un langage **interprété** et **dynamiquement typé**, créé en 1995 par Brendan Eich. Aujourd'hui standardisé sous le nom **ECMAScript**, la version moderne (ES6/ES2015 et après) est celle qu'on utilise dans ce cours.
+
+### Caractéristiques en bref
+
+- Sensible à la casse (`nom` ≠ `Nom` ≠ `NOM`)
+- Points-virgules optionnels (mais recommandés pour la lisibilité)
+- Commentaires : `//` pour une ligne, `/* */` pour un bloc
+- Affichage avec `console.log()` et pour cas spécifique `console.warn()`, `console.error()`
+
+```js
+// Premier programme
+console.log("Bienvenue au cours IFT3225!");
+```
+
+### Comparaison syntaxique rapide
+
+| Concept | JavaScript | Python | Java |
+|---|---|---|---|
+| Afficher | `console.log("allo")` | `print("allo")` | `System.out.println("allo")` |
+| Commentaire ligne | `// commentaire` | `# commentaire` | `// commentaire` |
+| Bloc de code | `{ ... }` (accolades) | Indentation | `{ ... }` (accolades) |
+| Point-virgule | Optionnel | Aucun | Obligatoire |
+| Typage | Dynamique | Dynamique | Statique |
+| Compilation | Aucune | Aucune | Requise (`javac`) |
+
+
+### Paradigme
+ 
+JavaScript est **multi-paradigme** : on peut écrire du code impératif, orienté objet, ou fonctionnel. 
+ 
+#### Un langage construit autour des objets
+ 
+<Highlight>En JavaScript, presque tout est un objet — ou se comporte comme tel.</Highlight> 
+Un tableau est un objet, une fonction est un objet, et même les valeurs primitives (chaînes, nombres) 
+sont temporairement « emballées » en objets quand on appelle une méthode dessus (`"allo".toUpperCase()`).
+ 
+Un objet, dans sa forme la plus simple, est une collection de paires clé-valeur :
+ 
+```js
+const etudiant = {
+  nom: "Alice",
+  age: 25,
+  saluer() {
+    return `Bonjour, je suis ${this.nom}`;
+  }
+};
+ 
+console.log(etudiant.nom);        // "Alice"
+console.log(etudiant.saluer());   // "Bonjour, je suis Alice"
+```
+ 
+- `saluer` est une fonction *à l'intérieur* d'un objet — une **méthode**. 
+- `this` désigne l'objet lui-même. 
+ 
+{/* #### Prototypes plutôt que classes
+ 
+Python et Java sont **basés sur les classes** (*class-based*) : on définit d'abord un moule (la classe), puis on fabrique des instances à partir de ce moule. L'instance et la classe sont deux choses de nature différente.
+ 
+JavaScript est **basé sur les prototypes** (*prototype-based*) : <Highlight couleur="violet">il n'y a pas de moule séparé — un objet hérite directement d'un autre objet, appelé son *prototype*.</Highlight>
+ 
+<MarginNote type="definition" titre="Prototype">
+Chaque objet JavaScript possède un lien interne vers un autre objet : son *prototype*. Quand on accède à une propriété qui n'existe pas sur l'objet, JavaScript la cherche sur le prototype, puis sur le prototype du prototype, et ainsi de suite — c'est la *chaîne de prototypes*.
+</MarginNote>
+Concrètement, quand on écrit `etudiant.toString()` alors qu'on n'a jamais défini `toString` sur `etudiant`, JavaScript ne trouve pas la méthode sur l'objet — il remonte alors la chaîne de prototypes jusqu'à `Object.prototype`, où `toString` existe. C'est ce mécanisme de *recherche en chaîne* qui remplace l'héritage de classes.
+ 
+```js
+const animal = {
+  respirer() {
+    return `${this.nom} respire`;
+  }
+};
+ 
+// chien a animal comme prototype : il hérite de respirer()
+const chien = Object.create(animal);
+chien.nom = "Rex";
+chien.aboyer = function () {
+  return `${this.nom} aboie`;
+};
+ 
+console.log(chien.aboyer());    // "Rex aboie"  — propre méthode
+console.log(chien.respirer());  // "Rex respire" — héritée du prototype
+```
+ 
+Ici, `chien` n'est l'instance d'aucune classe. Il est simplement *lié* à `animal`, qui lui sert de prototype. Quand on appelle `chien.respirer()`, JavaScript ne trouve pas `respirer` sur `chien`, remonte au prototype `animal`, et l'y trouve.
+ 
+<MarginNote type="exemple" titre="Pourquoi c'est important">
+On utilise rarement `Object.create` directement au quotidien. Mais ce modèle explique *tout* le reste : pourquoi les méthodes des tableaux (`map`, `filter`) sont disponibles sur n'importe quel tableau, comment `class` fonctionne réellement sous le capot, et pourquoi on parle de « chaîne de prototypes » dans les messages d'erreur.
+</MarginNote>
+#### La syntaxe `class` : du sucre sur les prototypes
+ 
+JavaScript moderne offre un mot-clé `class` qui ressemble à celui de Java ou Python :
+ 
+```js
+class Animal {
+  constructor(nom) {
+    this.nom = nom;
+  }
+  respirer() {
+    return `${this.nom} respire`;
+  }
+}
+ 
+const rex = new Animal("Rex");
+console.log(rex.respirer());   // "Rex respire"
+```
+ 
+Dans ce cours, on utilise surtout des objets littéraux (`{ ... }`) et un style fonctionnel. La syntaxe `class` apparaît rarement côté serveur avec Express, mais comprendre les prototypes aide à lire les messages d'erreur et le code des bibliothèques.
+
+---
+ */}
+## Variables et types de données
+
+### Déclaration de variables
+
+JavaScript offre trois mots-clés. Dans la pratique moderne, on n'en utilise que deux :
+
+```js
+const PI = 3.14159;         // constante — ne peut pas être réassignée
+let compteur = 0;           // variable — peut changer de valeur
+
+// var est l'ancienne syntaxe — on l'évite (portée problématique)
+```
+
+**Règle simple :** <Highlight>utiliser `const` par défaut, `let` seulement quand la valeur doit changer.</Highlight>
+
+<MarginNote type="exemple">
+En pratique, la majorité de vos déclarations seront `const`. Si vous réalisez qu'une variable doit changer, convertissez-la en `let`.
+</MarginNote>
+
+### Types primitifs
+
+```js
+let nom = "Alice";            // string (guillemets simples ou doubles)
+let age = 25;                 // number (pas de distinction int/float)
+let estInscrit = true;        // boolean
+let moyenne = null;           // null — absence intentionnelle de valeur
+let prenom;                   // undefined — valeur pas encore assignée
+```
+
+> En Python, on distingue `int` et `float`. En Java, on a `int`, `long`, `float`, `double`. En JavaScript, <Highlight couleur="violet">tout est `number`</Highlight>.
+
+### Types structurels
+
+#### Tableau (array)
+```js
+const fruits = ["pomme", "banane", "kiwi"];
+fruits.push("mangue");          // ajouter à la fin
+console.log(fruits[0]);         // "pomme"
+console.log(fruits.length);     // 4
+```
+
+#### Objet
+
+```js
+const etudiant = {
+  nom: "Alice",
+  age: 25,
+  cours: ["IFT3225", "IFT3150"]
+};
+console.log(etudiant.nom);        // "Alice"
+console.log(etudiant["age"]);     // 25 (notation alternative)
+```
+
+### Template literals (interpolation de chaînes)
+
+```js
+const nom = "Alice";
+const age = 25;
+console.log(`${nom} a ${age} ans`);   // backticks (`) obligatoires
+```
+
+| JavaScript | Python |
+|---|---|
+| `` `${nom} a ${age} ans` `` | `f"{nom} a {age} ans"` |
+
+### Vérifier le type
+
+```js
+typeof "allo"    // "string"
+typeof 42        // "number"
+typeof true      // "boolean"
+typeof null      // "object"  ← bug historique de JS !
+typeof undefined // "undefined"
+Array.isArray([1, 2, 3])  // true
+```
+
+<MarginNote type="erreur">
+`typeof null` retourne `"object"` — c'est un bug datant de 1995 qui n'a jamais été corrigé pour ne pas casser le web existant. Pour vérifier si une valeur est `null`, utilisez `valeur === null` plutôt que `typeof`.
+</MarginNote>
+
+
+---
+
+## Conditions
+
+```js
+const note = 78;
+
+if (note >= 90) {
+  console.log("A");
+} else if (note >= 75) {
+  console.log("B");
+} else if (note >= 60) {
+  console.log("C");
+} else {
+  console.log("Échec");
+}
+```
+
+### Égalité stricte vs faible
+
+C'est une particularité importante de JavaScript :
+
+```js
+5 == "5"     // true  — conversion automatique (coercition) ⚠️
+5 === "5"    // false — types différents, pas de conversion
+
+null == undefined   // true
+null === undefined  // false
+```
+
+**Règle absolue :** **toujours utiliser `===` et `!==`.** L'opérateur `==` a des règles de conversion surprenantes qui mènent à des bugs subtils.
+
+<MarginNote type="erreur">
+Les conversions implicites de `==` produisent des résultats absurdes : `"" == 0` est `true`, `"0" == false` est `true`, mais `"" == "0"` est `false`. Utilisez **toujours** `===` — pas d'exception.
+</MarginNote>
+
+
+### Opérateur ternaire
+
+```js
+const statut = note >= 60 ? "Réussite" : "Échec";
+```
+
+Équivalent Python : `statut = "Réussite" if note >= 60 else "Échec"`
+
+### Opérateurs logiques
+
+| Opérateur | JavaScript | Python | Java |
+|---|---|---|---|
+| ET | `&&` | `and` | `&&` |
+| OU | `\|\|` | `or` | `\|\|` |
+| NON | `!` | `not` | `!` |
+
+
+---
+
+## Boucles
+
+### `for` classique
+
+```js
+for (let i = 0; i < 5; i++) {
+  console.log(i);  // 0, 1, 2, 3, 4
+}
+```
+
+### `for...of` — itérer sur les éléments
+
+```js
+const cours = ["IFT3225", "IFT2255", "IFT3150"];
+
+for (const c of cours) {
+  console.log(c);
+}
+```
+
+C'est l'équivalent du `for c in cours:` de Python ou du `for (String c : cours)` de Java.
+
+### `while`
+
+```js
+let n = 3;
+while (n > 0) {
+  console.log(n);
+  n--;
+}
+```
+
+### Méthodes fonctionnelles sur les tableaux
+
+Ces méthodes sont très idiomatiques en JavaScript moderne. Elles prennent une fonction en argument et retournent un nouveau tableau (sauf `forEach`).
+
+```js
+const nombres = [1, 2, 3, 4, 5];
+
+// forEach — exécuter une action pour chaque élément
+nombres.forEach(n => console.log(n));
+
+// map — transformer chaque élément
+const doubles = nombres.map(n => n * 2);        // [2, 4, 6, 8, 10]
+
+// filter — garder les éléments qui satisfont une condition
+const pairs = nombres.filter(n => n % 2 === 0);  // [2, 4]
+
+// find — trouver le premier élément qui satisfait une condition
+const premier = nombres.find(n => n > 3);         // 4
+
+// reduce — réduire à une seule valeur
+const somme = nombres.reduce((acc, n) => acc + n, 0);  // 15
+```
+
+
+---
+
+## Fonctions
+
+### Déclaration classique
+
+```js
+function saluer(nom) {
+  return `Bonjour, ${nom}!`;
+}
+
+saluer("Alice");  // "Bonjour, Alice!"
+```
+
+### Fonction fléchée (*arrow function*) — syntaxe moderne
+
+```js
+const saluer = (nom) => {
+  return `Bonjour, ${nom}!`;
+};
+
+// Version courte (retour implicite, une seule expression)
+const saluer = (nom) => `Bonjour, ${nom}!`;
+```
+
+Les fonctions fléchées sont le style privilégié en JavaScript moderne, surtout pour les callbacks et les fonctions courtes.
+
+### Paramètres par défaut
+
+```js
+const calculerTaxe = (prix, taux = 0.14975) => {
+  return prix * (1 + taux);
+};
+
+calculerTaxe(100);          // 114.975 (TPS+TVQ du Québec)
+calculerTaxe(100, 0.05);    // 105 (taux personnalisé)
+```
+
+### Les fonctions sont des valeurs
+
+En JavaScript, les fonctions sont des citoyens de première classe — on peut les stocker dans des variables, les passer en argument, et les retourner depuis d'autres fonctions.
+
+```js
+const nombres = [3, 1, 4, 1, 5, 9];
+
+// Passer une fonction en argument
+nombres.sort((a, b) => a - b);     // tri croissant
+
+// Stocker dans une variable
+const operation = (a, b) => a + b;
+console.log(operation(2, 3));       // 5
+```
+
+### Déstructuration dans les paramètres
+
+Un patron courant quand une fonction reçoit un objet :
+
+```js
+// Sans déstructuration
+const afficher = (etudiant) => {
+  console.log(etudiant.nom, etudiant.age);
+};
+
+// Avec déstructuration
+const afficher = ({ nom, age }) => {
+  console.log(nom, age);
+};
+
+afficher({ nom: "Alice", age: 25 });
+```
+
+
+---
+
+<MarginNote type="plusloin">
+Pour approfondir JavaScript, trois ressources essentielles :
+- **MDN Web Docs** (developer.mozilla.org) — la référence la plus complète et fiable
+- **Eloquent JavaScript** (eloquentjavascript.net) — un livre gratuit en ligne, excellent pour comprendre les concepts en profondeur
+- **JavaScript.info** — tutoriel moderne et progressif avec exercices interactifs
+</MarginNote>

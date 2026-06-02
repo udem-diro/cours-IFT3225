@@ -1,0 +1,192 @@
+---
+numero: 1
+title: "Communication entre systèmes"
+date: "2026-05-08"
+tags: [cours]
+summary: "Protocoles, formats d'échange, sérialisation, requête/réponse"
+layout: ../../layouts/CoursLayout.astro
+---
+import Aside from '../../components/Aside.astro';
+import Story from '../../components/Story.astro';
+
+## Question directrice
+
+> Comment des entités indépendantes qui ne se voient pas peuvent-elles coordonner leurs actions?
+
+Cette question fonde l'ensemble du cours. 
+Tout ce qu'on construira — serveurs, interfaces, pipelines de données — 
+repose sur la capacité de systèmes autonomes à communiquer sans se voir ou sans lien direct.
+
+## Qu'est-ce qu'un système?
+
+Avant de parler de communication, il faut nommer ce qui communique. Un système est une entité capable de recevoir de l'information, la traiter, produire des résultats, maintenir un état, et interagir avec d'autres systèmes. Un navigateur est un système. Un serveur aussi. Un capteur de température dans un téléphone aussi. Chacun a ses capacités propres, mais tous partagent ces cinq traits.
+
+### Pourquoi des systèmes communiquent-ils? 
+
+Pour partager de l'information, demander des ressources, synchroniser des états, déléguer des traitements, coordonner des actions, notifier des événements. 
+
+Autrement dit : dès qu'un système ne peut pas tout faire seul, il doit parler à un autre.
+
+## Protocole
+
+La communication à distance pose un problème fondamental : les participants ne peuvent pas s'observer et s'adapter continuellement à l'autre. 
+En personne, on ajuste son discours selon les réactions de l'interlocuteur et on s'ajuste continuellement à tout changement dans notre environnement.
+
+<Aside type="note" title="Milieu organique">
+En fait dans un milieu organique, il n'est pas correct de faire une distinction nette entre un organisme et son environnement, car les deux s'influencent
+continuellement et se distingue arbitraitement à travers une abstration singularisant un ensemble de propriétés dans un état donné
+</Aside>
+
+À distance, entre machines, c'est impossible. Il faut donc **figer les règles à l'avance**.
+
+<Aside type="definition" title="Protocole">
+Un ensemble de règles et de conventions qui définissent comment plusieurs entités interagissent. Un protocole devient nécessaire dès que l'observation continue de l'autre est impossible. Il spécifie trois dimensions : **quand** chaque entité parle, **quoi** elle transmet (la structure des messages), et **comment** les messages s'enchaînent (séquencement et réponse).
+</Aside>
+
+Il est important de souligner qu'un protocole organise uniquement **l'échange**. 
+Il décrit la structure et le déroulement de la communication, mais pas nécessairement la signification métier du contenu transporté. HTTP transporte du JSON, du HTML, des images — il ne se prononce pas sur leur sens ni même du respect de leur syntaxe.
+
+### Exemples
+
+Le web repose sur un empilement de protocoles spécialisés. 
+
+- HTTP permet l'échange de ressources entre client et serveur. 
+- SMTP achemine les courriels. 
+- FTP transfère des fichiers. 
+- En dessous, TCP garantit l'ordre et l'intégrité des octets. 
+- DNS traduit les noms de domaine (`umontreal.ca`) en adresses IP.
+
+Ces protocoles fonctionnent en couches : TCP garantit la livraison, TLS chiffre et authentifie, HTTP donne un sens aux messages. Chaque couche résout un problème précis et s'appuie sur la couche inférieure sans s'en préoccuper.
+
+
+Les protocoles ne sont pas figés pour toujours. Quand les besoins changent ou que les contraintes techniques disparaissent, 
+un protocole doit évoluer ou être remplacé. Un cas familier illustre ce mouvement.
+
+
+<Story title="De SMS à RCS — évolution d'un protocole" icon="history">
+SMS, dont le développement a débuté au milieu des années 1980 dans le cadre du 
+standard GSM et dont le premier message a été envoyé en 1992, 
+est un protocole de messagerie bâti sur l'infrastructure cellulaire.
+
+Ses règles sont figées : 
+- messages de 160 caractères
+- texte brut
+- aucune confirmation de lecture
+- aucune notion de groupe. 
+
+MMS, introduit en 2002, a ajouté le support d'images et de vidéo, mais sur le même modèle fondamental. 
+Chaque message reste autonome, sans fil de conversation.
+ 
+Ces limites étaient acceptables quand la messagerie texte était la seule option.
+Avec l'arrivée et le gain en usage d'applications comme iMessage, WhatsApp et Signal 
+(qui passent par Internet), les attentes ont changé : accusés de réception, indicateurs
+de frappe, conversations de groupe, partage de fichiers, chiffrement. 
+
+SMS/MMS ne pouvait pas offrir ces fonctionnalités sans être repensé.
+ 
+RCS (_Rich Communication Services_), proposé par la GSMA dès 2008, est la réponse
+de l'industrie des télécommunications. Il reprend 
+les cas d'usage de SMS/MMS mais les étend en s'appuyant sur Internet plutôt que sur
+le canal cellulaire traditionnel. 
+ 
+| | SMS/MMS | RCS |
+|---|---|---|
+| Transport | Réseau cellulaire | Internet |
+| Taille | 160 car. / ~300 Ko | ~8 000 car., fichiers volumineux |
+| Accusé de réception | Non | Oui |
+| Indicateur de frappe | Non | Oui |
+| Conversations de groupe | Limitées (MMS) | Natives |
+| Chiffrement | Non | E2E ajouté en 2025 (déploiement en cours) |
+ 
+L'évolution n'est pas qu'un ajout de fonctionnalités — c'est un changement de **transport**. 
+En passant d'un canal cellulaire dédié à Internet, RCS rejoint l'écosystème des protocoles web
+que nous étudierons dans ce cours. 
+
+À noter : Pendant plus de 15 ans, RCS n'offrait qu'un chiffrement en transit, pas de bout en bout. 
+C'est un rappel que l'existence d'un protocole ne garantit pas la présence de toutes les propriétés qu'on lui associe. 
+</Story>
+
+ 
+### Internet comme infrastructure de communication
+
+De plus en plus de communications transitent par Internet plutôt que par des réseaux dédiés. Le téléphone fixe cède la place à la voix sur IP (VoIP). 
+La télévision câblée cède la place au streaming. Les capteurs industriels, autrefois câblés sur des bus propriétaires, communiquent maintenant via des protocoles IP.
+
+Cette convergence a des conséquences concrètes. Les appels vidéo, le streaming musical, 
+la messagerie, les notifications en temps réel, les jeux en ligne, les systèmes de paiement
+et les objets connectés reposent désormais en grande partie sur le même réseau de base et sur
+les mêmes familles de protocoles. 
+Un navigateur web, une application de messagerie et un thermostat connecté utilisent tous, à différents niveaux, 
+des couches similaires : IP pour l’acheminement, TCP ou UDP pour le transport, puis un protocole applicatif adapté au service.
+
+#### Le prix a payé pour cette convergence
+
+Cependant, faire transiter toutes les communications par un même réseau crée aussi des fragilités:
+
+- **Point unique de défaillance** — quand Internet tombe (panne de fournisseur, coupure de courant, câble sous-marin sectionné), ce n'est plus un seul service qui s'arrête potentiellement, c'est tout à la fois : appels, messagerie, domotique, paiements.
+- **Best-effort** — les réseaux dédiés pouvaient garantir bande passante et latence constante. Internet fait de son mieux, sans garantie. Un appel vidéo en compétition avec un téléchargement se dégrade. Les mécanismes de QoS existent, mais soulèvent des questions de neutralité du réseau.
+- **Concentration des données** — la messagerie, la voix, la vidéo et la domotique passent par les mêmes infrastructures, souvent opérées par un petit nombre de fournisseurs cloud. La surface d'attaque s'élargit et la dépendance s'approfondit.
+
+Le web qui sera notre territoire applicatif dans ce cours est une instanciation — la plus visible — de la communication sur Internet. Mais les concepts que nous étudions (protocole, format, sérialisation, requête/réponse) s'appliquent bien au-delà du navigateur.
+
+## Format d'échange
+
+Si le protocole organise l'échange, le format d'échange définit la forme que prend la donnée quand elle voyage. C'est l'ensemble des encodages utilisés par une entité pour communiquer. L'émetteur produit un message dans un certain format; c'est au récepteur de savoir le décoder. S'il n'y a pas d'accord sur le format, l'échange échoue — ou pire, il se dégrade silencieusement (le récepteur interprète mal ce qu'il reçoit).
+
+Plusieurs formats coexistent. JSON, né du JavaScript, est devenu le standard des échanges web : léger, lisible, avec des types natifs (chaînes, nombres, booléens, tableaux, objets). YAML, organisé par indentation, est prisé pour la configuration (Docker, GitHub Actions). XML, plus verbeux mais très rigoureux, reste le standard dans les domaines où la validation formelle est critique — la finance internationale (ISO 20022), les formats bureautiques (OOXML), les flux RSS.
+
+<Aside type="syntaxe" title="La même donnée, deux formats">
+```json
+{
+  "id": "TXN-2026-0512",
+  "montant": 1450.00,
+  "devise": "CAD",
+  "expediteur": { "nom": "Brasserie Boréale" }
+}
+```
+```yaml
+id: TXN-2026-0512
+montant: 1450.00
+devise: CAD
+expediteur:
+  nom: Brasserie Boréale
+```
+La même information, deux encodages. Le choix du format est un choix de contexte : JSON pour les API, YAML pour la configuration, XML quand un schéma formel est exigé. Il existe aussi des formats binaires comme Protocol Buffers (Google) qui sacrifient la lisibilité humaine pour la compacité et la performance.
+</Aside>
+
+Le protocole peut permettre de **négocier** le format. En HTTP, le client annonce ce qu'il accepte (`Accept: application/json`), le serveur déclare ce qu'il envoie (`Content-Type: application/json`). Le format n'est pas garanti d'être partagé — il doit être convenu.
+
+## Sérialisation et désérialisation
+
+Entre un objet vivant en mémoire et un message qui traverse le réseau, il y a une transformation : la **sérialisation**. C'est le passage d'une structure en mémoire (un objet JavaScript, un dictionnaire Python) à une représentation transmissible (une chaîne JSON, un flux d'octets Protobuf). La **désérialisation** fait le chemin inverse.
+
+Ce concept est central parce qu'il revient à chaque maillon du pipeline. Le capteur sérialise une mesure pour l'envoyer au serveur. Le serveur désérialise le message, traite la donnée, la re-sérialise pour la stocker en base. L'interface désérialise la réponse de l'API pour l'afficher à l'écran. Chaque transition entre deux systèmes implique ce cycle.
+
+<Aside type="exemple">
+En JavaScript, `JSON.stringify()` sérialise un objet en texte JSON, et `JSON.parse()` désérialise du texte JSON en objet. C'est la paire la plus courante en développement web — on la croisera dès la semaine 2.
+</Aside>
+
+## Requête et réponse
+
+Le cycle requête-réponse est le patron fondamental de l'interaction entre systèmes. Un système formule une demande structurée (la requête) et reçoit un retour (la réponse). Le protocole définit la forme de chacun.
+
+Mais une requête n'est pas une intention. L'intention, c'est « je veux savoir s'il fera beau demain à Montréal ». La requête, c'est `GET /weather?city=Montreal&date=20260506`. L'intention précède la requête mais n'y est pas encodée — le serveur qui reçoit la requête ne sait pas *pourquoi* elle a été faite, seulement *quoi* et *comment*.
+
+<Aside type="definition" title="Intention → requête">
+Ce passage de l'intention à la requête est un acte de traduction. L'utilisateur a un besoin; le développeur (ou l'interface) le traduit en une interaction structurée que le serveur peut traiter. Concevoir une bonne API, c'est rendre cette traduction aussi naturelle que possible. On y reviendra en semaine 3 avec les conventions REST.
+</Aside>
+
+La réponse est le retour fait en réaction à une requête. Ce peut être un code accompagné de données, un simple accusé de réception, ou un flux continu — c'est le protocole qui décide. L'absence de réponse (timeout) est elle-même un signal : quelque chose a échoué en chemin.
+
+{/* Discussion en classe : la même intention peut-elle donner des requêtes différentes? Donnez des exemples. */}
+
+## En conclusion
+
+La question de la semaine prochaine : maintenant qu'on sait qu'un protocole organise l'échange, **que contient concrètement un message HTTP, et comment le lire?**
+
+<Aside type="plusloin">
+Pour approfondir les protocoles et les couches réseau : 
+- RFC 9110 (HTTP Semantics)
+- le livre *High Performance Browser Networking* d'Ilya Grigorik (gratuit en ligne)
+- la documentation MDN sur HTTP. 
+</Aside>

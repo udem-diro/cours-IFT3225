@@ -1,0 +1,602 @@
+---
+numero: 1
+title: "Communication entre systèmes"
+date: "2026-05-08"
+tags: [cours]
+summary: "Protocoles, formats d'échange, sérialisation, requête/réponse"
+layout: ../../layouts/CoursLayout.astro
+---
+import Aside from '../../components/Aside.astro';
+
+## Question directrice
+
+> Comment des entités indépendantes qui ne se voient pas peuvent-elles coordonner leurs actions?
+
+Cette question fonde l'ensemble du cours. 
+Tout ce qu'on construira — serveurs, interfaces, pipelines de données — 
+repose sur la capacité de systèmes autonomes à communiquer sans se voir 
+et coordonner leurs actions.
+
+## Pourquoi des systèmes communiquent-ils?
+
+Les systèmes communiquent principalement pour : partager de l'information, demander des ressources, synchroniser des états, déléguer des traitements et coordonner des actions.
+
+<Aside type="definition" title="Système">
+Une entité capable de recevoir de l'information, la traiter, produire des résultats, maintenir un état, et interagir avec d'autres systèmes.
+</Aside>
+
+## Protocole
+
+Un protocole est un ensemble de règles et de conventions qui définissent comment plusieurs entités interagissent et coordonnent leurs actions.  
+**But :** assurer un comportement cohérent quand l'observation continue de l'autre est impossible.
+
+<Aside type="definition" title="Protocole">
+Un protocole devient nécessaire dès que les participants **ne peuvent pas s'observer et s'adapter continuellement à l'autre**. Il spécifie trois dimensions :
+
+- **Quand** — à quel moment chaque entité parle
+- **Quoi** — la structure des messages échangés
+- **Comment** — les règles de séquencement et de réponse
+</Aside>
+
+### Exemples de protocoles
+
+| Protocole | Domaine | Rôle |
+|-----------|---------|------|
+| HTTP | Web | Échange de ressources entre client et serveur |
+| SMTP | Courriel | Envoi de courriels entre serveurs de messagerie |
+| FTP | Fichiers | Transfert de fichiers entre deux machines |
+| TCP | Transport | Garantit l'ordre, la retransmission, l'intégrité des octets |
+| DNS | Noms de domaine | Traduit `umontreal.ca` en adresse IP |
+
+{/* ### Superposition des protocoles
+
+Les protocoles fonctionnent en couches. 
+
+- TCP garantit la livraison des données. 
+- TLS chiffre les échanges et authentifie les parties. 
+- HTTP, au-dessus, définit le sens des messages : que signifie un `GET`? Comment envoyer un fichier? Comment représenter une réponse? */}
+
+{/* <Aside type="erreur">
+Confondre protocole et format. Un protocole organise **l'échange** (structure et déroulement de la communication), mais ne définit pas nécessairement la signification métier du contenu transporté. HTTP transporte du JSON, du HTML, des images — il ne se prononce pas sur leur contenu.
+</Aside> */}
+
+
+## Format d'échange
+
+<Aside type="definition" title="Format d'échange">
+L'ensemble des encodages utilisés par une entité pour communiquer. L'émetteur produit; c'est au récepteur de savoir décoder. Pas d'accord sur le format → l'échange échoue ou se dégrade silencieusement.
+</Aside>
+
+Un format spécifie **à quoi ressemble** la donnée transmise, pas ce qu'elle *veut dire*. La même information — une inscription, une transaction, un diagnostic — peut être encodée de dizaines de manières. Le format ne change pas le sens; il change la forme, la taille, la lisibilité, et les outils capables de le traiter.
+
+### Une même donnée, plusieurs formes
+
+Pour comparer les formats, prenons une donnée simple qu'on encodera dans chaque format :
+
+<Aside type="note" title="La donnée de référence">
+Alice Tremblay, 22 ans, inscrite au baccalauréat en informatique à l'Université de Montréal, suit deux cours (IFT3225 et IFT2255), et son inscription est active.
+</Aside>
+
+#### JSON
+
+Format texte léger né du JavaScript, devenu le standard pour les API web et la communication client-serveur.
+
+```json
+{
+  "nom": "Alice Tremblay",
+  "age": 22,
+  "actif": true,
+  "programme": "Baccalauréat en informatique",
+  "universite": "Université de Montréal",
+  "cours": ["IFT3225", "IFT2255"]
+}
+```
+
+**Forces** : natif en JavaScript, léger, types primitifs (string, number, boolean, null, array, object), outillage universel (chaque langage a un parser JSON).
+
+**Limites** : pas de commentaires, pas de type date natif (les dates sont des strings), pas de références internes, pas de schéma intégré.
+
+**Usage typique** : API REST, échange client-serveur, fichiers de configuration simples.
+
+#### CSV
+
+Le format le plus ancien et le plus simple — des lignes et des colonnes, séparées par des virgules.
+
+```csv
+nom,age,actif,programme,universite,cours_1,cours_2
+Alice Tremblay,22,true,Baccalauréat en informatique,Université de Montréal,IFT3225,IFT2255
+Bob Lavoie,25,true,Maîtrise en mathématiques,Université Laval,MAT7115,
+Clara Chen,21,false,Baccalauréat en informatique,Université de Montréal,IFT3225,IFT2255
+```
+
+**Forces** : trivial à produire et à lire, ouvrable dans n'importe quel tableur, très compact pour des données tabulaires homogènes.
+
+**Limites** : pas de hiérarchie (impossible d'imbriquer un objet dans un autre), pas de types (tout est du texte), ambiguïtés de délimiteurs (une virgule dans une valeur casse le format sans guillemets), pas de métadonnées.
+
+**Usage typique** : export de données tabulaires, échange avec des tableurs, jeux de données ouverts, logs.
+
+#### YAML
+
+Format texte par indentation, prisé pour les fichiers de configuration (Docker Compose, GitHub Actions, Kubernetes).
+
+```yaml
+# Inscription — session été 2026
+nom: Alice Tremblay
+age: 22
+actif: true
+programme: Baccalauréat en informatique
+universite: Université de Montréal
+cours:
+  - IFT3225
+  - IFT2255
+```
+
+**Forces** : très lisible pour un humain, supporte les commentaires, types natifs (dates, booléens), ancres et alias pour éviter la duplication.
+
+**Limites** : l'indentation est significative (un espace de trop casse le fichier), spécification étonnamment complexe (YAML 1.2 : 86 pages), certaines valeurs sont interprétées de manière surprenante (`on` → `true`, `NO` → `false`).
+
+**Usage typique** : configuration d'infrastructure (Docker, CI/CD, Kubernetes), fichiers de paramètres d'application.
+
+#### XML
+
+Fondation historique du web sémantique, de SOAP, RSS/Atom, et des formats bureautiques (OOXML, ODF). Verbeux mais rigoureux grâce aux espaces de noms et aux schémas formels.
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<inscription xmlns="urn:udem:registraire:v1">
+  <etudiant>
+    <nom>Alice Tremblay</nom>
+    <age>22</age>
+    <actif>true</actif>
+  </etudiant>
+  <programme>Baccalauréat en informatique</programme>
+  <universite>Université de Montréal</universite>
+  <cours>
+    <sigle>IFT3225</sigle>
+    <sigle>IFT2255</sigle>
+  </cours>
+</inscription>
+```
+
+**Forces** : espaces de noms (le registraire de l'UdeM et celui de Laval peuvent chacun définir `<inscription>` sans conflit), schémas formels (XSD) qui valident la structure *avant* le traitement, transformations déclaratives (XSLT), écosystème mature de 25 ans.
+
+**Limites** : verbeux (la balise ouvrante + fermante double la taille par rapport à JSON), complexe à parser manuellement, lourd pour des échanges à haute fréquence.
+
+<Aside type="exemple" title="XML dans la finance — ISO 20022">
+Le standard international de messagerie financière (SWIFT) utilise XML avec des schémas XSD stricts :
+```xml
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:pacs.008.001.10">
+  <FIToFICstmrCdtTrf>
+    <GrpHdr>
+      <MsgId>TXN-2026-0512</MsgId>
+      <CreDtTm>2026-05-12T10:30:00</CreDtTm>
+    </GrpHdr>
+  </FIToFICstmrCdtTrf>
+</Document>
+```
+Un format d'échange n'est pas qu'un choix technique — c'est aussi un choix institutionnel. Les banques du monde entier s'accordent sur ce schéma XML pour que les virements internationaux fonctionnent. Le format *est* le contrat de confiance.
+</Aside>
+
+#### Protocol Buffers (binaire)
+
+Format de sérialisation binaire avec un langage de définition de schéma (`.proto`), conçu par Google. Les données ne sont pas lisibles par un humain — elles sont optimisées pour la machine.
+
+Le schéma (fichier `.proto`) :
+```protobuf
+message Inscription {
+  string nom = 1;
+  int32 age = 2;
+  bool actif = 3;
+  string programme = 4;
+  string universite = 5;
+  repeated string cours = 6;
+}
+```
+
+Les données sérialisées (représentation hexadécimale) :
+```
+0a 0f 41 6c 69 63 65 20 54 72 65 6d 62 6c 61 79
+10 16 18 01 22 24 42 61 63 63 61 6c 61 75 72 e9
+...
+```
+
+~65 octets au lieu de ~210 en JSON pour la même information.
+
+**Forces** : très compact, très rapide à sérialiser/désérialiser, schéma *obligatoire* (pas d'ambiguïté).
+
+**Limites** : illisible pour un humain (impossible de déboguer avec `curl` ou DevTools), nécessite le fichier `.proto` pour décoder (pas auto-descriptif), outillage moins universel que JSON.
+
+**Usage typique** : communication entre microservices à haute fréquence (gRPC), stockage de données volumineuses, applications mobiles à bande passante limitée.
+
+### Texte vs binaire — le compromis fondamental
+
+Les formats texte (JSON, YAML, XML, CSV) sont **lisibles** : un humain peut les ouvrir, les lire, les modifier avec un éditeur. Les formats binaires (Protobuf, MessagePack, Avro) sont **efficaces** : plus compacts, plus rapides, plus typés.
+
+Le choix dépend du contexte. 
+
+- Pour une API web consultée par des humains et des navigateurs, JSON. 
+- Pour des millions de messages entre microservices, Protobuf. 
+- Pour de la configuration, YAML. 
+- Pour un échange avec un tableur, CSV. 
+- Pour un contrat institutionnel strict, XML.
+
+### Négociation de format
+
+Le format d'échange n'est pas garanti d'être partagé. C'est ce que l'émetteur produit — au récepteur de savoir le décoder. Quand les deux ne s'accordent pas, l'échange échoue.
+
+C'est pourquoi les protocoles prévoient souvent un mécanisme de **négociation**. En HTTP :
+
+```
+Requête du client :
+  GET /etudiants/alice
+  Accept: application/json
+
+Réponse du serveur :
+  200 OK
+  Content-Type: application/json
+
+  { "nom": "Alice Tremblay", "age": 22 }
+```
+
+Le client déclare ce qu'il sait lire (`Accept`). Le serveur déclare ce qu'il envoie (`Content-Type`). Si le serveur ne peut pas produire le format demandé, il répond `406 Not Acceptable`.
+
+<Aside type="tip" title="Et si le même endpoint retournait du HTML?">
+Le même endpoint, deux formats selon le client :
+
+```
+Accept: application/json  →  { "nom": "Alice Tremblay", "age": 22 }
+Accept: text/html          →  <div class="etudiant">Alice Tremblay, 22 ans</div>
+```
+
+Le format est un *choix*, pas une évidence. Un navigateur préfère du HTML; un script préfère du JSON; une feuille de calcul préfère du CSV. Le serveur qui sait négocier peut servir les trois.
+</Aside>
+
+### Ce que le format ne fait pas
+
+Le format encode la **structure** (clés, valeurs, types, imbrication), pas le **sens**.
+
+```json
+{ "n": "AT", "a": 22, "p": "BI", "u": "UM", "c": ["3225", "2255"] }
+```
+
+C'est du JSON valide. Mais que veut dire `n`? `p`? `BI`? Le format ne le dit pas. Le sens vient du **schéma** — la convention (documentée ou implicite) qui donne un nom, un type, et une interprétation à chaque champ. Sans schéma partagé, l'émetteur et le récepteur parlent la même syntaxe mais pas la même langue.
+
+
+## Requête et réponse
+
+Le cycle requête-réponse est le patron fondamental de l'interaction entre systèmes.
+
+<Aside type="definition" title="Requête">
+La traduction d'un besoin en une interaction structurée avec un agent externe. Différent d'une **intention** :
+
+- L'intention : « Je veux sortir demain. »
+- La requête : `GET /weather?city=Montreal&date=20260506`
+
+L'intention n'est pas encodée dans la requête. Une requête se compose de trois éléments : une **cible**, une **action**, et des **données**.
+</Aside>
+
+<Aside type="definition" title="Réponse">
+Le retour fait en réaction à une requête, communiqué à l'entité émettrice. Ce peut être un code + données, un simple accusé de réception, un flux continu… Le protocole décide. L'absence de réponse (timeout) est elle-même un signal.
+</Aside>
+
+### Exemple : échange HTTP
+
+<Aside type="syntaxe" title="Requête et réponse HTTP">
+```
+GET /users/12 HTTP/1.1
+Host: exemple.com
+```
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "id": 12,
+  "nom": "Alice"
+}
+```
+</Aside>
+
+### Méthodes HTTP
+
+| Méthode | Usage |
+|---------|-------|
+| `GET` | Lire une ressource |
+| `POST` | Créer une ressource |
+| `PUT` | Remplacer une ressource |
+| `PATCH` | Modifier partiellement une ressource |
+| `DELETE` | Supprimer une ressource |
+
+## Vision de bout en bout
+
+Cette semaine pose les fondations d'une vision **pipeline** : un phénomène physique est capté, encodé, sérialisé, transporté via un protocole, désérialisé, stocké, puis rendu visible à un humain. Chaque semaine du cours éclairera un maillon de cette chaîne.
+
+<Aside type="plusloin">
+Pour approfondir les protocoles et les couches réseau, consultez les RFC fondamentales : RFC 9110 (HTTP Semantics), RFC 793 (TCP), RFC 8446 (TLS 1.3). Le livre *High Performance Browser Networking* d'Ilya Grigorik (gratuit en ligne) couvre ces sujets de façon très accessible.
+</Aside>
+
+
+
+
+## Requête et réponse
+
+Le cycle requête-réponse est le patron fondamental de l'interaction entre systèmes. Un participant formule une demande structurée; l'autre la traite et retourne un résultat. Ce patron se retrouve partout — pas seulement sur le Web.
+
+### Le concept, avant le protocole
+
+<Aside type="definition" title="Requête">
+Traduction d'un besoin en une interaction structurée avec un agent externe. L'émetteur encode ce qu'il veut dans une forme que le récepteur peut comprendre et traiter.
+</Aside>
+
+<Aside type="definition" title="Réponse">
+Retour fait en réaction à une requête, communiqué à l'entité émettrice. La réponse clôt le cycle d'interaction. Sa structure — ce qu'elle contient, comment elle est encodée, si elle porte un verdict explicite — dépend entièrement du protocole.
+</Aside>
+
+#### Intention ≠ requête
+
+L'intention précède la requête mais n'y est pas directement encodée. Une même intention peut produire des requêtes très différentes selon le protocole, l'agent ciblé, et le contexte.
+
+| Intention (humaine) | Requête (structurée) |
+|---|---|
+| « Je veux sortir demain, est-ce qu'il va pleuvoir? » | `GET /weather?city=Montreal&date=2026-05-06` |
+| « Est-ce que Alice est inscrite? » | `SELECT actif FROM etudiants WHERE nom = 'Alice Tremblay'` |
+| « Quelle est l'adresse IP de udem.ca? » | Requête DNS de type A pour `udem.ca` |
+| « Ouvre la porte du garage » | Signal infrarouge, code `0xA1B2C3` |
+
+La requête est la forme *actionnable* de l'intention — ce qui peut être compris et traité par l'agent distant. Sans cette traduction, l'intention reste interne et inopérante.
+
+<Aside type="question" title="Une requête, c'est une commande ou un prompt?">
+Dans les protocoles traditionnels (HTTP, SQL, DNS), la requête est une **commande** — le résultat est déterministe. `GET /users/12` retourne toujours le même utilisateur.
+
+Avec les modèles de langage (LLM), la requête devient un **prompt** — le résultat est interprétatif. « Résume ce texte » peut produire des résultats différents à chaque appel.
+
+La frontière entre commande et prompt s'estompe. Mais le cycle reste le même : requête → traitement → réponse.
+</Aside>
+
+#### Les trois composantes d'une requête
+
+Quel que soit le protocole, une requête porte au minimum :
+
+| Composante | Ce qu'elle dit | Exemples |
+|---|---|---|
+| **Cible** | À qui s'adresse-t-on | `/users/12`, `udem.ca`, port 5432, adresse `192.168.1.42` |
+| **Action** | Que veut-on | `GET` (lire), `POST` (créer), `SELECT`, `A` (résolution DNS) |
+| **Données** | Ce qu'on transmet pour accomplir l'action | Corps JSON, paramètres de requête, enregistrement à insérer |
+
+L'action et les données sont parfois fusionnées (une requête SQL contient les deux dans la même chaîne) ou séparées (en HTTP, la méthode est distincte du corps).
+
+#### L'absence de réponse est un signal
+
+Sans réponse, le client ne peut pas savoir ce qui s'est passé. La requête a-t-elle été reçue? Le serveur est-il en panne? Le réseau a-t-il coupé?
+
+C'est pourquoi la plupart des protocoles prévoient un **timeout** — un délai au-delà duquel l'absence de réponse est traitée comme un échec. Le timeout n'est pas un défaut; c'est une décision de conception (combien de temps est-on prêt à attendre?).
+
+---
+
+### HTTP : le cycle requête-réponse du Web
+
+HTTP est l'instance la plus répandue du cycle requête-réponse. Chaque échange est autonome : une requête, une réponse, puis la connexion peut être fermée.
+
+#### Anatomie d'une requête HTTP
+
+```
+POST /etudiants HTTP/1.1        ← ligne de requête (méthode + chemin + version)
+Host: api.udem.ca               ← en-têtes (métadonnées)
+Content-Type: application/json
+Authorization: Bearer eyJhbGci...
+                                 ← ligne vide (séparateur)
+{                                ← corps (charge utile, optionnel)
+  "nom": "Alice Tremblay",
+  "programme": "informatique"
+}
+```
+
+Quatre parties, toujours dans cet ordre :
+
+1. **Ligne de requête** — la méthode (`POST`), le chemin (`/etudiants`), et la version du protocole (`HTTP/1.1`). C'est le *quoi* et le *où*.
+
+2. **En-têtes** — des paires clé-valeur qui décrivent le message sans faire partie du contenu. `Content-Type` dit le format du corps. `Authorization` porte l'identité du client. `Accept` dit ce que le client sait lire en retour.
+
+3. **Ligne vide** — sépare les métadonnées du contenu. C'est littéralement une ligne blanche.
+
+4. **Corps** — la charge utile. Présent dans `POST`, `PUT`, `PATCH`. Absent dans `GET` et `DELETE` (en principe). Son format est déclaré dans `Content-Type`.
+
+#### Anatomie d'une réponse HTTP
+
+```
+HTTP/1.1 201 Created             ← ligne de statut (version + code + phrase)
+Content-Type: application/json
+Location: /etudiants/42
+                                  ← ligne vide
+{                                 ← corps
+  "id": 42,
+  "nom": "Alice Tremblay",
+  "programme": "informatique",
+  "createdAt": "2026-05-12T14:30:00Z"
+}
+```
+
+Même structure en quatre parties. La ligne de statut remplace la ligne de requête : au lieu d'une action, on a un **verdict**.
+
+---
+
+### Méthodes HTTP
+
+La méthode est le verbe de la requête. Elle dit au serveur quelle opération effectuer sur la ressource identifiée par le chemin.
+
+| Méthode | Usage | Corps? | Idempotente? | Exemple |
+|---------|-------|--------|-------------|---------|
+| `GET` | Lire une ressource | Non | Oui | `GET /etudiants/42` |
+| `POST` | Créer une ressource | Oui | Non | `POST /etudiants` + corps JSON |
+| `PUT` | Remplacer intégralement | Oui | Oui | `PUT /etudiants/42` + corps complet |
+| `PATCH` | Modifier partiellement | Oui | Oui* | `PATCH /etudiants/42` + champs modifiés |
+| `DELETE` | Supprimer | Non | Oui | `DELETE /etudiants/42` |
+
+<Aside type="definition" title="Idempotence">
+Une opération est idempotente si l'exécuter une fois ou dix fois produit le même résultat. `GET /etudiants/42` retourne toujours le même étudiant. `DELETE /etudiants/42` supprime l'étudiant — le refaire retourne 404, mais l'état du système est le même.
+
+`POST` n'est **pas** idempotent : chaque `POST /etudiants` crée un *nouvel* étudiant. Deux POST identiques → deux étudiants.
+
+L'idempotence est importante pour la résilience : si le réseau coupe pendant un `PUT`, on peut le renvoyer sans risque. Pas avec un `POST`.
+</Aside>
+
+---
+
+### Codes de statut
+
+Le code de statut est le **verdict** du serveur. Il dit au client si sa requête a été comprise, acceptée, et traitée — ou si quelque chose a mal tourné, et de quel côté.
+
+#### Les familles
+
+| Famille | Signification | Responsabilité |
+|---------|--------------|----------------|
+| **1xx** | Information | Le serveur a reçu et continue de traiter |
+| **2xx** | Succès | La requête a été traitée avec succès |
+| **3xx** | Redirection | La ressource est ailleurs |
+| **4xx** | Erreur client | La requête est mal formée ou non autorisée |
+| **5xx** | Erreur serveur | Le serveur a compris mais n'a pas pu traiter |
+
+La distinction 4xx/5xx est fondamentale : **4xx = c'est la faute du client** (requête mal construite, authentification manquante, ressource inexistante). **5xx = c'est la faute du serveur** (bug, base de données inaccessible, timeout interne).
+
+#### Les codes les plus courants
+
+| Code | Phrase | Quand l'utiliser |
+|------|--------|-----------------|
+| `200` | OK | Lecture réussie (`GET`) ou modification réussie |
+| `201` | Created | Création réussie (`POST`) — le corps contient la ressource créée |
+| `204` | No Content | Succès sans contenu à retourner (`DELETE`) |
+| `400` | Bad Request | Le corps est mal formé ou un champ requis est absent |
+| `401` | Unauthorized | Pas d'authentification fournie (le client ne s'est pas identifié) |
+| `403` | Forbidden | Authentifié mais pas autorisé (le client n'a pas le droit) |
+| `404` | Not Found | La ressource n'existe pas à ce chemin |
+| `409` | Conflict | La requête entre en conflit avec l'état actuel (doublon, version obsolète) |
+| `422` | Unprocessable Entity | Le format est correct mais le contenu est invalide (ex : âge négatif) |
+| `500` | Internal Server Error | Le serveur a planté — bug, exception non attrapée |
+| `503` | Service Unavailable | Le serveur est temporairement surchargé ou en maintenance |
+
+<Aside type="tip" title="Choisir le bon code est un acte de communication">
+Le code de statut n'est pas qu'un détail technique — c'est ce que le client utilise pour *décider quoi faire*. Un `401` lui dit « identifie-toi ». Un `403` lui dit « tu n'as pas le droit, même identifié ». Un `404` lui dit « vérifie ton URL ». Un `500` lui dit « ce n'est pas ta faute, réessaie plus tard ».
+
+Un serveur qui retourne toujours `200` avec `{ "error": "not found" }` dans le corps prive le client de cette information structurelle.
+</Aside>
+
+---
+
+### En-têtes HTTP
+
+Les en-têtes sont des métadonnées attachées à la requête ou à la réponse. Ils décrivent le message sans faire partie du contenu.
+
+#### En-têtes de requête courants
+
+| En-tête | Rôle | Exemple |
+|---------|------|---------|
+| `Content-Type` | Format du corps envoyé | `application/json` |
+| `Accept` | Formats que le client sait lire | `application/json, text/html` |
+| `Authorization` | Identité / credentials du client | `Bearer eyJhbGci...` |
+| `User-Agent` | Identité du logiciel client | `Mozilla/5.0...` |
+| `Host` | Nom de domaine ciblé | `api.udem.ca` |
+
+#### En-têtes de réponse courants
+
+| En-tête | Rôle | Exemple |
+|---------|------|---------|
+| `Content-Type` | Format du corps retourné | `application/json; charset=utf-8` |
+| `Location` | URL de la ressource créée | `/etudiants/42` |
+| `Cache-Control` | Durée de mise en cache | `max-age=3600` |
+| `Access-Control-Allow-Origin` | Origines autorisées (CORS) | `http://localhost:5173` |
+
+Les en-têtes sont **extensibles** — on peut ajouter des en-têtes personnalisés (par convention préfixés `x-`) sans modifier le protocole :
+
+```
+x-api-key: sk-a1b2c3d4e5f6
+x-request-id: req-7890
+x-ratelimit-remaining: 42
+```
+
+---
+
+### Statelessness
+
+HTTP est **sans état** (stateless) : chaque requête est autonome. Le serveur ne conserve aucune mémoire de la requête précédente.
+
+```
+Requête 1 :  GET /etudiants/42        →  200 OK, { "nom": "Alice" }
+Requête 2 :  GET /etudiants/42/cours   →  200 OK, ["IFT3225", "IFT2255"]
+```
+
+Le serveur ne sait pas que les requêtes 1 et 2 viennent du même client. Chaque requête porte *tout* ce qui est nécessaire pour être traitée — identité, autorisation, paramètres. Rien n'est implicite.
+
+<Aside type="question" title="C'est pas un problème, le stateless?">
+C'est une **contrainte voulue**, pas une limitation. Le stateless simplifie le serveur (pas de mémoire de session à gérer, pas de corruption d'état entre requêtes), le rend scalable (n'importe quel serveur du cluster peut traiter n'importe quelle requête), et le rend prévisible (la même requête produit toujours le même résultat).
+
+Quand on *a besoin* d'état (panier d'achat, session utilisateur), on le rajoute explicitement — via des tokens, des cookies, ou une base de données. Le protocole de base reste simple.
+</Aside>
+
+---
+
+### Le corps et le format d'échange
+
+Le corps de la requête ou de la réponse transporte la charge utile — les données elles-mêmes. Son format est déclaré dans l'en-tête `Content-Type`.
+
+```
+Content-Type: application/json     →  le corps est du JSON
+Content-Type: text/html            →  le corps est du HTML
+Content-Type: text/csv             →  le corps est du CSV
+Content-Type: application/xml      →  le corps est du XML
+```
+
+Pas toutes les requêtes ont un corps :
+
+| Méthode | Corps en requête? | Corps en réponse? |
+|---------|:-:|:-:|
+| `GET` | Rarement | Presque toujours |
+| `POST` | Presque toujours | Souvent (ressource créée) |
+| `PUT` | Toujours | Parfois |
+| `PATCH` | Toujours | Parfois |
+| `DELETE` | Rarement | Parfois (confirmation) |
+
+Le lien avec la section précédente est direct : le format d'échange (JSON, XML, CSV...) est ce qui remplit le corps. Le protocole (HTTP) structure l'enveloppe; le format structure le contenu.
+
+---
+
+### Erreurs expressives
+
+Une réponse d'erreur est aussi une réponse — elle mérite la même attention de conception qu'une réponse de succès.
+
+<Aside type="syntaxe" title="Comparaison">
+
+**Opaque** — le client ne sait pas quoi corriger :
+```json
+{ "error": "Bad Request" }
+```
+
+**Expressif** — le client sait exactement quoi faire :
+```json
+{
+  "status": 422,
+  "error": "VALIDATION_ERROR",
+  "message": "Le champ 'age' doit être un nombre positif.",
+  "field": "age",
+  "received": -3
+}
+```
+</Aside>
+
+Le code de statut donne le verdict (`422`). Le corps donne le contexte (quel champ, quelle valeur, quelle règle violée). Ensemble, ils permettent au client — humain ou programme — de corriger sa requête sans deviner.
+
+---
+
+### Au-delà de HTTP
+
+Le cycle requête-réponse n'est pas propre à HTTP. Il se retrouve dans de nombreux protocoles :
+
+| Protocole | Requête | Réponse |
+|-----------|---------|---------|
+| **HTTP** | `GET /etudiants/42` | `200 OK` + JSON |
+| **DNS** | « Quelle est l'IP de udem.ca? » | `132.204.x.x` |
+| **SQL** | `SELECT * FROM etudiants WHERE id = 42` | Ensemble de lignes |
+| **SMTP** | `MAIL FROM: alice@udem.ca` | `250 OK` |
+| **gRPC** | Appel de procédure sérialisé en Protobuf | Réponse sérialisée en Protobuf |
+
+La structure change, les conventions changent, mais le patron est le même : formuler une demande, attendre un retour, interpréter le résultat.
