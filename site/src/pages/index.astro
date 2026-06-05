@@ -1,6 +1,237 @@
 ---
 import BaseLayout from "../layouts/BaseLayout.astro";
-import { navigation } from "../nav";
+
+/**
+ * Page d'accueil : une carte par sujet (résumé, thèmes clés, pages liées).
+ * Le corps de la carte est un lien vers la page principale du sujet. Le bouton
+ * « Réviser » ouvre une superposition de FICHES DE RÉVISION en carrousel
+ * (flèches, points, glissement). Chaque fiche fait deux à trois paragraphes.
+ */
+interface Lien { label: string; href: string; }
+interface Fiche { t: string; p: string[]; }
+interface Sujet {
+  titre: string;
+  resume: string;
+  themes: string[];
+  liens: Lien[];
+  fiches: Fiche[];
+}
+
+const sujets: Sujet[] = [
+  {
+    titre: "Fondations — JavaScript et Node",
+    resume: "Le socle : modules ES, code asynchrone, et l'écosystème npm pour bâtir et exécuter du JavaScript moderne.",
+    themes: ["ES Modules", "fetch / async-await", "npm", "Node.js"],
+    liens: [
+      { label: "Node.js et npm", href: "/guides/tuto-nodejs" },
+      { label: "JS — base de programmation", href: "/guides/tuto-javascript-1" },
+      { label: "JS — modules, fetch, async", href: "/guides/tuto-javascript-2" },
+    ],
+    fiches: [
+      { t: "Modules ES", p: [
+        "Un module, c'est un fichier. On y déclare explicitement ses dépendances avec import, et ce qu'on rend disponible avec export. Fini le temps des balises script empilées dans un ordre fragile et des variables globales qui s'écrasent les unes les autres.",
+        "Cette explicitation change tout pour la maintenance : on voit d'un coup d'œil ce dont un fichier a besoin et ce qu'il fournit. Les outils peuvent alors analyser le graphe de dépendances, écarter le code mort et regrouper le tout pour le navigateur.",
+      ] },
+      { t: "async / await", p: [
+        "Le réseau, le disque et la base de données prennent du temps. Plutôt que de bloquer le programme en les attendant, JavaScript travaille avec des promesses : un objet qui représente un résultat encore à venir.",
+        "await suspend la fonction le temps que la promesse se résolve, puis reprend avec la valeur obtenue. Le code asynchrone se lit alors de haut en bas, comme du synchrone, tout en restant non bloquant. On l'entoure d'un try / catch pour gérer proprement les échecs.",
+      ] },
+      { t: "fetch", p: [
+        "fetch lance une requête HTTP et renvoie immédiatement une promesse. Un premier await donne la réponse — son statut, ses en-têtes — mais pas encore son contenu.",
+        "Un second await, sur response.json() par exemple, lit et décode le corps. Cette séparation en deux étapes surprend au début, mais elle reflète la réalité du réseau : l'en-tête arrive avant un corps qui peut être volumineux, voire diffusé en continu.",
+      ] },
+      { t: "npm et package.json", p: [
+        "npm install ajoute une dépendance : il la télécharge dans node_modules et l'inscrit dans package.json, qui devient l'inventaire déclaré du projet.",
+        "Un fichier de verrou fige les versions exactes installées, pour que l'équipe et le serveur obtiennent rigoureusement le même arbre de dépendances. Les scripts de package.json — start, dev, build — standardisent ensuite les commandes du projet.",
+      ] },
+    ],
+  },
+    {
+    titre: "Concevoir une API",
+    resume: "L'exemple fil rouge Lino : transformer un besoin réel en ressources et en endpoints cohérents et lisibles.",
+    themes: ["ressources", "endpoints", "REST", "design"],
+    liens: [
+      { label: "Concevoir une API (Lino)", href: "/guides/tuto-conception-api" },
+      { label: "Prise en main d'Express", href: "/guides/tuto-express" },
+    ],
+    fiches: [
+      { t: "Partir des ressources", p: [
+        "On commence par nommer les choses du domaine — les boîtes, les livres, les emprunts — avant de penser aux écrans ou aux boutons. Ce sont elles, les ressources de l'API.",
+        "Cette modélisation oriente toute la suite : chaque ressource aura ses URL, ses représentations et ses relations. Partir des données plutôt que des actions évite une API en patchwork d'opérations ad hoc.",
+      ] },
+      { t: "Des endpoints qui parlent", p: [
+        "Un bon endpoint exprime une intention par la combinaison d'un verbe et d'une ressource : POST /emprunts crée un emprunt, GET /boites/parc-laurier décrit une boîte.",
+        "On évite les verbes dans l'URL, comme /faireUnEmprunt : la ressource est un nom, l'action vient du verbe HTTP. Cette régularité rend l'API devinable — qui en connaît une partie devine le reste.",
+      ] },
+      { t: "Les codes de statut", p: [
+        "Le code de statut est la première phrase de la réponse. 201 annonce une création, 404 une ressource introuvable, 409 un conflit, 400 une requête mal formée.",
+        "Bien choisis, ces codes racontent le résultat sans qu'on ait à lire le corps, et laissent le client réagir correctement. Les négliger — tout renvoyer en 200 avec un champ erreur — prive l'API du langage commun du Web.",
+      ] },
+      { t: "Une histoire cohérente", p: [
+        "Une bonne API se parcourt comme un récit : les ressources s'enchaînent logiquement, les noms sont réguliers, les réponses sont prévisibles.",
+        "Cette cohérence est un service rendu à celui qui l'utilise — souvent soi-même, plus tard. Elle se conçoit avant de coder, en écrivant la liste des endpoints comme on écrirait le plan d'un texte.",
+      ] },
+    ],
+  },
+  // {
+  //   titre: "Le navigateur et le DOM",
+  //   resume: "Manipuler la page côté client : sélectionner des éléments, les modifier, et réagir aux actions de l'utilisateur.",
+  //   themes: ["DOM", "événements", "sélection", "rendu"],
+  //   liens: [{ label: "Les bases du DOM", href: "/notes/dom-bases" }],
+  //   fiches: [
+  //     { t: "Sélectionner et modifier", p: [
+  //       "querySelector prend un sélecteur CSS et retourne le premier élément correspondant ; querySelectorAll les retourne tous. On tient alors une référence vivante vers un nœud de la page.",
+  //       "À partir de là, textContent change le texte, classList ajoute ou retire des classes, et setAttribute ajuste les attributs. Chaque modification se répercute aussitôt à l'écran, car on agit sur la page elle-même, pas sur une copie.",
+  //     ] },
+  //     { t: "Écouter les événements", p: [
+  //       "Une interface réagit aux gestes : clic, saisie, soumission, survol. addEventListener relie un type d'événement à une fonction de rappel qui s'exécutera au moment voulu.",
+  //       "L'objet event passé à la fonction décrit ce qui s'est produit : quel élément (event.target), quelle touche, quelles coordonnées. On peut y appeler preventDefault pour empêcher le comportement par défaut, comme le rechargement à la soumission d'un formulaire.",
+  //     ] },
+  //     { t: "L'arbre vivant", p: [
+  //       "Le navigateur lit le HTML une seule fois, à l'arrivée, et en construit un arbre d'objets : le DOM. C'est cet arbre, et non le texte HTML d'origine, que le code manipule ensuite.",
+  //       "La distinction est cruciale : après le chargement, modifier le DOM change la page, mais ne change pas le HTML reçu. Et toute structure ajoutée par du JavaScript existe dans l'arbre sans avoir jamais figuré dans le fichier de départ.",
+  //     ] },
+  //     { t: "Délégation d'événements", p: [
+  //       "Poser un écouteur sur chaque élément d'une longue liste est coûteux et fragile : dès qu'on ajoute un élément, il faut penser à lui attacher son écouteur.",
+  //       "La délégation renverse l'approche : un seul écouteur sur le parent, qui inspecte event.target pour savoir quel enfant a déclenché l'événement. Cela fonctionne même pour les éléments ajoutés plus tard, et allège la page.",
+  //     ] },
+  //   ],
+  // },
+  // {
+  //   titre: "Le serveur avec Express",
+  //   resume: "Recevoir des requêtes, router, répondre : middleware, verbes HTTP, et formats d'échange entre client et serveur.",
+  //   themes: ["routing", "middleware", "requête / réponse", "REST"],
+  //   liens: [
+  //     { label: "Prise en main d'Express", href: "/notes/express-prise-en-main" },
+  //     { label: "Requête et réponse", href: "/notes/requete-reponse" },
+  //     { label: "Format d'échange", href: "/notes/format-echange" },
+  //   ],
+  //   fiches: [
+  //     { t: "Router", p: [
+  //       "Un serveur Express associe des couples (verbe, chemin) à des fonctions. app.get répond aux lectures, app.post aux créations, et ainsi de suite pour put, patch et delete.",
+  //       "Chaque fonction reçoit la requête (req) et la réponse (res) à construire. Les chemins peuvent porter des paramètres — /emprunts/:id — récupérés dans req.params, ce qui permet d'adresser une ressource précise.",
+  //     ] },
+  //     { t: "Middleware", p: [
+  //       "Le middleware est le cœur d'Express : une fonction (req, res, next) qui voit passer la requête et décide de la traiter ou de la transmettre à la suite avec next().",
+  //       "On les enchaîne comme une chaîne de montage : journalisation, lecture du corps JSON, vérifications, gestion des erreurs. Cette composition rend le serveur lisible et modulaire — chaque préoccupation dans son maillon.",
+  //     ] },
+  //     { t: "La réponse", p: [
+  //       "Répondre, c'est composer trois choses : un code de statut, des en-têtes, et un corps. Le statut porte déjà beaucoup de sens — 200, 201, 400, 404, 500 — avant même qu'on lise le contenu.",
+  //       "Le corps est le plus souvent du JSON, renvoyé par res.json() qui sérialise l'objet et pose le bon Content-Type. Une réponse bien formée est prévisible : le client sait à quoi s'attendre rien qu'au statut.",
+  //     ] },
+  //     { t: "REST", p: [
+  //       "REST organise l'API autour de ressources — des noms, comme les boîtes ou les emprunts — désignées par des URL stables. Le verbe HTTP, lui, porte l'action.",
+  //       "Ainsi GET /emprunts lit, POST /emprunts crée, DELETE /emprunts/12 supprime. L'URL ne contient pas le verbe : pas de /creerEmprunt. Cette discipline rend l'API régulière et devinable, et tire parti du cache et des codes de statut du Web.",
+  //     ] },
+  //   ],
+  // },
+  {
+    titre: "Persistance des données",
+    resume: "HTTP est sans état : choisir où préserver l'information — client, mémoire serveur, base de données, cache — selon le besoin.",
+    themes: ["cookies", "sessions", "base de données", "cache"],
+    liens: [
+      { label: "Choisir une stratégie", href: "/guides/tuto-persistance" },
+      { label: "Prise en main de MongoDB", href: "/guides/tuto-mongo" },
+    ],
+    fiches: [
+      { t: "HTTP sans état", p: [
+        "Chaque requête HTTP arrive seule, sans mémoire des précédentes. Le serveur ne sait pas, par défaut, que deux requêtes proviennent du même utilisateur.",
+        "Persister, c'est décider où et comment préserver l'information malgré cela : sur le client, en mémoire du serveur, dans une base, dans un cache. Chaque endroit a ses forces, et le bon design choisit le minimum qui répond au besoin réel.",
+      ] },
+      { t: "Le cookie", p: [
+        "Le cookie est renvoyé automatiquement par le navigateur à chaque requête vers le domaine. C'est pratique pour qu'un serveur reconnaisse la session, mais coûteux s'il grossit, puisqu'il voyage à chaque fois.",
+        "On n'y met donc qu'un petit identifiant — jamais de données ni de secret en clair — protégé par les attributs HttpOnly, Secure et SameSite. Le serveur retrouve le reste de son côté à partir de cet identifiant.",
+      ] },
+      { t: "Mémoire serveur et base", p: [
+        "Garder l'état dans une variable du serveur est rapide, mais volatile : tout disparaît au redémarrage, et deux instances derrière un répartiteur ne partagent pas la même mémoire.",
+        "Pour ce qui doit survivre et se partager, on passe à la base de données : durable, interrogeable, commune à tous les serveurs. Le prix : modéliser les données, accepter la latence réseau, et écrire du code asynchrone.",
+      ] },
+      { t: "Le cache", p: [
+        "Pour ce qu'on relit souvent, refaire le travail à chaque fois est gaspillé. Un cache garde la réponse prête : Redis côté serveur, ou un CDN au plus près de l'utilisateur.",
+        "Le CDN peut même court-circuiter complètement le serveur sur un contenu public. Mais tout cache pose la même question difficile — quand l'invalider ? — sous peine de servir des données périmées.",
+      ] },
+    ],
+  },
+  // {
+  //   titre: "Bases de données — MongoDB",
+  //   resume: "Modéliser des documents, faire le CRUD avec Mongoose, et peser le choix entre imbriquer et référencer.",
+  //   themes: ["documents", "Mongoose", "index", "modélisation"],
+  //   liens: [
+  //     { label: "Prise en main de MongoDB", href: "/notes/mongodb-prise-en-main" },
+  //     { label: "Bases de données (panorama)", href: "/notes/persistance-bd" },
+  //   ],
+  //   fiches: [
+  //     { t: "Le document", p: [
+  //       "MongoDB ne range pas des lignes dans des tables, mais des documents : des structures proches du JSON (techniquement du BSON), souples, où chaque document peut imbriquer des sous-objets et des tableaux.",
+  //       "Un document peut atteindre 16 Mo, ce qui laisse de la place pour regrouper ce qui se lit ensemble. La souplesse du schéma facilite l'évolution, mais reporte sur le code une part de la responsabilité de la cohérence.",
+  //     ] },
+  //     { t: "CRUD avec Mongoose", p: [
+  //       "Mongoose pose un schéma par-dessus MongoDB et offre un CRUD lisible : create pour insérer, find pour chercher, findByIdAndUpdate et findByIdAndDelete pour le reste.",
+  //       "Chaque opération est asynchrone et renvoie une promesse, qu'on attend avec await. Des options comme { new: true } ou { runValidators: true } contrôlent finement le comportement des mises à jour.",
+  //     ] },
+  //     { t: "Imbriquer ou référencer", p: [
+  //       "La grande décision de modélisation : imbriquer un sous-document dans son parent, ou le référencer par son identifiant. Le choix n'est pas esthétique — il dicte le coût des requêtes.",
+  //       "Imbriquer rend une lecture du parent gratuite, puisque tout vient d'un coup, mais rend coûteux l'accès direct à l'entité imbriquée. Référencer fait l'inverse : accès direct facile, mais lectures combinées plus chères. On tranche selon les accès réels de l'application.",
+  //     ] },
+  //     { t: "Indexer", p: [
+  //       "Sans index, chaque requête qui filtre sur un champ doit parcourir toute la collection — acceptable sur dix documents, catastrophique sur un million.",
+  //       "Un index sur les champs qu'on interroge souvent — l'emprunteur, la date — transforme ce parcours en recherche directe. C'est l'un des leviers de performance les plus rentables, à poser dès la modélisation.",
+  //     ] },
+  //   ],
+  // },
+
+  // {
+  //   titre: "Réflexions",
+  //   resume: "Le protocole comme forme d'interaction : quelques idées qui éclairent le réseau et l'échange sous un autre angle.",
+  //   themes: ["session types", "tangible UI", "Dynamicland", "protocoles vivants"],
+  //   liens: [{ label: "Le protocole comme interaction", href: "/notes/reflexions" }],
+  //   fiches: [
+  //     { t: "Le protocole comme interaction", p: [
+  //       "On présente souvent un protocole comme de la plomberie : des octets, des trames, des en-têtes. Et si on le voyait plutôt comme une forme d'interaction — une manière de structurer une conversation entre deux parties ?",
+  //       "Ce déplacement de regard rapproche l'informatique réseau d'autres disciplines : la linguistique, le design d'interaction, les règles sociales. Le protocole cesse d'être un détail technique pour devenir un objet de conception à part entière.",
+  //     ] },
+  //     { t: "Session types", p: [
+  //       "Les types classiques décrivent des valeurs ; les session types décrivent des conversations. Ils capturent non seulement quels messages s'échangent, mais dans quel ordre et selon quel enchaînement légitime.",
+  //       "Un compilateur peut alors vérifier qu'un dialogue respecte le protocole, comme il vérifie qu'on n'additionne pas un nombre et un texte. L'erreur de protocole devient une erreur de type, détectée avant l'exécution.",
+  //     ] },
+  //     { t: "Dynamicland", p: [
+  //       "Dynamicland imagine un ordinateur qui ne tient pas dans un écran, mais dans une pièce : du code imprimé sur du papier, manipulé à plusieurs mains sur une table, projeté et augmenté.",
+  //       "L'idée interroge nos interfaces solitaires et leur modèle de communication. Elle propose un calcul incarné, partagé, spatial — où interagir avec un programme redevient un geste physique et collectif.",
+  //     ] },
+  //     { t: "Protocoles vivants", p: [
+  //       "Les règles du transport en commun forment un protocole : laisser descendre avant de monter, céder sa place. Quand on les viole, rien ne plante — le système se dégrade simplement, lentement.",
+  //       "Beaucoup de protocoles, humains comme techniques, partagent cette propriété de dégradation gracieuse, par opposition à l'échec brutal. La penser change la façon de concevoir des systèmes qui doivent tolérer l'imperfection.",
+  //     ] },
+  //   ],
+  // },
+  // {
+  //   titre: "Activités et projet",
+  //   resume: "Mettre les mains dedans : comparer des systèmes existants, puis bâtir le projet de session, phase par phase.",
+  //   themes: ["comparaison", "collecte", "conception", "pratique"],
+  //   liens: [
+  //     { label: "Comparer trois systèmes", href: "/activites/comparer-systemes" },
+  //     { label: "Projet — Phase 1", href: "/projet/phase-1" },
+  //   ],
+  //   fiches: [
+  //     { t: "Comparer des systèmes", p: [
+  //       "Décrire un système isolément en dit moins que le confronter à ses voisins. En comparant trois approches d'un même problème, leurs compromis sautent aux yeux.",
+  //       "L'activité entraîne le regard critique : repérer ce que chaque choix gagne et ce qu'il coûte, plutôt que de chercher une solution unique et parfaite qui n'existe pas.",
+  //     ] },
+  //     { t: "Phase 1 — la collecte", p: [
+  //       "Le projet de session commence par les données : quelles informations le système doit-il connaître, et comment les structurer ? Ce qu'on décide ici conditionne tout le reste.",
+  //       "Car la forme des données détermine les services qu'on pourra offrir et le coût de chaque requête. Une collecte réfléchie est un investissement ; une collecte bâclée, une dette qu'on traîne tout le projet.",
+  //     ] },
+  //     { t: "Du concept au code", p: [
+  //       "L'objectif n'est pas seulement de comprendre, mais de livrer : partir d'un besoin réel et le mener jusqu'à une application qui tourne.",
+  //       "Le chemin oblige à trancher mille petites décisions concrètes — routes, formats, base, gestion d'erreurs — que la théorie laisse dans l'ombre. C'est souvent là qu'on apprend le plus.",
+  //     ] },
+  //     { t: "Documenter ses choix", p: [
+  //       "Un projet ne se juge pas qu'au code qui s'exécute, mais aux raisons derrière. Pourquoi cette ressource, ce format d'échange, cette base plutôt qu'une autre ?",
+  //       "Documenter ses choix rend la conception défendable et transmissible. C'est aussi un exercice d'honnêteté : un choix qu'on n'arrive pas à justifier mérite peut-être d'être revu.",
+  //     ] },
+  //   ],
+  // },
+];
 ---
 
 <BaseLayout title="IFT3225 — Technologies de l'internet">
@@ -12,77 +243,247 @@ import { navigation } from "../nav";
         Comprendre comment les systèmes communiquent : des protocoles aux API,
         du serveur à la base de données, du concept au code.
       </p>
+      <p class="home__note">Chaque carte mène à la page du sujet ; le bouton « Réviser » déroule ses fiches.</p>
     </header>
 
     <section class="home__grid">
-      {navigation.filter((g) => g.titre !== "Le cours").map((groupe) => (
-        <div class="home__card">
-          <h2 class="home__card-titre">{groupe.titre}</h2>
-          <ul class="home__card-list">
-            {groupe.items.map((item) => (
-              <li><a href={item.href}>{item.label}</a></li>
-            ))}
-          </ul>
-        </div>
+      {sujets.map((s) => (
+        <article class="subject">
+          <a class="subject__hit" href={s.liens[0].href}>
+            <h2 class="subject__titre">{s.titre}</h2>
+            <p class="subject__resume">{s.resume}</p>
+            <div class="subject__themes">
+              {s.themes.map((t) => <span class="chip">{t}</span>)}
+            </div>
+          </a>
+          <div class="subject__foot">
+            <ul class="subject__liens">
+              {s.liens.map((l) => <li><a href={l.href}>{l.label}</a></li>)}
+            </ul>
+            <button class="subject__revise" type="button" data-titre={s.titre} data-fiches={JSON.stringify(s.fiches)}>Réviser →</button>
+          </div>
+        </article>
       ))}
     </section>
   </div>
 
+  <div class="amodal" id="amodal" hidden>
+    <div class="amodal__backdrop" data-close></div>
+    <div class="amodal__panel" role="dialog" aria-modal="true" aria-label="Fiches de révision du sujet">
+      <header class="amodal__head">
+        <h2 class="amodal__titre"></h2>
+        <div class="amodal__actions">
+          <span class="amodal__counter"></span>
+          <button class="amodal__close" type="button" data-close aria-label="Fermer">×</button>
+        </div>
+      </header>
+      <div class="deckwrap">
+        <button class="deck__nav deck__nav--prev" type="button" aria-label="Fiche précédente">‹</button>
+        <div class="deck"></div>
+        <button class="deck__nav deck__nav--next" type="button" aria-label="Fiche suivante">›</button>
+      </div>
+      <div class="deck__dots"></div>
+    </div>
+  </div>
+
   <style>
-    .home { max-width: 860px; margin: 0 auto; }
-    .home__hero { padding: 2rem 0 3rem; border-bottom: 1px solid var(--c-border); margin-bottom: 3rem; }
+    .home { max-width: 940px; margin: 0 auto; }
+    .home__hero { padding: 2rem 0 2.4rem; border-bottom: 1px solid var(--c-border); margin-bottom: 2.6rem; }
     .home__eyebrow {
-      font-family: var(--mono);
-      font-size: 0.78rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: var(--c-accent);
-      text-transform: uppercase;
+      font-family: var(--mono); font-size: 0.78rem; font-weight: 600;
+      letter-spacing: 0.04em; color: var(--c-accent); text-transform: uppercase;
     }
     .home__title {
-      font-family: var(--serif);
-      font-size: clamp(2.4rem, 6vw, 3.6rem);
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      line-height: 1.1;
-      margin: 0.6rem 0 1rem;
-      color: var(--c-text);
+      font-family: var(--serif); font-size: clamp(2.4rem, 6vw, 3.6rem); font-weight: 700;
+      letter-spacing: -0.02em; line-height: 1.1; margin: 0.6rem 0 1rem; color: var(--c-text);
     }
-    .home__lede {
-      font-size: 1.25rem;
-      line-height: 1.6;
-      color: var(--c-muted);
-      max-width: 620px;
-      margin: 0;
+    .home__lede { font-size: 1.25rem; line-height: 1.6; color: var(--c-muted); max-width: 620px; margin: 0; }
+    .home__note { font-size: 0.85rem; color: var(--c-dim); margin: 1rem 0 0; font-style: italic; }
+
+    .home__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 1.4rem; }
+
+    .subject {
+      position: relative; display: flex; flex-direction: column; min-height: 230px;
+      padding: 1.5rem; background: var(--c-surface);
+      border: 1px solid var(--c-border); border-radius: var(--radius);
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
     }
-    .home__grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 1.5rem;
+    .subject:hover { border-color: var(--c-accent); transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,0.06); }
+    .subject__hit { display: flex; flex-direction: column; flex: 1 1 auto; text-decoration: none; color: inherit; }
+    .subject__hit::after {
+      content: "→"; position: absolute; top: 1.5rem; right: 1.5rem; font-family: var(--mono);
+      font-size: 0.95rem; color: var(--c-accent); opacity: 0; transform: translateX(-4px);
+      transition: opacity 0.2s, transform 0.2s;
     }
-    .home__card {
-      padding: 1.5rem;
-      background: var(--c-surface);
-      border: 1px solid var(--c-border);
-      border-radius: var(--radius);
-      transition: border-color 0.2s, transform 0.2s;
+    .subject:hover .subject__hit::after { opacity: 1; transform: translateX(0); }
+    .subject__titre { font-family: var(--serif); font-size: 1.22rem; font-weight: 600; margin: 0 0 0.5rem; color: var(--c-text); transition: color 0.15s; }
+    .subject__hit:hover .subject__titre { color: var(--c-accent); }
+    .subject__resume { font-size: 0.92rem; line-height: 1.55; color: var(--c-muted); margin: 0 0 0.9rem; }
+    .subject__themes { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 1rem; }
+    .chip { font-size: 0.68rem; font-weight: 600; padding: 2px 9px; border-radius: 100px; background: var(--c-accent-b); color: var(--c-accent); }
+    .subject__foot { margin-top: auto; padding-top: 0.9rem; border-top: 1px solid var(--c-border); display: flex; flex-direction: column; gap: 0.7rem; }
+    .subject__liens { list-style: none; margin: 0; padding: 0; }
+    .subject__liens li { margin: 0.3rem 0; }
+    .subject__liens a { color: var(--c-mid); text-decoration: none; font-size: 0.9rem; transition: color 0.15s; }
+    .subject__liens a:hover { color: var(--c-accent); text-decoration: underline; }
+    .subject__revise {
+      align-self: flex-start; background: none; border: none; padding: 0; cursor: pointer;
+      font-family: var(--mono); font-size: 0.72rem; font-weight: 600; color: var(--c-accent);
     }
-    .home__card:hover { border-color: var(--c-accent); transform: translateY(-2px); }
-    .home__card-titre {
-      font-family: var(--serif);
-      font-size: 1.2rem;
-      font-weight: 600;
-      margin: 0 0 0.8rem;
-      color: var(--c-text);
+    .subject__revise:hover { text-decoration: underline; }
+
+    /* Superposition + carrousel de fiches */
+    .amodal { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 2rem; }
+    .amodal[hidden] { display: none; }
+    .amodal__backdrop { position: absolute; inset: 0; background: rgba(18, 18, 28, 0.55); backdrop-filter: blur(3px); }
+    .amodal__panel { position: relative; width: 100%; max-width: 600px; }
+    .amodal__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+    .amodal__titre { font-family: var(--serif); font-size: clamp(1.3rem, 3vw, 1.6rem); font-weight: 700; color: #fff; margin: 0; }
+    .amodal__actions { display: flex; align-items: center; gap: 0.9rem; flex-shrink: 0; }
+    .amodal__counter { font-family: var(--mono); font-size: 0.8rem; color: rgba(255,255,255,0.8); }
+    .amodal__close {
+      width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.35);
+      background: rgba(255,255,255,0.08); color: #fff; font-size: 1.4rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
     }
-    .home__card-list { list-style: none; margin: 0; padding: 0; }
-    .home__card-list li { margin: 0.4rem 0; }
-    .home__card-list a {
-      color: var(--c-mid);
-      text-decoration: none;
-      font-size: 0.95rem;
-      transition: color 0.15s;
+    .amodal__close:hover { background: rgba(255,255,255,0.18); }
+
+    .deckwrap { position: relative; }
+    .deck {
+      display: flex; gap: 1rem; overflow-x: auto; scroll-snap-type: x mandatory;
+      scroll-behavior: smooth; scrollbar-width: none; padding-bottom: 2px;
     }
-    .home__card-list a:hover { color: var(--c-accent); }
+    .deck::-webkit-scrollbar { display: none; }
+    :global(.flash) {
+      flex: 0 0 calc(100% - 40px); scroll-snap-align: center; box-sizing: border-box;
+      min-height: 340px; max-height: 64vh; overflow: auto;
+      padding: 1.7rem 1.9rem; background: var(--c-surface);
+      border: 1px solid var(--c-border); border-top: 3px solid var(--c-accent);
+      border-radius: 16px; box-shadow: 0 24px 60px rgba(0,0,0,0.32);
+    }
+    :global(.flash__n) { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--c-dim); }
+    :global(.flash__t) { font-family: var(--serif); font-size: 1.4rem; font-weight: 700; color: var(--c-accent); margin: 0.3rem 0 0.9rem; }
+    :global(.flash__p) { font-size: 0.98rem; line-height: 1.66; color: var(--c-text); margin: 0 0 0.85rem; }
+    :global(.flash__p:last-child) { margin-bottom: 0; }
+
+    .deck__nav {
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 5;
+      width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.3);
+      background: rgba(20,20,30,0.6); color: #fff; font-size: 1.5rem; line-height: 1; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .deck__nav--prev { left: -16px; } .deck__nav--next { right: -16px; }
+    .deck__nav:hover:not(:disabled) { background: var(--c-accent); border-color: var(--c-accent); }
+    .deck__nav:disabled { opacity: 0.25; cursor: default; }
+
+    .deck__dots { display: flex; justify-content: center; gap: 0.5rem; margin-top: 1.1rem; }
+    :global(.deck__dot) { width: 8px; height: 8px; border-radius: 50%; border: none; padding: 0; cursor: pointer; background: rgba(255,255,255,0.35); transition: transform 0.15s, background 0.15s; }
+    :global(.deck__dot--on) { background: #fff; transform: scale(1.3); }
+
+    @media (max-width: 760px) {
+      .amodal { padding: 1rem; align-items: flex-start; overflow-y: auto; }
+      :global(.flash) { flex-basis: calc(100% - 24px); min-height: auto; max-height: none; overflow: visible; padding: 1.4rem; }
+      .deck__nav--prev { left: -4px; } .deck__nav--next { right: -4px; }
+    }
   </style>
+
+  <script>
+    const modal = document.getElementById("amodal");
+    const titreEl = modal.querySelector(".amodal__titre");
+    const counter = modal.querySelector(".amodal__counter");
+    const deck = modal.querySelector(".deck");
+    const dots = modal.querySelector(".deck__dots");
+    const prevBtn = modal.querySelector(".deck__nav--prev");
+    const nextBtn = modal.querySelector(".deck__nav--next");
+
+    function build(fiches) {
+      deck.innerHTML = "";
+      dots.innerHTML = "";
+      fiches.forEach((f, i) => {
+        const card = document.createElement("article");
+        card.className = "flash";
+        const eb = document.createElement("span");
+        eb.className = "flash__n";
+        eb.textContent = "Fiche " + (i + 1) + " / " + fiches.length;
+        const h = document.createElement("h3");
+        h.className = "flash__t";
+        h.textContent = f.t;
+        card.append(eb, h);
+        (f.p ?? []).forEach((par) => {
+          const p = document.createElement("p");
+          p.className = "flash__p";
+          p.textContent = par;
+          card.append(p);
+        });
+        deck.append(card);
+
+        const dot = document.createElement("button");
+        dot.className = "deck__dot";
+        dot.type = "button";
+        dot.setAttribute("aria-label", "Fiche " + (i + 1));
+        dot.addEventListener("click", () => goTo(i));
+        dots.append(dot);
+      });
+    }
+
+    function currentIndex() {
+      const cards = Array.from(deck.children);
+      if (!cards.length) return 0;
+      const center = deck.scrollLeft + deck.clientWidth / 2;
+      let best = 0, bestDist = Infinity;
+      cards.forEach((c, k) => {
+        const cc = c.offsetLeft + c.offsetWidth / 2;
+        const d = Math.abs(cc - center);
+        if (d < bestDist) { bestDist = d; best = k; }
+      });
+      return best;
+    }
+    function goTo(i) {
+      const card = deck.children[i];
+      if (!card) return;
+      const left = card.offsetLeft - (deck.clientWidth - card.offsetWidth) / 2;
+      deck.scrollTo({ left, behavior: "smooth" });
+    }
+    function update() {
+      const n = deck.children.length;
+      const i = currentIndex();
+      counter.textContent = n ? (i + 1) + " / " + n : "";
+      Array.from(dots.children).forEach((d, k) => d.classList.toggle("deck__dot--on", k === i));
+      prevBtn.disabled = i <= 0;
+      nextBtn.disabled = i >= n - 1;
+    }
+
+    function openModal(titre, fiches) {
+      titreEl.textContent = titre;
+      build(Array.isArray(fiches) ? fiches : []);
+      modal.hidden = false;
+      document.body.style.overflow = "hidden";
+      deck.scrollLeft = 0;
+      update();
+    }
+    function closeModal() {
+      modal.hidden = true;
+      document.body.style.overflow = "";
+    }
+
+    let raf = 0;
+    deck.addEventListener("scroll", () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(update); });
+    prevBtn.addEventListener("click", () => goTo(currentIndex() - 1));
+    nextBtn.addEventListener("click", () => goTo(currentIndex() + 1));
+
+    document.querySelectorAll(".subject__revise").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        let fiches = [];
+        try { fiches = JSON.parse(btn.getAttribute("data-fiches") ?? "[]"); } catch (err) { fiches = []; }
+        openModal(btn.getAttribute("data-titre") ?? "", fiches);
+      });
+    });
+    modal.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", closeModal));
+    document.addEventListener("keydown", (e) => {
+      if (modal.hidden) return;
+      if (e.key === "Escape") closeModal();
+      else if (e.key === "ArrowLeft") goTo(currentIndex() - 1);
+      else if (e.key === "ArrowRight") goTo(currentIndex() + 1);
+    });
+  </script>
 </BaseLayout>

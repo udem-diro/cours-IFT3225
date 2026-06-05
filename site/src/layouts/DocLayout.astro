@@ -16,6 +16,7 @@ const { title, description, progress = true } = Astro.props;
   <article class="prose sl-markdown-content">
     <slot />
   </article>
+  <slot name="footer" />
 </BaseLayout>
 
 <style>

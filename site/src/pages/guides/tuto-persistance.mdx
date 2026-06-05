@@ -1,0 +1,448 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Choisir une stratégie de persistance"
+description: "Où préserver l'information d'une application web — client, serveur, base de données, cache ? Un guide qui part d'un flux sans persistance et ajoute les mécanismes un à un, avec leurs technologies et leurs compromis."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import PersistenceExplorer from "../../components/react/PersistenceExplorer.jsx";
+import Consideration from "../../components/Consideration.astro";
+
+<MarginNote type="prerequis">
+Ce guide suppose une familiarité avec le modèle requête-réponse de HTTP et son caractère 
+**sans état**. Si « sans état » ne vous parle pas encore, lisez d'abord la note sur HTTP et REST.
+</MarginNote>
+
+## Le problème : HTTP ne se souvient de rien
+
+Le protocole HTTP est **sans état** (*stateless*). Chaque requête est traitée de manière indépendante : 
+le serveur n'est pas tenu de garder une trace des requêtes et réponses précédentes. 
+C'est une force pour la mise à l'échelle, mais en pratique une requête est souvent liée à
+une autre ou requiert un contexte pour être bien traitée. D'où la question:
+<Highlight>Où préserver l'information nécessaire pour un traitement efficace des requêtes ?</Highlight>
+
+C'est tout l'enjeu de la **persistance**. 
+Et il n'y a pas une seule réponse : on peut préserver l'information à plusieurs endroits — 
+sur le **client**, en **mémoire du serveur**, dans une **base de données**, dans un **cache** et 
+même **au niveau de l'utilisateur** ou **l'environnement** (laissé en dehors de ce guide) — 
+chacun avec ses forces et son coût.
+
+<MarginNote type="rappel" titre="Persister ≠ contredire REST">
+Préserver de l'état ne contredit pas le caractère sans état de HTTP. 
+L'astuce est que l'état vit *dans une ressource* (un document en base de données, un *token* chez le client), 
+et que chaque requête y fait référence — plutôt que de compter sur la mémoire implicite du serveur entre deux appels.
+</MarginNote>
+
+## Du flux sans persistance aux mécanismes de préservation
+
+Le meilleur moyen de comprendre chaque mécanisme, c'est de partir de l'état de base 
+(**sans aucune persistance**) et d'observer ce qu'on est obligé de faire : tout transporter dans chaque requête. 
+Puis on ajoute les mécanismes un par un. À chaque ajout, la **checklist de ce qu'il faut renvoyer rétrécit**, 
+mais l'architecture **gagne en complexité**.
+
+L'explorateur ci-dessous trace **graphiquement** l'échange sous forme de diagramme de séquence **animé**.  
+Pour l'utiliser, 
+1. Commencez par choisir un **type de client** : 
+    - un *navigateur* ou une *application mobile* utilisé par Alice pour emprunter un livre et consulter son historique ; 
+    - un *objet connecté* (le capteur d'une boîte) qui **pousse** un événement puis interroge sa configuration. Un scénario où le cache prend tout son sens. 
+2. Cochez ensuite les mécanismes de persistance (cases indépendantes) : Client, Serveur, Base de données, Cache 
+3. Pour chacun, choisissez la **technologie** . Le flux se redessine automatiquement. 
+4. Consultez sous le diagramme les **considérations pour la technologie sélectionnée**: ce dont elle a besoin, ce qu'on peut y stocker, comment la contrôler, ses limites et quand l'utiliser.
+
+<MarginNote type="astuce" titre="Lire les payloads">
+Sur chaque message, l'icône donne la *nature* de l'information (identifiants, objet d'état, collection, identifiant de session) et les barres sa *taille*. Survolez-la pour le détail. À l'étape *sans persistance*, le `POST` porte un objet d'état marqué en orange : l'état transporté faute de mieux.
+</MarginNote>
+
+<PersistenceExplorer client:visible />
+
+{/* Trois différences que le diagramme rend enfin visibles : **Cache → CDN** court-circuite le serveur (sur un HIT, la réponse part du bord, le serveur n'est pas touché) tandis que **Cache → Redis** reste côté serveur (la lecture passe par Redis au lieu de la base) ; **Serveur → express-session** ouvre une session via `Set-Cookie` là où **Serveur → Map** doit être keyé manuellement (et prévient quand l'identifiant manque) ; et le **type de client** change les mécanismes côté client (cookie/localStorage pour le web, jeton/SQLite pour le mobile, identifiant d'appareil/tampon pour le capteur). */}
+
+<Highlight couleur="ambre">Chaque mécanisme déplace une responsabilité — vers le client, le serveur, la BD — et chaque déplacement a un prix.</Highlight> Il n'existe pas de « meilleur » endroit dans l'absolu : il y a des endroits adaptés à un type de donnée et à un type d'accès.
+
+## Les cibles de persistance
+
+Persister une donnée ne veut pas toujours dire la conserver dans une base de données. 
+L'état peut être conservé à plusieurs endroits : dans le navigateur, dans la mémoire du serveur, dans une base de données, dans un cache, ou même dans un réseau de diffusion comme un CDN.
+
+<MarginNote type="attention" titre="La persistance va au delà de l'infrastructure">
+Ces cibles décrivent l'**infrastructure** : elle ne conserve qu'une *représentation* de l'état, pas toute la réalité. 
+Deux sources de vérité lui échappent: l'utilisateur et l'environnement.  
+L'**utilisateur** détient le **contexte et l'intention** : 
+pourquoi l'action a eu lieu, ce qu'il voulait vraiment — une ligne « emprunt : Dune par Alice » n'en dit rien.  
+L'**environnement** contient l'**état et l'effet réel** de l'action : le livre est physiquement dans le sac d'Alice ; 
+la base de données n'en est qu'un reflet, parfois faux, jamais la source.
+</MarginNote>
+
+
+### Côté client
+ 
+Le client peut mémoriser de l'information localement. 
+Cette information peut servir à **identifier une session**, **personnaliser l'expérience**, 
+conserver un état d'interface ou permettre un **fonctionnement partiel hors-ligne**.
+
+> Cependant tout stockage côté client doit être traité avec prudence : l'utilisateur peut l'effacer et le navigateur peut le limiter. On ne doit donc jamais considérer le client comme une source de vérité fiable pour des données critiques.
+
+
+#### Cookies (navigateur)
+
+Un cookie est une petite paire `nom=valeur`, typiquement limitée à environ 4 Ko, que le navigateur conserve et associe à un domaine.
+ 
+Dans les usages serveur classiques, c'est le **serveur** qui crée le cookie en ajoutant un en-tête `Set-Cookie` à sa réponse. Le JavaScript de la page peut aussi créer certains cookies avec `document.cookie`, mais on évite cette approche pour les données sensibles.
+
+Ensuite, à chaque requête vers le domaine concerné, le **navigateur renvoie automatiquement** le cookie dans l'en-tête `Cookie`. Le code client n'a pas à l'ajouter manuellement. Le serveur peut alors relire ce cookie pour reconnaître le même client d'une requête à l'autre.
+
+```js
+// Express — le serveur pose le cookie dans sa réponse
+res.cookie("sid", id, {
+  httpOnly: true,
+  secure: true,
+  sameSite: "lax",
+  maxAge: 600000
+});
+
+// Requêtes suivantes — le serveur le relit
+const sid = req.cookies.sid;
+```
+
+Les attributs du cookie contrôlent sa portée, sa durée de vie et certains aspects de sécurité :
+
+* `httpOnly` le rend inaccessible au JavaScript, ce qui limite le vol par XSS;
+* `secure` fait en sorte qu'il soit envoyé seulement en HTTPS;
+* `sameSite` limite son envoi dans des contextes intersites, ce qui aide à réduire certains risques de CSRF;
+* `maxAge` ou `expires` fixe sa durée de vie;
+* `path` et `domain` contrôlent les chemins et domaines auxquels il s'applique.
+
+Comme un cookie est renvoyé automatiquement avec les requêtes HTTP correspondantes, on évite d'y stocker des données volumineuses. En pratique, on y met surtout un **petit identifiant**, par exemple un identifiant de session. L'état complet reste ailleurs, souvent côté serveur.
+
+<Highlight>Un cookie ne devrait jamais contenir de mot de passe, de secret en clair, ou de données personnelles détaillées.</Highlight>
+
+**Exemples d'usage:**
+- Maintenir une session de connexion ; 
+- Mémoriser une langue ou un thème ; 
+- Suivre un panier anonyme entre les pages.
+ 
+#### Web Storage : `localStorage` et `sessionStorage`
+
+Le **Web Storage** est un espace de stockage clé-valeur tenu par le navigateur et propre à une origine. 
+Il offre généralement plus d'espace qu'un cookie, souvent autour de 5 à 10 Mo selon le navigateur.
+
+Contrairement aux cookies, le contenu du Web Storage **n'est jamais envoyé automatiquement au serveur**. Il s'agit d'un stockage local, pas d'un mécanisme de transport HTTP.
+
+C'est le JavaScript côté client qui écrit et lit explicitement les données avec `setItem` et `getItem`.
+
+```js
+localStorage.setItem("brouillon", JSON.stringify(donnees));
+
+const donnees = JSON.parse(
+  localStorage.getItem("brouillon") ?? "null"
+);
+```
+
+Pour qu'une donnée stockée dans `localStorage` atteigne le serveur, le JavaScript doit la relire et l'inclure explicitement dans une requête, par exemple dans le corps d'un `fetch`.
+
+La différence entre `localStorage` et `sessionStorage` concerne principalement la durée de vie :
+
+* `localStorage` persiste entre les visites, jusqu'à suppression par le code, l'utilisateur ou le navigateur;
+* `sessionStorage` est associé à un onglet ou à une session de navigation et disparaît généralement à la fermeture de l'onglet.
+
+Le Web Storage offre plus d'espace qu'un cookie, mais il reste limité et synchrone. Surtout, il est accessible au JavaScript : 
+<Highlight>il ne faut donc pas y stocker de secret, de mot de passe ou de jeton sensible exposé aux attaques XSS.</Highlight>
+
+
+**Exemples d'usage:**  
+- Sauvegarder le brouillon d'un formulaire ; 
+- conserver des préférences d'interface ; 
+- mettre en cache des données d'API côté client ; 
+- conserver un état temporaire d'application monopage.
+
+
+<MarginNote type="astuce" titre="Mobile et objets connectés">
+Une application mobile utilise souvent un stockage sécurisé, comme Keychain sur iOS ou Keystore sur Android, pour conserver un jeton d'authentification. Elle peut aussi utiliser une base locale, comme SQLite, pour permettre un fonctionnement hors-ligne.
+
+Un objet connecté, de son côté, peut conserver un identifiant d'appareil et tamponner ses relevés localement lorsque le réseau est indisponible. 
+</MarginNote>
+
+### Côté serveur (en mémoire)
+
+Le serveur peut aussi conserver de l'information dans sa propre mémoire vive. 
+Cette solution est très rapide, mais fragile : la mémoire appartient à un processus particulier. 
+Elle disparaît au redémarrage et n'est pas automatiquement partagée entre plusieurs serveurs.
+
+Elle convient bien à un état temporaire ou non critique, mais elle ne doit pas être utilisée seule pour des données que l'on doit conserver durablement.
+
+#### Structure en mémoire : `Map`
+
+Une structure comme `Map` ou un simple objet JavaScript peut servir de magasin temporaire dans un serveur Node.js.
+
+C'est le code serveur qui la crée, généralement au démarrage de l'application, puis qui y écrit et relit au fil des requêtes.
+
+```js
+const sessions = new Map();
+
+sessions.set(sid, { emprunts: [] }); // une requête écrit
+const etat = sessions.get(sid);      // une autre requête relit
+```
+
+Cette mémoire est partagée entre toutes les requêtes traitées par le **même processus**. 
+Une requête peut donc écrire une valeur, et une autre requête peut la retrouver plus tard avec la même clé.
+
+Cependant, cette donnée ne voyage pas sur le réseau, n'est pas partagée entre plusieurs instances du serveur, et disparaît si le processus redémarre.
+
+**Exemples d'usage :** 
+- Cache très court ; 
+- Compteur temporaire ; 
+- État de session non critique en développement ; 
+- Limitation simple du nombre de requêtes.
+
+<MarginNote type="attention" titre="Même application, même mémoire?">
+En développement, on lance souvent une application avec un seul processus Node. Dans ce cas, une structure comme une `Map` semble partagée par toute l'application.
+
+En production, c'est souvent différent. La même application peut être exécutée par plusieurs processus, plusieurs conteneurs ou plusieurs instances derrière un répartiteur de charge. Chaque processus possède alors sa **propre mémoire**.
+
+Deux requêtes vers la même application peuvent donc ne pas voir les mêmes données si elles sont traitées par deux processus différents.
+
+```js
+Requête A → Processus 1 → sessions.set("abc", {...})  
+Requête B → Processus 2 → sessions.get("abc") // introuvable
+```
+</MarginNote>
+
+<MarginNote type="plusloin" titre="Implémentation plus robuste avec express-session"> 
+En pratique, on utilise une structure plus robuste que `Map`, comme le middleware **`express-session`** dans *Express.js*. 
+À la première visite, il génère un identifiant, le pose en cookie `sid` (via `Set-Cookie`) et ouvre une entrée dans son **magasin** 
+À chaque requête suivante, le cookie revient et il repeuple `req.session`.
+ 
+```js
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  resave: false, saveUninitialized: false,
+  cookie: { httpOnly: true, maxAge: 3600000 },
+}));
+// dans une route — l'état est rattaché à la requête
+req.session.emprunts ??= [];
+```
+ 
+Par défaut il est en mémoire, avec le même piège que la `Map` : <Highlight>tout disparaît au redémarrage</Highlight>, et si deux serveurs se partagent la charge, l'un ignore la session retenue par l'autre. 
+En production, on remplace donc ce magasin par un **store partagé** (ex: Redis).
+</MarginNote>
+
+### La base de données
+
+La base de données correspond à la persistance **durable, partagée et interrogeable**.
+
+Contrairement à la mémoire serveur, les données survivent aux redémarrages, et contrairement au stockage client, elles ne dépendent pas du navigateur de l'utilisateur. 
+
+Dans une application web classique, c'est le **serveur applicatif** qui lit et écrit dans la base à l'aide d'un pilote, d'un *ORM* ou d'un *ODM*. 
+Chaque accès à la base implique généralement une requête réseau séparée vers un service externe, parfois situé sur une autre machine.
+
+C'est pourquoi le code d'accès aux données est souvent asynchrone.
+
+```js
+const emprunt = await Emprunt.create({
+  emprunteur,
+  livreId,
+  date: new Date()
+});
+```
+
+<MarginNote type="definition" titre="ORM et ODM">
+Un **ORM** (*Object-Relational Mapper*) fait le pont entre les objets manipulés dans le code et les tables d'une base relationnelle. Il traduit les opérations sur les objets en requêtes SQL.
+
+Un **ODM** (*Object-Document Mapper*) joue un rôle analogue pour une BD orientée document : il associe les objets du code à des documents, par exemple des documents BSON dans MongoDB.
+
+Exemples : **Prisma**, **Sequelize** ou **TypeORM** pour le relationnel ; **Mongoose** pour MongoDB.
+</MarginNote>
+
+La base de données n'est pas simplement un endroit où déposer des données. Elle joue souvent le rôle de **source de vérité applicative** : c'est l'état durable sur lequel le système s'appuie pour reconstruire ses réponses, ses écrans, ses rapports et ses décisions.
+
+
+#### BD NoSQL (orientée document)
+
+Une BD NoSQL comme **MongoDB** stocke les données sous forme de **documents** BSON. 
+Ces documents ressemblent à des objets JSON enrichis et peuvent contenir des tableaux, 
+des objets imbriqués et des champs variables.
+
+Avec **Mongoose**, le serveur manipule ces documents à travers un ODM qui fournit des modèles, des schémas applicatifs et des méthodes de requête.
+
+```js
+const emprunt = await Emprunt.create({
+  emprunteur,
+  livreId,
+  date: new Date()
+});
+
+const historique = await Emprunt
+  .find({ emprunteur })
+  .sort({ date: -1 });
+```
+
+Le modèle orientée document est particulièrement adapté lorsque les données sont souvent lues en bloc, lorsqu'elles ont une structure naturellement imbriquée, ou lorsque le schéma peut évoluer au fil du temps.
+
+{/* **Exemples d'usage :** profil utilisateur ; commande ; historique d'activité ; document de configuration ; entité dont certains champs varient selon le contexte. */}
+
+Avec MongoDB, on doit souvent choisir entre deux stratégies de modélisation :
+
+* **imbriquer** les données dans un même document;
+* **référencer** d'autres documents par identifiant.
+
+L'imbrication facilite la lecture en bloc, mais peut créer de la duplication.
+La référence réduit la duplication, mais oblige parfois à faire plusieurs requêtes ou des agrégations.
+
+---
+
+#### BD relationnelle
+
+Une BD relationnelle comme **PostgreSQL** organise les données en **tables** à schéma fixe. Elle offre des contraintes fortes, des jointures, des transactions ACID et un langage de requête standardisé : SQL.
+
+```sql
+INSERT INTO emprunts (emprunteur, livre_id)
+VALUES ($1, $2)
+RETURNING *;
+
+SELECT *
+FROM emprunts
+WHERE emprunteur = $1
+ORDER BY date DESC;
+```
+
+Le modèle relationnel est particulièrement adapté lorsque les données sont fortement liées, lorsque les contraintes d'intégrité sont importantes, ou lorsqu'une opération doit modifier plusieurs tables de façon atomique.
+
+Une transaction permet de regrouper plusieurs opérations et de garantir qu'elles réussissent ou échouent ensemble.
+
+```sql
+BEGIN;
+
+INSERT INTO emprunts (emprunteur, livre_id)
+VALUES ($1, $2);
+
+UPDATE livres
+SET disponible = false
+WHERE id = $2;
+
+COMMIT;
+```
+
+{/* *Exemples d'usage :* réservation unique d'une ressource ; paiement ; inventaire ; relations complexes entre entités ; opérations multi-tables. */}
+
+{/* Dans une base relationnelle comme dans une base documentaire, les index sont essentiels. Il faut indexer les champs utilisés fréquemment pour filtrer, trier ou joindre les données. */}
+
+Si une des opérations échoue, la transaction peut être annulée. Cela évite de laisser le système dans un état partiellement modifié.
+
+<MarginNote type="lien" titre="Le choix du modèle compte">
+Le choix du type de base de données ne dépend pas seulement de la technologie. 
+Il dépend surtout de la forme des données, des requêtes attendues, des contraintes d'intégrité et du coût des lectures et écritures.
+
+Voir aussi [Prise en main de MongoDB](/guides/tuto-mongo) et son explorateur de modèle. 
+</MarginNote>
+
+### Le cache et les autres
+
+Un cache ne joue pas le même rôle qu'une base de données. Il ne sert pas d'abord à conserver la vérité durable du système, mais à éviter de refaire un travail coûteux.
+
+Un cache conserve une **copie** : copie d'une lecture fréquente, d'un calcul coûteux, d'une réponse HTTP, ou d'un état temporaire. 
+<Highlight>Cependant, cette copie peut devenir périmée</Highlight>. Le problème central du cache est donc l'invalidation : **quand faut-il supprimer ou rafraîchir la copie?**
+
+
+#### Redis côté serveur
+
+Redis est un magasin clé-valeur en mémoire, généralement exécuté comme un service séparé du serveur applicatif. Il est très rapide et peut associer une durée de vie aux clés avec un TTL.
+
+Contrairement à une `Map` dans Node, Redis peut être partagé par plusieurs instances du serveur. 
+Il peut donc servir de cache commun, de store de session partagé, ou de compteur distribué.
+
+```js
+await redis.set(
+  "boite:42",
+  JSON.stringify(boite),
+  "EX",
+  60
+);
+
+const cache = await redis.get("boite:42");
+```
+
+Un patron courant est le **cache-aside** :
+
+1. le serveur reçoit une requête et cherche d'abord la donnée dans Redis;
+2. si elle existe, c'est un cache hit;
+3. si elle n'existe pas, c'est un cache miss;
+4. le serveur interroge alors la base de données;
+5. il recopie le résultat dans Redis avec un TTL;
+6. les prochaines requêtes pourront utiliser le cache.
+
+> Le TTL limite la durée de vie de la copie. Mais il ne règle pas tout : si la donnée change dans la base, il faut parfois invalider explicitement la clé Redis pour éviter de servir une version périmée.
+
+**Exemples d'usage :** 
+- Mettre en cache des lectures fréquentes ; 
+- Partager les sessions entre plusieurs serveurs ; 
+- Tenir des compteurs en temps réel ; 
+- Limiter un nombre de requêtes par utilisateur.
+
+
+---
+
+#### Content Delivery Network (CDN)
+
+Un CDN, ou réseau de diffusion de contenu, conserve des copies de certaines réponses HTTP sur des serveurs situés près des utilisateurs.
+
+Contrairement à Redis, le CDN n'est pas utilisé directement par le code applicatif comme une base clé-valeur. Il intercepte plutôt des requêtes HTTP et peut répondre à la place du serveur d'origine lorsque la ressource est cacheable.
+
+Le serveur contrôle le comportement du CDN au moyen d'en-têtes HTTP, notamment `Cache-Control`.
+
+```http
+Cache-Control: public, max-age=300
+```
+Avec cet en-tête, une réponse publique peut être conservée pendant 300 secondes. Pendant ce temps, des requêtes identiques peuvent être servies par le CDN.
+Cela réduit la latence pour l'utilisateur et diminue la charge sur le serveur applicatif.
+
+Un CDN convient aux ressources publiques ou peu variables. Il ne convient pas aux données privées ou fortement personnalisées, sauf avec une configuration très précise.
+
+**Exemples d'usage :** 
+- Diffuser des fichiers statiques (images, CSS, JS) ; 
+- Servir une page publique très consultée ; 
+- Absorber des pics de trafic.
+
+<MarginNote type="attention" titre="Le piège du cache">
+« Il n'y a que deux choses difficiles en informatique : l'invalidation de cache et nommer les choses. »
+
+Un cache accélère le système, mais il faut décider quand la copie cesse d'être acceptable. Une donnée rapide mais fausse peut être pire qu'une donnée lente mais correcte.
+</MarginNote>
+
+
+## En un coup d'œil
+ 
+Chaque stratégie de persistance a un rôle architectural distinct. 
+Le bon choix dépend moins de la technologie elle-même que de la nature de la donnée et du type d'état que l'on veut conserver.
+
+
+| Famille                        | Survit au redémarrage?                                     | Partagée entre serveurs?                | Rôle architectural                                 | Usage de prédilection                        |
+| ------------------------------ | ---------------------------------------------------------- | --------------------------------------- | -------------------------------------------------- | -------------------------------------------- |
+| Cookie                         | Selon `Max-Age` / `Expires`                                | Non, propre au client                   | Identifiant ou petite préférence envoyée avec HTTP | Session, langue, thème                       |
+| Web Storage                    | Oui pour `localStorage`, non durable pour `sessionStorage` | Non, propre à l'appareil et à l'origine | État local côté client                             | Brouillon, préférences, cache local          |
+| Mémoire serveur                | Non                                                        | Non, sauf instance unique               | État temporaire d'une instance                     | Cache court, compteur, état non critique     |
+| Base de données                | Oui                                                        | Oui                                     | Source durable et interrogeable                    | Données métier, historique, utilisateurs     |
+| Cache Redis                    | Optionnel selon configuration                              | Oui                                     | Cache, session partagée, compteur distribué        | Lectures fréquentes, rate limiting, sessions |
+| Cache CDN                      | Jusqu'au TTL ou à la purge                                 | Oui, à l'échelle du réseau              | Copie publique proche de l'utilisateur             | Images, JS, CSS, pages publiques             |
+
+---
+
+## Comment choisir
+ 
+En pratique, une application **combine** plusieurs familles : un cookie pour la session, une base pour le durable, un cache devant les lectures chaudes. 
+Le but n'est pas d'en empiler le plus, mais de choisir le **minimum** qui répond aux besoins. 
+Pour choisir une cible de persistance, on peut utiliser les règles suivantes :
+
+- Si la donnée doit être renvoyée automatiquement au serveur à chaque requête, penser au **cookie**.
+- Si la donnée est seulement utile à l'interface locale, penser au **Web Storage**.
+- Si la donnée est temporaire et reconstructible, la **mémoire serveur** peut suffire.
+- Si la donnée doit survivre, être partagée et interrogée, utiliser une **base de données**.
+- Si la donnée est souvent relue mais coûteuse à recalculer, ajouter un **cache** comme Redis.
+- Si la réponse est publique et consultée par beaucoup d'utilisateurs, utiliser un **CDN**.
+
+<Highlight>Le choix d'une stratégie de persistance est donc un choix d'architecture : il détermine où se trouve l'état, qui lui fait confiance, et ce qui arrive lorsque le navigateur, le serveur, le réseau ou la base tombe en panne.</Highlight>
+
+<Checkpoint question="Pour Lino : où ranger (a) l'identifiant de session d'Alice (sid), (b) l'historique de ses emprunts ? Justifiez.">
+(a) Le **sid** vit côté **client** (un cookie) : il accompagne chaque requête pour que le serveur retrouve la bonne session, sans avoir à s'en souvenir de lui-même. (b) L'**historique** des emprunts doit survivre et se consulter → **base de données** (durable, interrogeable) ; il serait perdu s'il ne vivait qu'en mémoire serveur, et invisible aux autres appareils s'il ne vivait qu'en localStorage. Chaque donnée va là où son besoin (identité de session, durabilité) est le mieux servi.
+</Checkpoint>

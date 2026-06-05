@@ -1,0 +1,177 @@
+---
+/**
+ * Sequence.astro — diagramme de conversation entre deux acteurs.
+ *
+ * Statique : pur markup + CSS, aucun îlot React, aucune hydratation.
+ * Sert à illustrer un protocole comme une *séquence d'interactions*
+ * (session types) plutôt que comme un simple format de données.
+ *
+ * Props :
+ *   acteurs  : [gauche, droite]            — noms des deux parties
+ *   messages : { de, vers, texte, branche? }[]
+ *              de / vers ∈ {0, 1} (indices dans `acteurs`)
+ *              branche=true marque un choix (confirmation OU annulation…)
+ *   titre?   : légende optionnelle
+ *
+ * Exemple :
+ *   <Sequence
+ *     acteurs={["Client", "Serveur"]}
+ *     messages={[
+ *       { de: 0, vers: 1, texte: "demande de réservation" },
+ *       { de: 1, vers: 0, texte: "disponibilité" },
+ *       { de: 0, vers: 1, texte: "confirmation ou annulation", branche: true },
+ *       { de: 1, vers: 0, texte: "reçu ou erreur", branche: true },
+ *     ]}
+ *   />
+ */
+interface Message { de: 0 | 1; vers: 0 | 1; texte: string; branche?: boolean; }
+interface Props { acteurs: [string, string]; messages: Message[]; titre?: string; }
+const { acteurs, messages, titre } = Astro.props as Props;
+---
+
+<figure class="seq">
+  <div class="seq__actors">
+    <span class="seq__actor">{acteurs[0]}</span>
+    <span class="seq__actor">{acteurs[1]}</span>
+  </div>
+
+  <div class="seq__track">
+    {messages.map((m) => (
+      <div class={`seq__msg ${m.de === 0 ? "seq__msg--ltr" : "seq__msg--rtl"} ${m.branche ? "seq__msg--branche" : ""}`}>
+        <span class="seq__label">
+          {m.texte}
+          {m.branche && <span class="seq__choix">choix</span>}
+        </span>
+        <span class="seq__arrow"><span class="seq__head"></span></span>
+      </div>
+    ))}
+  </div>
+
+  {titre && <figcaption class="seq__cap">{titre}</figcaption>}
+</figure>
+
+<style>
+  .seq {
+    --seq-accent: #0d9488;
+    --seq-text: #1a1a2e;
+    --seq-mut: #6b6b80;
+    --seq-line: #cdd0d6;
+    --seq-bg: #faf9f7;
+    --seq-pill: #fff;
+    margin: 2rem auto;
+    max-width: 560px;
+    font-family: "DM Sans", system-ui, sans-serif;
+    color: var(--seq-text);
+  }
+
+  .seq__actors {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+  .seq__actor {
+    font-family: "Fraunces", Georgia, serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    background: var(--seq-accent);
+    color: #fff;
+    padding: 5px 14px;
+    border-radius: 8px;
+  }
+
+  /* deux lignes de vie verticales, alignées sous les acteurs */
+  .seq__track {
+    position: relative;
+    padding: 8px 0;
+  }
+  .seq__track::before,
+  .seq__track::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: repeating-linear-gradient(var(--seq-line) 0 6px, transparent 6px 12px);
+  }
+  .seq__track::before { left: 13%; }
+  .seq__track::after { right: 13%; }
+
+  .seq__msg {
+    position: relative;
+    height: 52px;
+  }
+  .seq__label {
+    position: absolute;
+    left: 50%;
+    top: 8px;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    font-size: 0.82rem;
+    color: var(--seq-text);
+    background: var(--seq-bg);
+    padding: 1px 10px;
+    z-index: 2;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .seq__choix {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #d97706;
+    border: 1px solid #d97706;
+    border-radius: 100px;
+    padding: 0 6px;
+  }
+
+  /* la flèche : ligne horizontale entre les deux lignes de vie */
+  .seq__arrow {
+    position: absolute;
+    top: 34px;
+    left: 13%;
+    right: 13%;
+    height: 0;
+    border-top: 2px solid var(--seq-accent);
+  }
+  .seq__msg--branche .seq__arrow {
+    border-top-style: dashed;
+  }
+  .seq__head {
+    position: absolute;
+    top: 50%;
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+  }
+  /* sens gauche → droite : tête à droite */
+  .seq__msg--ltr .seq__head {
+    right: -1px;
+    transform: translateY(-50%);
+    border-left: 8px solid var(--seq-accent);
+  }
+  /* sens droite → gauche : tête à gauche */
+  .seq__msg--rtl .seq__head {
+    left: -1px;
+    transform: translateY(-50%);
+    border-right: 8px solid var(--seq-accent);
+  }
+
+  .seq__cap {
+    margin-top: 10px;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--seq-mut);
+    font-style: italic;
+  }
+
+  :global([data-theme="dark"]) .seq {
+    --seq-text: #e8e8ef;
+    --seq-mut: #a0a0b0;
+    --seq-line: #3a3a4a;
+    --seq-bg: #1a1a2e;
+    --seq-pill: #26263a;
+  }
+</style>

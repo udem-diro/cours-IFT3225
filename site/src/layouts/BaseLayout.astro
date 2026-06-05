@@ -58,6 +58,10 @@ const { title = "IFT3225 — Technologies de l'internet", description = "Notes d
       <ThemeToggle />
     </div>
 
+    <footer>
+      <slot name="footer" />
+    </footer>
+
     <script>
       function initShell() {
         const burger = document.getElementById("burger");
@@ -81,8 +85,12 @@ const { title = "IFT3225 — Technologies de l'internet", description = "Notes d
     <style>
       .shell {
         margin-left: var(--nav-width);
+        margin-right: var(--nav-width);
         min-height: 100vh;
         padding: 3.5rem 3rem 6rem;
+      }
+      @media (max-width: 1100px) {
+        .shell { margin-right: 0; }
       }
 
       /* Topbar mobile */

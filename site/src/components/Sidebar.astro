@@ -22,15 +22,35 @@ const current = pathname !== "/" ? pathname.replace(/\/$/, "") : "/";
           {groupe.items.map((item) => {
             const href = item.href !== "/" ? item.href.replace(/\/$/, "") : "/";
             const active = current === href;
+            const childActive = item.children?.some((c) => current === c.href.replace(/\/$/, ""));
             return (
               <li>
                 <a
                   href={item.href}
-                  class={`navlink ${active ? "navlink--active" : ""}`}
+                  class={`navlink ${active || childActive ? "navlink--active" : ""}`}
                   aria-current={active ? "page" : undefined}
                 >
                   {item.label}
                 </a>
+                {item.children && (
+                  <ul class="navsub">
+                    {item.children.map((child) => {
+                      const chref = child.href.replace(/\/$/, "");
+                      const cactive = current === chref;
+                      return (
+                        <li>
+                          <a
+                            href={child.href}
+                            class={`navlink navlink--sub ${cactive ? "navlink--active" : ""}`}
+                            aria-current={cactive ? "page" : undefined}
+                          >
+                            {child.label}
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
               </li>
             );
           })}
@@ -117,6 +137,20 @@ const current = pathname !== "/" ? pathname.replace(/\/$/, "") : "/";
     font-weight: 600;
     border-left-color: var(--c-accent);
   }
+
+  .navsub {
+    list-style: none;
+    margin: 2px 0 6px 0.7rem;
+    padding-left: 0.55rem;
+    border-left: 1px solid var(--c-border);
+  }
+  .navlink--sub {
+    font-size: 0.85rem;
+    padding-top: 4px;
+    padding-bottom: 4px;
+    color: var(--c-dim);
+  }
+  .navlink--sub:hover { color: var(--c-text); }
 
   /* Mobile : la sidebar se cache et se révèle */
   @media (max-width: 920px) {

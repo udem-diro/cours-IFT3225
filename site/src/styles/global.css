@@ -54,8 +54,8 @@
   --sl-font-mono: var(--mono);
 
   /* Layout */
-  --nav-width: 264px;
-  --content-max: 760px;
+  --nav-width: 300px;
+  --content-max: 840px;
   --radius: 12px;
   --radius-sm: 8px;
 }

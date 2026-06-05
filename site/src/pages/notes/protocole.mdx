@@ -1,0 +1,131 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Réflexions — le protocole comme forme d'interaction"
+description: "Trois détours conceptuels — Dynamicland, les session types, les interfaces tangibles — pour élargir l'idée de protocole : non plus un simple mécanisme technique, mais une forme d'interaction."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import Sequence from "../../components/Sequence.astro";
+
+Tout au long du cours, on a traité les protocoles — HTTP, REST, le format JSON, l'API qu'on conçoit — comme des **mécanismes** : des formats, des verbes, des endpoints. C'est utile, et c'est juste. Mais c'est une vue partielle.
+
+Cette page est un détour. Trois idées venues de la recherche et du design — puis une anecdote du quotidien — qui partent toutes du même constat : <Highlight>un protocole n'est pas qu'une plomberie technique, c'est une forme d'interaction.</Highlight> Comment deux systèmes se parlent, dans quel ordre, sous quelle forme, comment cette conversation peut être rendue visible, vérifiable ou même physique — et ce qui arrive quand on cesse de la respecter. Aucune de ces réflexions n'est « au programme » de l'examen : elles sont là pour élargir le regard.
+
+---
+
+## 1. Rendre la communication visible — Dynamicland
+
+<MarginNote type="definition" titre="Dynamicland">
+Un laboratoire de recherche fondé par Bret Victor à Oakland, où le calcul est distribué dans l'espace physique : des pages de papier, des objets, des projecteurs et des caméras forment ensemble l'ordinateur. Le système qui l'anime s'appelle **Realtalk**.
+</MarginNote>
+
+À Dynamicland, il n'y a pas d'écran. Une feuille de papier posée sur une table *est* un programme : des caméras la lisent, des projecteurs lui répondent en projetant directement sur la table. Approchez deux feuilles, et leurs programmes se mettent à dialoguer — visiblement, dans l'espace, sous vos yeux.
+
+Ce qui rend cela possible, c'est le modèle de communication de Realtalk : chaque objet **publie des affirmations** (*claims*) sur ce qu'il est, et **exprime des souhaits** (*wishes*) sur ce qu'il voudrait voir arriver ; le système met les uns en face des autres. <Highlight>C'est un protocole faiblement couplé et décentralisé</Highlight> — un objet ne sait pas *qui* l'écoute, il déclare, et qui veut réagit. (Le modèle publication/abonnement de MQTT, vu en semaine 5, repose sur la même intuition.)
+
+<MarginNote type="attention" titre="Le contraste avec notre API">
+Dans notre serveur de boîtes à livres, la conversation est invisible : elle vit cachée dans des requêtes HTTP qui traversent le réseau. À Dynamicland, la même idée — des entités qui s'annoncent et se répondent — devient spatiale et observable.
+</MarginNote>
+
+**L'angle.** Et si la communication entre systèmes n'était pas cachée dans des appels réseau, mais rendue *visible* dans l'environnement ? Poser la question, c'est cesser de voir le protocole comme un détail d'implémentation et commencer à le voir comme une forme d'interaction qu'on peut concevoir, exposer, donner à voir.
+
+<MarginNote type="plusloin" titre="À regarder">
+— **Bret Victor, *The Humane Representation of Thought*** (2014) : le document fondateur du labo, sur l'idée que nos représentations transforment notre capacité à penser et à construire des systèmes.<br/>
+— **Dynamicland, *Progress report 2020*** : une visite vidéo du labo, centrée sur le thème de la *visibilité extrême* du système.<br/>
+— **Paper Programs** ([paperprograms.org](https://paperprograms.org)) : inspiré de Realtalk, plus simple à prendre en main — le papier comme médium programmable et communicant.
+</MarginNote>
+
+---
+
+## 2. Le protocole comme contrat de conversation — les session types
+
+L'idée précédente était visuelle. Celle-ci est formelle — et peut-être la plus proche de notre travail d'API.
+
+<MarginNote type="definition" titre="Session types">
+Une discipline de types qui décrit la communication entre deux parties comme une **conversation structurée** : qui parle, dans quel ordre, avec quel type de message, et selon quelles branches possibles. Introduits par Honda, Vasconcelos et Kubo (ESOP 1998).
+</MarginNote>
+
+Quand on documente une API, on dresse souvent une liste : voici les endpoints, voici leurs paramètres, voici le format de réponse. C'est un *catalogue*. Mais un catalogue ne dit pas dans quel **ordre** appeler les choses, ni quelles **séquences** ont un sens. Les session types comblent exactement ce manque : ils décrivent le protocole comme une séquence attendue d'échanges.
+
+Prenons une réservation. Vue comme une conversation typée, elle ressemble à ceci :
+
+<Sequence
+  acteurs={["Client", "Serveur"]}
+  messages={[
+    { de: 0, vers: 1, texte: "demande de réservation" },
+    { de: 1, vers: 0, texte: "disponibilité" },
+    { de: 0, vers: 1, texte: "confirmation ou annulation", branche: true },
+    { de: 1, vers: 0, texte: "reçu ou erreur", branche: true },
+  ]}
+  titre="Une réservation, vue comme une conversation typée."
+/>
+
+Ce diagramme dit plus qu'une liste d'endpoints. Il dit qu'on ne peut pas *confirmer* avant d'avoir reçu la *disponibilité* ; que le client **choisit** entre confirmer et annuler ; que le serveur **répond** par un reçu ou une erreur. <Highlight>Le protocole n'est pas qu'un format de données : c'est une séquence d'interactions, avec un état et des branches.</Highlight>
+
+**L'angle.** Une API ne devrait pas seulement dire « voici les endpoints », mais aussi « voici la conversation correcte avec le système ». Dit autrement : le protocole est un *contrat* sur le déroulement de l'échange, pas seulement sur la forme des messages.
+
+<MarginNote type="lien" titre="Familles d'idées voisines">
+Cette façon de penser rapproche les API des **machines à états**, des **workflows**, des **contrats** (au sens *design by contract*) et de la **vérification** : si la conversation est typée, on peut vérifier *avant l'exécution* qu'un client la respecte.
+</MarginNote>
+
+<Checkpoint question="Notre API de boîtes à livres expose surtout des endpoints CRUD indépendants. Où une « conversation typée » apporterait-elle quelque chose ?">
+Partout où un ordre ou un état compte. Emprunter un livre, par exemple, n'est pas une simple écriture : il faut que le livre soit présent dans la boîte, puis marqué emprunté, puis éventuellement rendu. C'est une petite conversation avec des préconditions et des branches — exactement ce qu'un endpoint isolé ne capture pas. Documenter cette séquence (ou la faire respecter par le code) rend l'API plus sûre et plus claire qu'une liste plate d'opérations.
+</Checkpoint>
+
+<MarginNote type="plusloin" titre="Référence">
+Kohei Honda, Vasco T. Vasconcelos, Makoto Kubo, *Language Primitives and Type Discipline for Structured Communication-Based Programming*, ESOP 1998, LNCS 1381, p. 122–138. [doi.org/10.1007/BFb0053567](https://doi.org/10.1007/BFb0053567)
+</MarginNote>
+
+---
+
+## 3. L'interface tangible — faire communiquer le numérique et le physique
+
+Les deux premières idées portaient sur la communication entre *systèmes*. Celle-ci porte sur la communication entre un système et une *personne* — et elle élargit considérablement ce qu'on entend par « interface ».
+
+<MarginNote type="definition" titre="Interfaces tangibles">
+Des interfaces où l'on communique avec un système en manipulant des **objets physiques** — leur forme, leur position, leur agencement — plutôt qu'en pointant un écran. Champ ouvert par Hiroshi Ishii et le *Tangible Media Group* du MIT Media Lab (*Tangible Bits*, Ishii & Ullmer, 1997).
+</MarginNote>
+
+Une interface n'est pas obligée d'être une URL ou un écran. Elle peut être un objet, une table, une carte, un cube, un geste. Déplacer un jeton sur une surface, assembler des blocs, incliner un objet : autant de manières de *dire* quelque chose à un système, et de *recevoir* sa réponse par la forme, la lumière, le mouvement.
+
+**L'angle.** Une API est une interface pour programmeurs ; une interface tangible est une API rendue physique. <Highlight>Dans les deux cas, le problème central est le même</Highlight> : comment exposer les capacités d'un système sans exposer toute sa complexité interne ? Un bon endpoint cache la base de données derrière une question claire ; un bon objet tangible cache un calcul derrière un geste naturel. C'est la même vertu — l'**abstraction** — dans deux médiums différents.
+
+<MarginNote type="rappel" titre="Le fil rouge du cours">
+On a répété qu'une bonne API « répond à des questions » plutôt que d'exposer des tables. L'interface tangible pousse l'idée à son terme : l'interface la plus claire est parfois celle qui ne ressemble plus du tout à de la technique.
+</MarginNote>
+
+---
+
+## Un protocole vivant qu'on peut violer — le transport en commun
+
+Les trois premières idées venaient de la recherche et du design. La dernière est sous nos yeux chaque matin, dans l'autobus.
+
+Un réseau comme la STM ne tient pas seulement grâce à ses horaires, ses cartes OPUS et ses lignes. Il tient aussi grâce à un **protocole social** — non écrit, jamais compilé, mais bien réel. On dit *bonjour* et *merci* au chauffeur. On avance vers le fond pour dégager les portes. On retire son sac du siège voisin, on cède sa place, on se tasse pour qu'une deuxième personne puisse s'asseoir au lieu de laisser un siège vide par gêne. Aucune de ces règles n'est imposée par un tourniquet : ce sont des conventions qui font qu'un espace partagé fonctionne.
+
+<MarginNote type="definition" titre="Protocole vivant">
+Un ensemble de conventions implicites qu'aucun système technique n'impose, mais dont dépend le bon fonctionnement d'un service partagé.
+</MarginNote>
+
+Quand ce protocole s'érode, rien ne renvoie d'erreur. Il n'existe pas de code HTTP 400 pour « passager qui n'a pas avancé ». La dégradation est silencieuse et progressive : l'espace est mal utilisé, les tensions montent, l'expérience se détériore — un peu, puis beaucoup. <Highlight>Un protocole vivant violé ne plante pas : il se dégrade lentement.</Highlight>
+
+Et la conséquence dépasse l'inconfort du trajet. À mesure que l'expérience partagée se dégrade, on peut voir monter l'attrait des alternatives **individuelles** : la voiture, le service à la demande, le véhicule autonome — des systèmes où l'on n'a plus à coopérer avec qui que ce soit. *(C'est une lecture parmi d'autres : l'essor de ces services tient à mille facteurs. Mais l'érosion du contrat collectif en fait plausiblement partie.)* Le sous-système conçu pour le commun se vide peu à peu de ce qui le rendait commun.
+
+<MarginNote type="rappel" titre="Le même phénomène, côté API">
+Les API ont aussi leur protocole vivant : ne pas marteler le serveur, respecter les limites de débit, mettre en cache, s'identifier proprement, réessayer avec un délai croissant. Rien de tout cela n'est dans la signature des endpoints — c'est un contrat d'usage. Quand les clients le violent en masse, les fournisseurs réagissent comme la société face au transport : ils *referment*. Authentification obligatoire, quotas, clés payantes. La liberté d'usage se paie en discipline collective.
+</MarginNote>
+
+**L'angle.** Le contrat d'un système n'est pas seulement ce qui est écrit dans sa spécification. C'est aussi la somme des comportements attendus qui le rendent vivable. Concevoir un protocole, c'est en partie concevoir — et entretenir — ce contrat social. Et l'oublier, c'est risquer de voir le commun se fragmenter en mille solutions individuelles.
+
+---
+
+## Le fil qui les relie
+
+Quatre détours, une même bascule de regard. Dynamicland rend la communication **visible** ; les session types la rendent **structurée et vérifiable** ; les interfaces tangibles la rendent **manipulable** ; et le transport en commun rappelle qu'elle est aussi **vivante et sociale** — un contrat qu'on entretient, ou qu'on laisse se dégrader. Dans chaque cas, on cesse de voir le protocole comme une tuyauterie à oublier, pour le voir comme ce qu'il est vraiment : <Highlight>une forme d'interaction, qui se conçoit avec autant de soin qu'une interface.</Highlight>
+
+C'est aussi une invitation. Quand vous concevrez l'API de votre projet, vous pourrez vous demander non seulement « quels endpoints ? », mais « quelle conversation ? quelle visibilité ? quelle abstraction ? ». Ce sont des questions de design, pas seulement de technique.
+
+<MarginNote type="lien" titre="À lire avant ou après">
+Cette page prolonge [Concevoir une API qui raconte une histoire](../guides/tuto-conception-api), qui part des besoins humains pour remonter jusqu'au code.
+</MarginNote>

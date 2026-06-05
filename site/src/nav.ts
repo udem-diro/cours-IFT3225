@@ -10,6 +10,7 @@
 export interface NavItem {
   label: string;
   href: string;
+  children?: NavItem[];
 }
 
 export interface NavGroup {
@@ -40,9 +41,25 @@ export const navigation: NavGroup[] = [
       { label: "Intro à Node.js et npm", href: "/guides/tuto-nodejs" },
       { label: "Intro à JavaScript (partie 1)", href: "/guides/tuto-javascript-1" },
       { label: "Intro à JavaScript (partie 2)", href: "/guides/tuto-javascript-2" },
-      // { label: "Les bases du DOM", href: "/guides/tuto-dom" },
-      { label: "Concevoir une API", href: "/guides/tuto-conception-api" },
+      { label: "Concevoir une API ⭐", href: "/guides/tuto-conception-api" },
       { label: "Prise en main d'Express", href: "/guides/tuto-express" },
+      { label: "Prise en main de MongoDB", href: "/guides/tuto-mongo" },
+      {
+        label: "Stratégie de persistance ⭐", href: "/guides/tuto-persistance", 
+        // children: [
+        //   { label: "Stockage côté client", href: "/guides/tuto-persistance-client" },
+        //   { label: "Mémoire serveur", href: "/guides/tuto-persistance-serveur" },
+        //   { label: "Bases de données", href: "/guides/tuto-persistance-bd" },
+        //   { label: "Cache et diffusion", href: "/guides/tuto-persistance-cache" },
+        // ]
+      },
+      // { label: "Les bases du DOM", href: "/guides/tuto-dom" },
+    ],
+  },
+  {
+    titre: "Réflexions",
+    items: [
+      { label: "Le protocole comme interaction", href: "/notes/protocole" },
     ],
   },
   // {
