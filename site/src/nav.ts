@@ -65,7 +65,8 @@ export const navigation: NavGroup[] = [
   {
     titre: "Révisions",
     items: [
-      { label: "Préparation pour l'intra", href: "/exams/revision" },
+      { label: "Récapitulatif pour l'intra", href: "/exams/revision" },
+      { label: "Formatif pour l'intra", href: "/exams/formatif-intra" },
     ],
   },
   {

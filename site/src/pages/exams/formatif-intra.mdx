@@ -1,147 +1,103 @@
-# IFT3225 — Technologies de l'internet
-## Examen intra — **formatif** (préparation)
-
-> **Non noté.** Ce formatif reproduit la structure et le niveau de l'intra. *Questions seules — le corrigé sera distribué séparément.*
->
-> **Durée suggérée :** 2 h · **Total :** 100 %
-
-### Compétences évaluées
-
-Tout le formatif est construit pour valider quatre compétences :
-
-- **C1 — Maîtrise du protocole HTTP et de ses limites.** Connaître les méthodes, les statuts, la sémantique *et* savoir ce que HTTP ne fait **pas** nativement.
-- **C2 — Augmenter HTTP à certaines fins.** Reconnaître une limite de HTTP et la contourner : temps réel, session, idempotence, cache, publication/abonnement.
-- **C3 — L'architecture REST.** Comprendre REST comme un ensemble de contraintes et leurs conséquences, au-delà du « bon verbe ».
-- **C4 — Les stratégies de persistance.** Choisir et justifier où et comment les données vivent (mémoire vs base, document vs relationnel, imbriquer vs référencer).
-
-| Partie | Type | Points | Compétences |
-|---|---|---|---|
-| 1 | 15 QCM avec cas de figure | 30 % | C1 · C2 · C3 · C4 |
-| 2 | 4 questions à développement | 20 % | une par compétence |
-| 3 | 2 analyses et réparations | 20 % | C1 · C2 · C3 · C4 |
-| 4 | 1 problème de conception d'API | 30 % | C1 · C2 · C3 · C4 |
-
+---
+layout: ../../layouts/DocLayout.astro
+title: "Formatif de l'intra"
+description: "Formatif de préparation à l'intra : 10 QCM avec cas de figure, des questions à développement, deux analyses et réparations, et un problème de conception d'API. Questions seules ; le corrigé est distribué séparément."
 ---
 
-## Partie 1 — QCM avec cas de figure (15 × 2 % = 30 %)
+import MarginNote from "../../components/MarginNote.astro";
 
-*Une seule bonne réponse par question. Lisez bien le cas de figure : plusieurs options sont « presque » correctes, et le détail de l'énoncé départage.*
+<MarginNote type="rappel" titre="Format">
+Ce formatif reproduit la structure et le niveau de l'intra. 
+Durée suggérée : 2 h.
+</MarginNote>
 
-**1.** Une station envoie `POST /mesures` avec un relevé valide. Le serveur l'enregistre **immédiatement** et renvoie la mesure créée avec son `id`. Quel statut est le plus approprié ?
+## Partie 1 : QCM 
+
+**1.** Une station envoie `POST /mesures` avec un relevé valide. Le serveur l'enregistre immédiatement et renvoie la mesure créée avec son `id`. Quel statut est le plus approprié ?
 - A) `200 OK`
 - B) `201 Created`
 - C) `202 Accepted`
 - D) `204 No Content`
 
-**2.** Après un délai réseau dépassé, un client veut **réessayer automatiquement** une requête sans savoir si la première a abouti. Laquelle peut-il relancer **sans risquer de doublon ni d'effet supplémentaire** ?
+**2.** Après un délai réseau dépassé, un client veut réessayer automatiquement une requête sans savoir si la première a abouti. Laquelle peut-il relancer sans risquer de doublon ni d'effet supplémentaire ?
 - A) `POST /stations` (créer une station)
 - B) `POST /stations/12/mesures` (ajouter une mesure)
-- C) `PUT /stations/12` (remplacer entièrement la station 12)
-- D) `PATCH /stations/12` qui **incrémente** un compteur de relevés
+- C) `PATCH /stations/12` qui incrémente un compteur de relevés
+- D) `PUT /stations/12` (remplacer entièrement la station 12)
 
-**3.** Le tableau de bord demande `GET /stations/9999`, mais aucune station ne porte cet `id`. Que **devrait** renvoyer le serveur ?
+**3.** Le tableau de bord demande `GET /stations/9999`, mais aucune station ne porte cet `id`. Que devrait renvoyer le serveur ?
 - A) `200 OK` avec un corps vide `{}`
 - B) `204 No Content`
-- C) `400 Bad Request`
-- D) `404 Not Found`
+- C) `404 Not Found`
+- D) `400 Bad Request`
 
-**4.** « HTTP est **sans état** (*stateless*) » signifie avant tout que :
-- A) le serveur ne conserve, entre deux requêtes, aucune information sur le client ; chaque requête doit porter son contexte
-- B) le serveur traite les requêtes une à une, sans parallélisme
-- C) le client doit rouvrir une connexion TCP pour chaque requête
-- D) une même requête renvoie toujours exactement la même réponse
-
-**5.** Un développeur expose `GET /stations/12/supprimer` pour retirer une station. Quel est le problème **principal** ?
-- A) il faudrait plutôt `POST /stations/12/supprimer`, car une suppression modifie l'état
-- B) l'identifiant devrait passer en paramètre de requête : `GET /stations/supprimer?id=12`
-- C) le chemin mêle une ressource et une action, et `GET` doit rester **sûr** : il faut `DELETE /stations/12`
+**4.** Un développeur expose `GET /stations/12/supprimer` pour retirer une station. Quel est le problème principal ?
+- A) le chemin mêle une ressource et une action, et `GET` doit rester sûr : il faut `DELETE /stations/12`
+- B) il faudrait plutôt `POST /stations/12/supprimer`, car une suppression modifie l'état
+- C) l'identifiant devrait passer en paramètre de requête : `GET /stations/supprimer?id=12`
 - D) il manque l'en-tête `Content-Type`, requis pour une suppression
 
-**6.** Laquelle de ces conceptions respecte le mieux l'**interface uniforme** de REST pour gérer des stations ?
+**5.** Laquelle de ces conceptions respecte le mieux l'interface uniforme de REST pour gérer des stations ?
 - A) `POST /stations`, `GET /stations/12`, `POST /stations/12/update`, `POST /stations/12/delete`
 - B) `POST /stations`, `GET /stations/12`, `PATCH /stations/12`, `DELETE /stations/12`
 - C) `POST /stations/create`, `GET /stations/12`, `PUT /stations/12`, `GET /stations/12/delete`
 - D) `GET /stations?action=list`, `POST /stations?action=create`, `POST /stations?action=update`
 
-**7.** Pourquoi le caractère **sans état** facilite-t-il la mise à l'échelle horizontale (plusieurs serveurs derrière un répartiteur) ?
-- A) parce que le répartiteur peut alors envoyer toutes les requêtes d'un même client au même serveur
-- B) parce que les serveurs se partagent automatiquement la mémoire de session
-- C) parce qu'une API sans état n'a pas besoin de base de données
-- D) parce que toute requête est autosuffisante : n'importe quel serveur peut la traiter, sans session attachée à une machine
-
-**8.** Une application web doit être prévenue **dès qu'une mesure arrive**, sans interroger le serveur en boucle. Quelle approche laisse le **serveur pousser** les données vers le client ?
-- A) une connexion maintenue sur laquelle le serveur émet les nouveautés (SSE ou WebSocket)
-- B) des requêtes `GET` répétées à intervalle court (*polling*) avec un cache HTTP agressif
-- C) une requête `GET` de longue durée renvoyant tout l'historique à chaque appel
-- D) un en-tête `Refresh` demandant au navigateur de recharger la page régulièrement
-
-**9.** Au-dessus d'un protocole **sans état**, comment reconnaître un utilisateur connecté d'une requête à l'autre ?
-- A) le serveur retient l'adresse IP du client et la reconnaît aux requêtes suivantes
-- B) on ouvre une connexion TCP permanente conservée pour toute la session
-- C) le client joint à chaque requête un cookie ou un jeton que le serveur vérifie
+**6.** Au-dessus d'un protocole sans état, comment reconnaître un utilisateur connecté d'une requête à l'autre ?
+- A) le client joint à chaque requête un cookie ou un jeton que le serveur vérifie
+- B) le serveur retient l'adresse IP du client et la reconnaît aux requêtes suivantes
+- C) on ouvre une connexion TCP permanente conservée pour toute la session
 - D) le serveur garde en mémoire la liste des utilisateurs connectés, indexée par leur nom
 
-**10.** Pour éviter de retransférer une ressource **inchangée**, le client renvoie `If-None-Match` avec l'ETag reçu précédemment. Si rien n'a changé, le serveur répond :
-- A) `200 OK` avec le corps complet et un nouvel ETag
-- B) `304 Not Modified`, sans corps
-- C) `204 No Content`
-- D) `412 Precondition Failed`
+**7.** Une API veut authentifier ses clients sans conserver d'état de session côté serveur. Elle émet un JWT (jeton signé) à la connexion. Comment valide-t-elle les requêtes suivantes ?
+- A) elle compare le jeton à une liste de sessions actives conservée en mémoire
+- B) elle redemande le mot de passe à chaque requête pour régénérer le jeton
+- C) elle vérifie la signature du jeton avec sa clé ; si elle est valide, elle peut se fier aux informations du jeton
+- D) elle interroge la base de données à chaque requête pour retrouver la session associée au jeton
 
-**11.** Une usine compte **800 capteurs** émettant une mesure toutes les 100 ms vers plusieurs consommateurs (tableau de bord, archivage, alertes). Quel modèle convient le mieux à la **diffusion** de ces mesures ?
-- A) chaque consommateur interroge (`GET`) les 800 capteurs en boucle (*polling*)
-- B) chaque capteur envoie un `POST` HTTP distinct à chacun des consommateurs
-- C) un service central interroge les capteurs et expose un seul `GET /mesures` que les consommateurs appellent en boucle
-- D) publication/abonnement (MQTT) : les capteurs publient à un courtier, chaque consommateur s'abonne
+**8.** Une préférence d'affichage propre à un utilisateur (thème clair ou sombre) doit être conservée entre ses visites. Où vaut-il mieux la placer ?
+- A) dans un tableau en mémoire du serveur, partagé par toutes les requêtes
+- B) dans la base de données principale, relue à chaque chargement de page
+- C) dans un fichier de configuration du serveur, commun à tous les utilisateurs
+- D) côté client (cookie ou stockage du navigateur), car la donnée est locale et non critique
 
-**12.** Dans un système de publication/abonnement (MQTT), un capteur publie sur le sujet `usine/ligne1/temperature`. Quel énoncé est **exact** ?
-- A) le capteur publie au **courtier** (*broker*) sans connaître les abonnés ; le courtier relaie aux abonnés du sujet
-- B) le capteur ouvre une connexion vers chaque abonné du sujet et lui envoie la valeur
-- C) le capteur tient à jour la liste de ses abonnés et la met à jour à chaque abonnement
-- D) les abonnés interrogent périodiquement le capteur pour obtenir la dernière valeur
-
-**13.** Dans Express, la route `app.get('/stations/:id', ...)` reçoit la requête `/stations/12?detail=complet`. Comment lire respectivement `12` et `complet` ?
+**9.** Dans Express, la route `app.get('/stations/:id', ...)` reçoit la requête `/stations/12?detail=complet`. Comment lire respectivement `12` et `complet` ?
 - A) `req.query.id` et `req.params.detail`
 - B) `req.params.id` et `req.query.detail`
 - C) `req.body.id` et `req.body.detail`
 - D) `req.params.id` et `req.params.detail`
 
-**14.** Un gestionnaire `POST` lit `req.body` mais obtient `undefined`, alors que le client envoie pourtant du JSON avec l'en-tête `Content-Type: application/json`. Cause la plus probable ?
-- A) le corps est en réalité encodé en `multipart/form-data`, qu'`express.json()` n'analyse pas
-- B) `req.body` n'existe que pour les requêtes `PUT`, pas pour `POST`
-- C) le serveur n'a pas monté le middleware `express.json()` (`app.use(express.json())`)
+**10.** Un gestionnaire `POST` lit `req.body` mais obtient `undefined`, alors que le client envoie pourtant du JSON avec l'en-tête `Content-Type: application/json`. Cause la plus probable ?
+- A) le serveur n'a pas monté le middleware `express.json()` (`app.use(express.json())`)
+- B) le corps est en réalité encodé en `multipart/form-data`, qu'`express.json()` n'analyse pas
+- C) `req.body` n'existe que pour les requêtes `PUT`, pas pour `POST`
 - D) il faut lire `await req.body`, car le corps arrive de façon asynchrone
 
-**15.** Un serveur conserve ses stations dans un **tableau JavaScript en mémoire**. Après un redémarrage, toutes les données ont disparu. Quel changement corrige cela — et avec quelle conséquence sur le code des gestionnaires ?
-- A) augmenter la mémoire vive allouée au processus pour éviter la perte
-- B) persister en base de données ; le code des gestionnaires reste identique, l'accès est transparent
-- C) sérialiser le tableau dans un fichier à chaque écriture ; les accès restent synchrones
-- D) persister en base de données pour la **durabilité** ; les accès deviennent **asynchrones** (`await`, gestion des erreurs)
+---
+
+## Partie 2 : Questions à développement
+
+### Q1. Maîtrise et limites de HTTP
+Un collègue affirme : « puisque HTTP est sans état, il est impossible d'y faire un panier d'achat. »  
+Expliquez la caractéristique en jeu, en distinguant la limite concrète qu'elle impose.  
+Dites pourquoi l'affirmation est fausse : par quel moyen peut-on contourner la limite ?
+
+### Q2. L'architecture REST 
+Deux API exposent les mêmes données : l'une fait `POST /api?action=getUser&id=12`, l'autre `GET /users/12`.  
+Présentez au moins trois contraintes REST et, pour chacune, une conséquence concrète sur la conception ou l'exploitation. 
+Servez-vous des deux exemples pour expliquer ce qui distingue une API « qui parle HTTP » d'une API réellement RESTful, et ce que la première perd.
+
+{/* ### Q3. Stratégies de persistance (C4)
+Un prototype conserve ses données dans un tableau en mémoire ; il faut les rendre durables et interrogeables.  
+Comparez deux options : garder les données en mémoire du serveur, ou les placer dans une base de données. Pour chacune, donnez les critères de choix et les conséquences (durabilité, partage entre serveurs, coût des lectures et des écritures, évolution du volume). Donnez un cas où conserver en mémoire reste justifié, et un cas où la base de données s'impose. */}
 
 ---
 
-## Partie 2 — Questions à développement (4 × 5 % = 20 %)
+## Partie 3 : Analyse et réparation
 
-*Une question par compétence. On évalue la justesse du raisonnement et la clarté, pas la longueur (≈ 5–12 lignes chacune).*
+### Q1. Réparer une conception d'endpoints
 
-**Q1 — Maîtrise et limites de HTTP (C1).**
-Un collègue affirme : « puisque HTTP est sans état, il est impossible d'y faire un panier d'achat ou un fil d'activité en direct. » Expliquez les deux caractéristiques en jeu — **sans état** et modèle **requête-réponse** — puis montrez, pour **chacune**, la **limite concrète** qu'elle impose. Dites enfin pourquoi l'affirmation du collègue est **fausse** : par quel moyen, dans chaque cas, contourne-t-on la limite sans changer de protocole ?
-
-**Q2 — Augmenter HTTP à certaines fins (C2).**
-Une station de mesure renvoie automatiquement un enregistrement après un délai réseau, et l'application web doit afficher la dernière mesure « en direct ». Choisissez **deux** besoins parmi : *(i)* notifier le client en temps réel ; *(ii)* maintenir une session connectée ; *(iii)* rendre une création sûre à réessayer ; *(iv)* éviter de retransférer une donnée inchangée. Pour chacun, nommez **la limite de HTTP** en cause et **la technique** qui la contourne (SSE/WebSocket, jeton/cookie, clé d'idempotence, cache conditionnel/ETag). Précisez en quoi il s'agit d'**augmenter** HTTP, non de le remplacer.
-
-**Q3 — L'architecture REST (C3).**
-Deux API exposent les mêmes données ; l'une fait `POST /api?action=getUser&id=12`, l'autre `GET /users/12`. Présentez **au moins trois** contraintes REST (client-serveur, sans état, mise en cache, interface uniforme, système en couches) et, pour **chacune**, une **conséquence concrète** sur la conception ou l'exploitation. Servez-vous des deux exemples pour expliquer ce qui distingue une API « qui parle HTTP » d'une API réellement **RESTful**, et ce que la première perd (cache, lisibilité, outillage…).
-
-**Q4 — Stratégies de persistance (C4).**
-Un prototype garde ses données dans un tableau en mémoire ; on doit le rendre durable et interrogeable. Comparez deux axes : *(a)* **mémoire** vs **base de données** ; *(b)* en base documentaire, **imbriquer vs référencer** une relation 1–N (par ex. une station et ses mesures). Pour chaque axe, donnez les **critères de choix** et les **conséquences** (durabilité, coût des lectures et des écritures, évolution du volume). Donnez un cas où l'imbrication est clairement préférable, et un où le référencement l'est.
-
----
-
-## Partie 3 — Analyse et réparation (2 × 10 % = 20 %)
-
-### A1 — Réparer une conception d'endpoints (10 %) · *C3, C1*
-
-Un·e stagiaire propose l'API suivante pour le réseau de boîtes à livres **Lino**. Plusieurs choix posent problème.
+Un stagiaire propose l'API suivante pour le réseau de boîtes à livres **Lino**. Plusieurs choix posent problème.
 
 | Méthode | Chemin | But | Réponse en cas de succès |
 |---|---|---|---|
@@ -152,75 +108,62 @@ Un·e stagiaire propose l'API suivante pour le réseau de boîtes à livres **Li
 | `POST` | `/boites` | Créer une boîte | `200` |
 | `GET` | `/boites/9999` (inexistante) | Détail | `200` avec `{}` |
 
-**Travail demandé :**
-1. Identifiez **au moins cinq** problèmes distincts (verbes, chemins, codes de statut, contraintes REST comme la sûreté des méthodes et l'interface uniforme).
-2. Proposez une **version corrigée** sous forme de tableau (méthode, chemin, code de succès, code d'erreur pertinent).
-3. Justifiez deux corrections en vous appuyant explicitement sur une **contrainte REST** (C3) ou sur la **sémantique HTTP** (C1).
+1. Identifiez au moins cinq problèmes distincts (verbes, chemins, codes de statut, contraintes REST comme la sûreté des méthodes et l'interface uniforme).
+2. Proposez une version corrigée sous forme de tableau (méthode, chemin, code de succès, code d'erreur pertinent).
+3. Justifiez deux corrections en vous appuyant explicitement sur une contrainte REST ou sur la sémantique HTTP.
 
-### A2 — Analyser et réparer un protocole de collecte (10 %) · *C2, C4, C1*
+### Q2. Analyser et réparer un protocole de collecte
 
-Les stations de mesure d'un réseau IoT envoient leurs relevés au serveur. Voici le protocole et le code en place.
+Les stations de mesure d'un réseau IoT envoient leurs relevés au serveur.
 
 **Protocole actuel**
 - Pour enregistrer une mesure : `GET /enregistrer?station=12&pm25=34&temp=21`
 - Le serveur répond toujours `200 OK` (`"ok"`), même si des champs manquent ou sont invalides.
-- Pour lire la dernière mesure : `GET /mesure/12` → `200 OK` avec `{}` si la station est inconnue.
-- Le tableau de bord, qui suit **500 stations**, interroge `GET /mesures` **toutes les 2 secondes** pour tout rafraîchir.
+- Pour lire la dernière mesure : `GET /mesure/12`, qui renvoie `200 OK` avec `{}` si la station est inconnue.
+- Le tableau de bord, qui suit 500 stations, interroge `GET /mesures` toutes les 2 secondes pour tout rafraîchir.
 
 **Code du serveur (extrait)**
 ```js
 router.get("/enregistrer", (req, res) => {
-  const m = Mesure.create(req.query);   // (a)
-  res.send("ok");                        // (b)
+  const m = Mesure.create(req.query);   
+  res.send("ok");                        
 });
 
 router.get("/mesure/:id", async (req, res) => {
   const m = await Mesure.findById(req.params.id);
-  res.json(m);                           // (c)
+  res.json(m);                           
 });
 ```
 
-**Travail demandé :**
-1. **Protocole (C1, C3) :** relevez les problèmes de choix de verbe, de codes de statut et de validation pour l'enregistrement et la lecture.
-2. **Limite de HTTP et augmentation (C2) :** expliquez pourquoi le rafraîchissement par *polling* (500 stations toutes les 2 s) est une mauvaise réponse à la limite **requête-réponse** de HTTP, et **recommandez un modèle plus adapté** (par ex. SSE/WebSocket côté tableau de bord, MQTT côté ingestion). Justifiez.
-3. **Persistance (C4) :** au point (a), le code ignore que l'écriture en base est **asynchrone**. Corrigez-le, et indiquez brièvement comment garantir qu'une mesure invalide **ne soit pas persistée**.
-4. Donnez la version corrigée des trois points (a), (b), (c) : bon verbe, bons statuts (`201`/`400`/`404`…), validation, gestion de la station inconnue.
+1. Relevez les problèmes de choix de verbe, de codes de statut et de validation, pour l'enregistrement comme pour la lecture.
+2. Expliquez pourquoi rafraîchir par interrogation répétée (500 stations toutes les 2 secondes) est coûteux et peu adapté à un besoin de mise à jour en temps réel. Quel principe, du côté du serveur, permettrait de ne transmettre que les nouveautés sans que le client interroge en boucle ?
+3. Le code pour `/enregistrer` ignore que l'écriture dans une base de données est asynchrone. Corrigez-le, et indiquez brièvement comment éviter qu'une mesure invalide soit enregistrée.
+4. **Bonus:** Donnez la version corrigée du code : bon verbe, bons statuts (`201`, `400`, `404`, etc.), validation, et gestion de la station inconnue.
 
 ---
 
-## Partie 4 — Problème de conception d'API (30 %) · *C1, C2, C3, C4*
+## Partie 4 : Conception d'API
 
-### Contexte — **Atmo**, un réseau de stations de mesure de la qualité de l'air
+> On attend une conception raisonnable, pas une spécification exhaustive.
+
+#### **Atmo**, un réseau de stations de mesure de la qualité de l'air
 
 Une ville déploie un réseau de **stations** fixes. Chaque station est un boîtier connecté portant plusieurs **capteurs** (particules fines PM2,5, température, humidité, niveau sonore) et produisant une **mesure** à intervalle régulier. On veut une API servant à la fois le public (citoyens, application web) et les services municipaux.
 
 **Questions auxquelles l'API doit répondre :**
 - Quelles stations existent, et où se trouvent-elles ?
-- Quelle est la **dernière mesure** d'une station donnée ?
-- Quelles stations sont **dans un quartier** donné, et laquelle a la pire qualité de l'air en ce moment ?
-- Quel est l'**historique** des mesures d'une station sur une période ?
-- (Terrain) Comment une station **transmet-elle** ses nouvelles mesures ? Comment l'application web reçoit-elle les mises à jour **en temps réel** ?
+- Quelle est la dernière mesure d'une station donnée ?
+- Quelles stations sont dans un quartier donné, et laquelle a la pire qualité de l'air en ce moment ?
+- Quel est l'historique des mesures d'une station sur une période ?
 
-**Travail demandé** *(répartition des points indiquée)* :
+**(a) Ressources et attributs:**
+Identifiez les ressources principales et, pour chacune, ses attributs clés avec leur type (station, capteur, mesure, et leurs relations).
 
-**(a) Ressources et attributs — 5 % · C3, C4**
-Identifiez les ressources principales et, pour chacune, ses attributs clés avec leur type (station, capteur, mesure… et leurs relations).
+**(b) Endpoints:**
+Concevez les endpoints (méthode et chemin) qui répondent aux questions ci-dessus ; précisez en une ligne ce que chacun renvoie. Soignez les verbes, les chemins et l'usage des paramètres de route par rapport aux paramètres de requête (filtre par quartier, période d'historique, proximité).
 
-**(b) Endpoints — 8 % · C3**
-Concevez les endpoints (méthode + chemin) qui répondent aux questions ci-dessus ; précisez en une ligne ce que chacun renvoie. Soignez les verbes, les chemins et l'usage des paramètres de route vs de requête (filtre par quartier, période d'historique, proximité).
+**(c) Stratégie de persistance:**
+Proposez un modèle de données et indiquez où vivent les mesures. Justifiez votre choix selon les accès attendus : lire la dernière mesure d'une station, consulter un historique sur une période, et un volume de mesures qui croît sans fin. Nommez un compromis de votre choix.
 
-**(c) Stratégie de persistance — 6 % · C4**
-Proposez un modèle de données. Prenez **explicitement** une décision *imbriquer vs référencer* pour la relation **station ↔ mesures**, et **justifiez-la** selon les accès attendus (lire la dernière mesure ; consulter l'historique ; un volume de mesures qui croît sans fin). Nommez un compromis de votre choix.
-
-**(d) Codes de statut — 4 % · C1**
-Donnez les codes de statut des opérations clés, **y compris les cas d'erreur** : station inexistante, données de mesure invalides, lecture réussie, enregistrement réussi.
-
-**(e) Augmenter HTTP : transmission et temps réel — 5 % · C2**
-Décidez **comment les stations envoient** leurs mesures (modèle *pull* ou *push* ? REST, MQTT, autre ?) **et comment l'application web reçoit les mises à jour en temps réel** (par ex. SSE/WebSocket). Justifiez selon le nombre de stations, la fréquence et la fiabilité réseau. Donnez **un exemple** de message émis par une station.
-
-**(f) Exemple concret — 2 %**
-Donnez **une** requête de votre API publique et la réponse JSON correspondante (par ex. la dernière mesure d'une station), cohérente avec le modèle de (c).
-
----
-
-*Fin du formatif. Les questions de conception admettent plusieurs bonnes réponses — c'est le raisonnement, l'usage juste de HTTP/REST et la justification des choix de persistance qui comptent.*
+**(d) Bonus :**
+Donnez une requête de votre API publique et la réponse JSON correspondante (par exemple la dernière mesure d'une station), cohérente avec le modèle de (c).
