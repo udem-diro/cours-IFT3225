@@ -1,0 +1,167 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Révision de l'intra — vérifier ses acquis"
+description: "Auto-vérification avant l'intra : cinq thèmes (HTTP, augmenter HTTP, REST, persistance, mécanique Express), chacun assorti d'un récapitulatif et de cinq questions à réponse révélable, mêlant rappel technique et mises en situation."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+
+Cette page permet de **vérifier ses acquis** avant l'intra. 
+Sur le plan du contenu, les deux pages les plus déterminantes sont [Concevoir une API](/guides/tuto-conception-api) et [Choisir une stratégie de persistance](/guides/tuto-persistance).
+
+## 1. HTTP : sémantique et limites
+
+- HTTP repose sur un modèle **client-serveur**. Il structure la communication entre un client et un serveur autour de **requêtes** envoyées par le client et de **réponses** retournées par le serveur.
+- Le protocole est **sans état** : HTTP ne garde pas automatiquement le souvenir des échanges précédents. Chaque requête doit donc contenir les informations nécessaires à son traitement.
+- Chaque **méthode** possède une sémantique convenue : `GET` pour la lecture, `POST` pour créer, `PUT` pour remplacer une ressource, `PATCH` modifie partiellement une ressource, `DELETE` pour supprimer.
+- Le **code de statut** qualifie le résultat : `2xx` succès (`200`, `201`, `204`), `4xx` erreur imputable au client (`400`, `404`, `409`), `5xx` défaillance du serveur, `304` ressource non modifiée.
+- Les **en-têtes** transportent les métadonnées de l'échange (type de contenu, authentification, cache), distinctes du corps de la requête ou de la réponse.
+- L'**URI** identifie la ressource visée ; le couple méthode + URI exprime l'intention de l'opération.
+
+<Checkpoint question="« HTTP est sans état » : que signifie cette propriété, et quelle conséquence pratique en découle ?">
+Le serveur ne conserve aucun souvenir d'une requête à l'autre ; chaque requête doit porter le contexte nécessaire (identifiants, jeton). 
+Il en résulte que n'importe quel serveur peut traiter n'importe quelle requête, ce qui facilite la mise à l'échelle ; 
+en contrepartie, un mécanisme explicite (cookie, jeton) est requis pour reconnaître un utilisateur d'un appel à l'autre.
+</Checkpoint>
+
+<Checkpoint question="POST /boites crée une boîte avec succès : quel statut retourner ? Et si le JSON est invalide ?">
+Création réussie → `201 Created` (accompagné de la ressource créée ou d'un en-tête `Location`). 
+JSON invalide ou champ manquant → `400 Bad Request`. Le statut `200` est à proscrire dans les deux cas : 
+il ne distingue pas une création d'une simple lecture et masque l'erreur.
+</Checkpoint>
+
+<Checkpoint question="Pour ne modifier que le quartier d'une boîte, emploie-t-on PUT ou PATCH ? Et pour remplacer l'intégralité de sa représentation ?">
+**`PATCH /boites/12`** convient à une **modification partielle** : seul le champ `quartier` est transmis, le reste est conservé. 
+**`PUT /boites/12`** correspond à un **remplacement intégral** : tous les champs doivent être fournis, faute de quoi un champ omis serait perdu. 
+Le choix dépend donc de l'intention : retoucher un attribut ou réécrire la ressource.
+</Checkpoint>
+
+<Checkpoint question="GET /boites/9999 vise une boîte inexistante. Quel statut convient, et quelle réponse faut-il éviter ?">
+`404 Not Found`. La réponse à éviter est `200 OK` accompagné d'un corps vide : elle simule un succès, 
+induit le client en erreur et peut altérer les caches. Le statut doit refléter la réalité : la ressource n'existe pas.
+</Checkpoint>
+
+## 2. Augmenter HTTP
+
+- Dans sa forme élémentaire, HTTP ne couvre pas tous les besoins applicatifs ; on l'**augmente** par des mécanismes complémentaires, sans le remplacer.
+- Les lacunes visées sont identifiables : HTTP ne sait ni **transmettre** spontanément une information, ni **reconnaître** un utilisateur, ni **éviter** de retransmettre une donnée inchangée.
+- **Gestion de session** : sur un protocole sans état, l'identité de l'utilisateur est rétablie à chaque requête au moyen d'un **témoin (cookie)** ou d'un **jeton**.
+- **Jeton signé (JWT)** : un jeton autoporteur contient l'identité et ses attributs, assortis d'une **signature** que le serveur vérifie ; l'authentification demeure ainsi **sans état**.
+- Ces extensions enrichissent le protocole tout en préservant ses propriétés fondamentales.
+
+<Checkpoint question="Pourquoi le polling répond-il mal au besoin de temps réel, et quelle est l'idée pour faire mieux ?">
+Le *polling* interroge le serveur à intervalle fixe : l'information n'arrive qu'au cycle suivant (latence) et la majorité des appels demeurent infructueux (charge inutile). 
+Le principe du temps réel consiste, à l'inverse, à laisser le serveur **transmettre** la nouveauté dès son apparition, sur une **connexion maintenue** ouverte.
+</Checkpoint>
+
+<Checkpoint question="Sur un protocole sans état, comment reconnaître qu'un utilisateur est connecté d'une requête à l'autre ?">
+Le client renvoie un **cookie** ou un **jeton** à chaque requête ; le serveur l'examine pour identifier l'utilisateur. 
+</Checkpoint>
+
+<Checkpoint question="Qu'est-ce qu'un JWT, et comment permet-il une authentification sans état ?">
+Un **JWT** (JSON Web Token) est un **jeton signé** contenant des informations (*claims*) : identité de l'utilisateur, droits, échéance. 
+Le serveur l'émet lors de la connexion ; le client le renvoie ensuite à chaque requête (généralement dans l'en-tête `Authorization: Bearer …`). 
+Le serveur en **vérifie la signature** à l'aide de sa clé : si elle est valide, il se fie au contenu, **sans conserver** d'état de session. 
+</Checkpoint>
+
+## 3. REST : contraintes et conséquences
+
+- REST est un **style architectural** défini par un ensemble de **contraintes**, et non par le simple emploi d'un verbe HTTP.
+- Les contraintes principales sont : architecture **client-serveur**, communication **sans état**, réponses **cacheables**, **interface uniforme** et organisation en **couches**.
+- L'**interface uniforme** repose sur des **ressources** identifiées par une URI (des noms), manipulées au moyen des **verbes standards** et échangées sous forme de **représentations** (typiquement JSON).
+- L'action s'exprime par la **méthode**, jamais dans le chemin de l'URI : `DELETE /boites/12`, et non `/boites/supprimer/12`.
+- Le **paramètre de route** (`/boites/:id`) identifie une ressource précise ; le **paramètre de requête** (`/boites?quartier=Plateau`) exprime un critère de filtrage, de tri ou de pagination sur une collection.
+
+<Checkpoint question="Qu'est-ce que l'interface uniforme, et pourquoi DELETE /boites/12 plutôt que GET /boites/supprimer/12 ?">
+L'interface uniforme consiste à identifier une **ressource** par son URI (un nom) et à exprimer l'intention par un **verbe standard**. 
+`DELETE /boites/12` nomme la ressource et signifie sa suppression. `GET /boites/supprimer/12` place l'action dans le chemin **et** 
+recourt à `GET`, qui doit demeurer **sûr** : un cache ou un préchargement pourrait alors déclencher la suppression. 
+La proposition viole deux principes : la sûreté de `GET` et l'interface uniforme.
+</Checkpoint>
+
+<Checkpoint question="Soit les routes GET /getBoites, POST /boites/42/modifier et GET /boites/supprimer/42. Quelle en est la version RESTful ?">
+`GET /boites` (lister), `PATCH /boites/42` ou `PUT /boites/42` (modifier) et `DELETE /boites/42` (supprimer). 
+Une ressource identifiée par son URI, des verbes standards portant l'intention, et **aucune action dans le chemin** : 
+« getBoites », « modifier » et « supprimer » disparaissent.
+</Checkpoint>
+
+<Checkpoint question="Lire une boîte précise, puis filtrer les boîtes d'un quartier : paramètre de route ou de requête pour chacun ?">
+Boîte précise → **paramètre de route** : `/boites/:id` identifie *une* ressource. 
+Filtre par quartier → **paramètre de requête** : `/boites?quartier=Plateau` exprime un critère sur la *collection*. 
+En règle générale, la route désigne *quelle ressource*, la requête précise *comment filtrer, trier ou paginer*.
+</Checkpoint>
+
+<Checkpoint question="Qu'est-ce qui distingue une API « qui parle HTTP » d'une API véritablement RESTful ?">
+« Parler HTTP » revient à employer le transport (`POST`, `GET`) sans respecter les contraintes : 
+action dans l'URI, verbe unique pour toute opération, absence de véritables ressources (par exemple `POST /api?action=create`). 
+Une API **RESTful** repose sur des ressources identifiées par URI, une **interface uniforme** (verbes standards, statuts appropriés, représentations), 
+le caractère sans état et la possibilité de mise en cache (par exemple `POST /boites`, `GET /boites/12`). 
+La distinction tient au respect des contraintes, non à l'usage de HTTP.
+</Checkpoint>
+
+## 4. Stratégies de persistance 
+
+- La persistance répond à une question : **où** et **comment** conserver les données au-delà d'une seule requête, sur un protocole qui, lui, ne retient rien.
+- Les données peuvent reposer sur plusieurs **cibles** complémentaires : le **client**, la **mémoire du serveur**, une **base de données**, un **cache**.
+- **Côté client** (cookie, jeton, stockage du navigateur ou de l'application) : identité, préférences, fonctionnement hors-ligne; jamais de donnée sensible en clair.
+- **Mémoire du serveur** : accès rapide, mais **volatile** et **local** à un processus; adaptée à un état temporaire et non critique.
+- **Base de données** : **durable**, **partagée** entre serveurs et **interrogeable**, au prix d'une **latence** et d'accès **asynchrones**.
+- **Cache** : conserve les résultats **fréquemment lus** afin de répondre sans solliciter la BD à chaque fois.
+- Le choix d'une cible se **justifie par les accès attendus** : durabilité, fréquence des lectures et des écritures, évolution du volume.
+
+<Checkpoint question="Un serveur conserve ses boîtes dans un tableau en mémoire ; après un redémarrage, tout a disparu. Que faut-il changer, et quelle en est la conséquence sur le code ?">
+Il convient d'adopter une **base de données** pour la **durabilité** (et le partage entre serveurs). 
+En conséquence, les accès deviennent **asynchrones** : les gestionnaires recourent à `await` et doivent gérer l'attente ainsi que les erreurs. 
+La mémoire reste appropriée pour un état temporaire ou non critique.
+</Checkpoint>
+
+<Checkpoint question="La préférence de thème d'un utilisateur, et l'inventaire des boîtes interrogeable par quartier : sur quelle cible conserver chacun ?">
+**Préférence de thème → côté client** (cookie ou stockage du navigateur) : donnée propre à l'utilisateur, non critique, qui n'a pas à transiter par le serveur. 
+**Inventaire des boîtes → base de données** : donnée durable, partagée et **interrogeable** (filtrer par quartier, trier, paginer). 
+Le critère décisif est l'usage : préférence locale et jetable d'un côté, donnée de référence interrogeable de l'autre.
+</Checkpoint>
+
+<Checkpoint question="Imbrication ou référence : quel est le compromis, en une phrase ?">
+L'**imbrication** permet une lecture en un seul accès, mais entraîne duplication possible et croissance du document. 
+La **référence** évite la duplication et préserve l'indépendance des entités, mais la lecture des données liées exige une **jointure**. 
+Le choix dépend du mode de lecture : données lues ensemble → imbrication ; données lues séparément ou de volume illimité → référence.
+</Checkpoint>
+
+
+## 5. Express.js : mécanique d'une API
+
+- Express **achemine** les requêtes vers des gestionnaires associés à une méthode et à un chemin (`app.get`, `app.post`, etc.).
+- `express.json()` est un *middleware* qui **analyse le corps JSON** entrant et alimente `req.body` ; en son absence, `req.body` demeure indéfini.
+- Les **paramètres de route** se lisent dans `req.params` (segments tels que `:id`), les **paramètres de requête** dans `req.query` (après le `?`), et le **corps** dans `req.body`.
+- La **réponse** se construit avec `res.status(code).json(...)` ou `res.send(...)` ; le statut par défaut est `200` et doit être ajusté explicitement (`201`, `404`, etc.).
+- Un accès à la BD étant **asynchrone**, le gestionnaire emploie `async`/`await` et traite explicitement l'absence de résultat ainsi que les erreurs.
+
+<Checkpoint question="La route app.get('/stations/:id') reçoit /stations/12?detail=complet. Comment lire 12 puis complet ?">
+`req.params.id` vaut `"12"` (segment de route) et `req.query.detail` vaut `"complet"` (paramètre situé après le `?`). 
+La route capture l'identité de la ressource ; la requête en précise les options.
+</Checkpoint>
+
+<Checkpoint question="Un gestionnaire POST observe req.body indéfini alors que le client transmet du JSON. Quelle est la cause probable, et le correctif ?">
+Sans `app.use(express.json())`, Express n'analyse pas le corps JSON, d'où un `req.body` indéfini. 
+Il convient également de vérifier que le client envoie l'en-tête `Content-Type: application/json`.
+</Checkpoint>
+
+<Checkpoint question="Écrire la route qui renvoie une boîte par son identifiant, avec un 404 lorsqu'elle est absente.">
+```js
+app.get("/boites/:id", async (req, res) => {
+  const boite = await Boite.findById(req.params.id);
+  if (!boite) {
+    return res.status(404).json({ erreur: "Boîte introuvable" });
+  }
+  res.json(boite);
+});
+```
+La lecture en base de données est asynchrone (`await`) ; en l'absence de résultat, le gestionnaire répond explicitement `404` plutôt que de renvoyer `null` avec un statut `200`.
+</Checkpoint>
+
+<Checkpoint question="Pour une création réussie, puis pour une ressource absente, quels statuts retourner ?">
+Création réussie → `res.status(201).json(cree)`. Ressource absente → `res.status(404).json({ erreur: "..." })`. 
+Express ne déduit pas le statut (il applique `200` par défaut) : il revient au gestionnaire de fixer le code approprié au résultat.
+</Checkpoint>

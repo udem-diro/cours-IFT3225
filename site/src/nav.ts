@@ -62,12 +62,12 @@ export const navigation: NavGroup[] = [
       { label: "Le protocole comme interaction", href: "/notes/protocole" },
     ],
   },
-  // {
-  //   titre: "Activités",
-  //   items: [
-  //     { label: "Comparer trois systèmes", href: "/activites/comparer-systemes" },
-  //   ],
-  // },
+  {
+    titre: "Révisions",
+    items: [
+      { label: "Préparation pour l'intra", href: "/exams/revision" },
+    ],
+  },
   {
     titre: "Projet",
     items: [
