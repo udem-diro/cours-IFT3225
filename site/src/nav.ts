@@ -53,20 +53,23 @@ export const navigation: NavGroup[] = [
         //   { label: "Cache et diffusion", href: "/guides/tuto-persistance-cache" },
         // ]
       },
+      // { label: "Identité ⭐", href: "/guides/tuto-identite" },
+      // { label: "Les middlewares dans Express", href: "/guides/tuto-express-middleware" },
       // { label: "Les bases du DOM", href: "/guides/tuto-dom" },
     ],
   },
-  {
-    titre: "Réflexions",
-    items: [
-      { label: "Le protocole comme interaction", href: "/notes/protocole" },
-    ],
-  },
+  // {
+  //   titre: "Réflexions",
+  //   items: [
+  //     { label: "Le protocole comme interaction", href: "/notes/protocole" },
+  //   ],
+  // },
   {
     titre: "Révisions",
     items: [
       { label: "Récapitulatif pour l'intra", href: "/exams/revision" },
       { label: "Formatif pour l'intra", href: "/exams/formatif-intra" },
+      { label: "Formatif pour l'intra (corrigé) 🎯", href: "/exams/formatif-intra-corrige" },
     ],
   },
   {

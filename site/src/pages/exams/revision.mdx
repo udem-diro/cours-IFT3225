@@ -93,7 +93,36 @@ le caractère sans état et la possibilité de mise en cache (par exemple `POST 
 La distinction tient au respect des contraintes, non à l'usage de HTTP.
 </Checkpoint>
 
-## 4. Stratégies de persistance 
+## 4. Conception d'API
+ 
+- Concevoir une API commence par les **questions** auxquelles elle doit répondre, puis par les **ressources** du domaine (des noms) et leurs attributs.
+- Chaque ressource s'expose comme une **collection** (`/boites`) et des **éléments** (`/boites/:id`), manipulés par les verbes standards.
+- Une **relation** se traduit, lorsque c'est naturel, par un chemin imbriqué (`/boites/:id/emprunts`), sans empiler les niveaux à l'excès.
+- Chaque opération a un **code de statut** attendu, en succès comme en erreur (création `201`, ressource absente `404`, données invalides `400`).
+- Une bonne API est **prévisible et cohérente** : mêmes conventions de nommage, de pluriel et de format d'un endpoint à l'autre.
+- Concevoir, c'est **raconter une histoire** lisible : à la seule lecture des endpoints, on devine le domaine et les usages.
+
+<Checkpoint question="Par quoi commence la conception d'une API, avant d'écrire le moindre endpoint ?">
+Par les **questions** auxquelles l'API doit répondre, puis par les **ressources** du domaine (les noms : station, boîte, mesure) et leurs attributs. Les endpoints en découlent : ils donnent accès à ces ressources. Partir des endpoints sans avoir nommé les ressources mène à une API d'actions hétéroclites plutôt qu'à un modèle cohérent.
+</Checkpoint>
+
+<Checkpoint question="L'API Lino doit lister les boîtes d'un quartier, consulter une boîte précise, et consulter les emprunts d'une boîte. Proposez les endpoints.">
+`GET /boites?quartier=Plateau` (collection filtrée), `GET /boites/:id` (un élément précis) et `GET /boites/:id/emprunts` (la relation, en chemin imbriqué). Verbes standards, filtre exprimé en paramètre de requête, relation rendue par l'imbrication du chemin.
+</Checkpoint>
+
+<Checkpoint question="Pour exposer un historique d'emprunts potentiellement très long, comment concevoir l'endpoint afin qu'il reste utilisable ?">
+`GET /boites/:id/emprunts` avec **pagination** et **filtres** en paramètres de requête (`?depuis=2026-05-01&page=2&taille=50`), au lieu de renvoyer tout l'historique d'un coup. On borne la taille de la réponse et on laisse le client demander la suite, ce qui protège le serveur comme le client d'une réponse démesurée.
+</Checkpoint>
+
+<Checkpoint question="Concevez le flux d'échanges pour ce scénario : Alice repère une boîte de son quartier, consulte les livres qui y sont disponibles, puis en emprunte un.">
+Une séquence d'échanges requête-réponse, du repérage vers l'écriture :
+1. `GET /boites?quartier=Rosemont` répond `200` avec les boîtes du quartier.
+2. `GET /boites/12/livres?disponible=true` répond `200` avec les livres disponibles de la boîte choisie.
+3. `POST /boites/12/emprunts` (corps : `{ "livre_id": 87 }`) répond `201 Created` avec l'emprunt enregistré.
+Chaque étape est un échange **complet et autosuffisant** : HTTP étant sans état, la requête d'emprunt porte elle-même les identifiants nécessaires, sans dépendre d'un état conservé entre les appels. Le flux progresse des lectures (`GET`) vers la création (`POST`), et chaque réponse fournit au client de quoi décider de l'étape suivante.
+</Checkpoint>
+
+## 5. Stratégies de persistance 
 
 - La persistance répond à une question : **où** et **comment** conserver les données au-delà d'une seule requête, sur un protocole qui, lui, ne retient rien.
 - Les données peuvent reposer sur plusieurs **cibles** complémentaires : le **client**, la **mémoire du serveur**, une **base de données**, un **cache**.
@@ -121,7 +150,7 @@ Le choix dépend du mode de lecture : données lues ensemble → imbrication ; d
 </Checkpoint>
 
 
-## 5. Express.js : mécanique d'une API
+## 6. Express.js : mécanique d'une API
 
 - Express **achemine** les requêtes vers des gestionnaires associés à une méthode et à un chemin (`app.get`, `app.post`, etc.).
 - `express.json()` est un *middleware* qui **analyse le corps JSON** entrant et alimente `req.body` ; en son absence, `req.body` demeure indéfini.

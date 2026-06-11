@@ -1,0 +1,218 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Corrigé du formatif de l'intra"
+description: "Corrigé du formatif : réponses justifiées des 10 QCM, réponses modèles des questions à développement, analyses et réparations corrigées, et une solution de référence du problème de conception d'API Atmo. Les parties de conception admettent plusieurs bonnes réponses."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import FluxSequence from "../../components/react/FluxSequence.jsx";
+
+{/* <MarginNote type="rappel" titre="Lecture du corrigé">
+Les parties 3 et 4 admettent plusieurs bonnes réponses. Ce qui est évalué : l'usage juste de HTTP et de REST, et la justification des choix de persistance. Les solutions ci-dessous sont des références, pas les seules acceptables. Voir [Formatif de l'intra](/notes/formatif-intra) pour les énoncés.
+</MarginNote> */}
+
+## Partie 1 : QCM
+
+Réponses : **1 B · 2 D · 3 C · 4 A · 5 B · 6 D · 7 A · 8 C · 9 D · 10 B · 11 A · 12 C**.
+
+**1. B** (`201 Created`). La ressource est créée et renvoyée immédiatement avec son `id`.   
+  - `200` conviendrait pour une réussite sans création, 
+  - `202` pour un traitement différé (la mesure n'est pas encore enregistrée)
+  - `204` pour une réussite sans corps.
+
+**2. D** (`PUT /stations/12`). On cherche une méthode **idempotente** : la rejouer donne le même état final. 
+  - `POST` crée un doublon ; 
+  - `PATCH` ici incrémente un compteur change l'état à chaque appel.
+
+**3. C** (`404 Not Found`). La ressource n'existe pas. 
+  - `200 {}` ment au client et trompe les caches ; 
+  - `204` signifie « réussite sans contenu », pas « introuvable » ; 
+  - `400` viserait une requête mal formée, or elle est correcte.
+
+**4. A**. `DELETE /stations/12`. L'action (intention) est déterminée purement par le verbe HTTP. 
+  - Le chemin n'est là que pour indiquer l'emplacement de la ressource cible.
+
+**5. B**. `POST /stations`, `GET /stations/12`, `PATCH /stations/12`, `DELETE /stations/12`. 
+  - Les autres mettent l'action dans le chemin ou dans un paramètre.
+
+**6. A**. Le client joint à chaque requête un cookie ou un jeton que le serveur vérifie. 
+  - L'adresse IP est partagée et changeante ; 
+  - une connexion TCP permanente ne tient pas à l'échelle ; 
+  - une liste en mémoire ne survit pas aux multi-serveurs ni au redémarrage.
+
+**7. C**. Le serveur vérifie la **signature** du jeton avec sa clé et se fie au contenu, sans rien stocker : c'est l'intérêt du JWT. 
+  - A, B et D réintroduisent un état ou une vérification serveur que le jeton autoportant sert précisément à éviter.
+
+**8. D** (côté client). Une préférence d'affichage est locale et non critique : un cookie ou le stockage du navigateur suffit. 
+  - Si la préférence devait suivre le compte sur plusieurs appareils, la base de données redeviendrait défendable.
+
+**9. B**. `req.params.id` lit le segment de route (`12`), `req.query.detail` lit la chaîne de requête (`complet`). 
+  - `params` vient du motif `/:id`
+  - `query` vient de ce qui suit le `?`.
+
+**10. A**. Sans `app.use(express.json())`, le corps JSON n'est pas analysé et `req.body` reste `undefined`, même avec le bon `Content-Type`. 
+
+---
+
+## Partie 2 : Questions à développement
+
+{/* <MarginNote type="rappel" titre="Barème">
+On évalue le raisonnement et la justesse, pas la longueur. Les réponses ci-dessous listent les éléments attendus.
+</MarginNote> */}
+
+**Q1. Maîtrise et limites de HTTP**
+
+La caractéristique en jeu est que HTTP est sans état : chaque requête est traitée indépendamment, sans mémoire automatique des requêtes précédentes.
+
+La limite concrète est donc que HTTP ne permet pas, à lui seul, de savoir qu’un utilisateur avait déjà ajouté des articles à son panier lors d’une requête précédente.
+
+Il est possible de gérer un panier d’achats en ajoutant une couche applicative au-dessus de HTTP. Par exemple, on peut utiliser un cookie contenant un identifiant de session, une session côté serveur, un jeton d’authentification ou encore une base de données. 
+<MarginNote type="astuce" titre="Si on a plusieurs appareils">
+Dans le cas d’un panier accessible sur plusieurs appareils, on associe généralement le panier à un compte utilisateur et on le persiste en base de données.
+</MarginNote>
+
+**Q2. L'architecture REST (C3).**
+
+Une API qui « parle HTTP » utilise HTTP comme simple canal de transport, mais n’exploite pas vraiment la sémantique de HTTP.  
+Une API RESTful représente plutôt les données comme des **ressources** identifiables par des URI, par exemple `GET /users/12`. 
+
+Trois contraintes REST importantes sont :
+
+1. **Interface uniforme**
+  - Les ressources doivent être manipulées à l’aide d’une interface commune, notamment via les méthodes HTTP. 
+  - **Conséquence :** on évite les routes génériques comme `/api?action=getUser` et on préfère des URI orientés ressources comme `/users/12`.
+
+2. **Sans état**
+  - Chaque requête doit contenir les informations nécessaires pour être comprise. 
+  - Conséquence : le serveur ne doit pas dépendre d’un contexte implicite entre deux requêtes ; cela facilite la mise à l’échelle, les tests et la robustesse.
+
+3. **Mise en cache**
+  - Les réponses doivent pouvoir indiquer si elles peuvent être mises en cache. 
+  - Conséquence : une requête `GET /users/12` peut être comprise comme une lecture et donc potentiellement être mise en cache, alors qu’un `POST /api?action=getUser&id=12` masque cette intention et rend le cache plus difficile ou risqué.
+
+La première API perd donc une partie des bénéfices de HTTP : lisibilité, usage correct des méthodes, cache, interopérabilité, observabilité et prévisibilité. Elle utilise HTTP, mais ne respecte pas vraiment l’esprit REST. La seconde API est plus RESTful parce qu’elle expose des ressources et utilise la méthode HTTP pour exprimer l’action attendue.
+
+---
+
+## Partie 3 : analyse et réparation
+
+### Q1. Réparer une conception d'endpoints
+
+Problèmes (au moins cinq) :
+
+1. `GET /getBoites` : le verbe est dans le chemin.
+2. `GET /boite?id=42` : la ressource passe par un paramètre de requête au lieu du chemin, et le nom est au singulier.
+3. `POST /boites/42/modifier` : action dans le chemin.
+4. `GET /boites/supprimer/42` : suppression par `GET`, ce qui viole la sémantique de `GET`.
+5. `POST /boites` renvoie `200` au lieu de `201 Created` pour une création.
+6. `GET /boites/9999` (inexistante) renvoie `200 {}` au lieu de `404 Not Found`.
+
+Version corrigée :
+
+| Méthode | Chemin | Succès | Erreur pertinente |
+|---|---|---|---|
+| `GET` | `/boites` | `200` | |
+| `GET` | `/boites/42` | `200` | `404` |
+| `PATCH` | `/boites/42` | `200` | `404`, `400` |
+| `DELETE` | `/boites/42` | `204` | `404` |
+| `POST` | `/boites` | `201` | `400` |
+| `GET` | `/boites/9999` | | `404` |
+
+Deux justifications :
+
+- **`DELETE` plutôt que `GET .../supprimer`** : l'interface uniforme et la sémantique HTTP imposent que `GET` ne modifie pas l'état du système.
+- **`404` plutôt que `200 {}`** : la sémantique HTTP distingue « trouvé mais vide » de « inexistant ». Renvoyer `200` pour une ressource absente trompe le client.
+
+### Q2. Analyser et réparer un protocole de collecte
+
+**1.** L'enregistrement se fait par `GET /enregistrer?...`, donc une **écriture par un GET** : violation de la sémantique de `GET`.   
+Le serveur répond toujours `200 "ok"`, même en cas de champs manquants ou invalides : aucune validation, aucun code d'erreur.   
+La lecture `GET /mesure/12` renvoie `200 {}` pour une station inconnue au lieu de `404`.
+
+**2.** Interroger 500 stations toutes les 2 secondes, même sans aucune nouveauté : gaspillage de bande passante et de charge serveur, et fraîcheur toujours en retard.  
+Pour un besoin de mise à jour en temps réel, il serait préférable d’utiliser un mécanisme où le serveur pousse les nouveautés vers le client, plutôt que d’attendre que le client les demande en boucle.  
+C’est le principe du push serveur, par exemple avec `WebSocket` ou `Server-Sent Events`. Ainsi, le serveur transmet seulement les nouvelles mesures lorsqu’elles arrivent.
+
+<MarginNote type="plusloin" titre="Fonctionnement de websocket">
+Un WebSocket permet d’ouvrir une connexion persistante entre le client et le serveur.
+
+Au départ, le client envoie une requête HTTP spéciale pour demander à passer en mode WebSocket. 
+Si le serveur accepte, la connexion reste ouverte. Ensuite, le client et le serveur peuvent s’envoyer des messages dans les deux sens (`client ↔ serveur`), sans devoir refaire une nouvelle requête HTTP à chaque fois.
+
+
+Il est possible que certains clients ne supportent pas les WebSockets, ou que la connexion WebSocket soit bloquée ou instable selon le contexte.
+Donc, dans une architecture robuste, on prévoit souvent une stratégie de repli : Server-Sent Events, long polling (réponse avec délai), polling classique.
+</MarginNote>
+
+<MarginNote type="plusloin" titre="Fonctionnement de Server-Sent Events">
+Les *Server-Sent Events* permettent au serveur d’envoyer des mises à jour au client sur une connexion HTTP qui reste ouverte.
+Au départ, le client ouvre une connexion vers le serveur, par exemple vers une route comme :
+```
+GET /events
+```
+
+Le serveur accepte la connexion et ne la ferme pas immédiatement. Il garde le canal ouvert pour envoyer des messages au client lorsqu’un événement se produit.
+Contrairement à WebSocket, la communication est surtout à sens unique : `serveur → client`.
+</MarginNote>
+
+**3.** Au point (a), `Mesure.create(...)` écrit dans la base de données de façon **asynchrone** : sans `await`, le serveur répond avant la fin de l'écriture et n'attrape aucune erreur. Il faut valider les champs **avant** d'écrire (refuser par `400` si une donnée manque ou est invalide), puis `await` la création dans un `try/catch`.
+
+**4. Version corrigée**
+
+```js
+// Enregistrer une mesure : POST (écriture), validation, 201, 400, 404
+router.post("/stations/:id/mesures", async (req, res) => {
+  const station = await Station.findById(req.params.id);
+  if (!station) {
+    return res.status(404).json({ erreur: "station inconnue" });
+  }
+
+  const { pm25, temp } = req.body ?? {};
+  if (pm25 == null || temp == null) {
+    return res.status(400).json({ erreur: "champs manquants ou invalides" });
+  }
+
+  try {
+    const mesure = await Mesure.create({ station: station.id, pm25, temp }); 
+    res.status(201).json(mesure);                                            
+  } catch (e) {
+    res.status(400).json({ erreur: "mesure invalide" });
+  }
+});
+```
+
+---
+
+## Partie 4 : problème de conception d'API (Atmo)
+
+Solution de référence. D'autres découpages sont acceptables s'ils sont cohérents et justifiés.
+
+### (a) Ressources et attributs
+
+| Ressource | Attributs clés (type) | Relations |
+|---|---|---|
+| Station | `id` (identifiant), `nom` (texte), `quartier` (texte), `position` (`{lat, lon}` nombres), `statut` (active/inactive) | possède des `capteurs`, produit des mesures |
+| Capteur | `id`, `type` (`pm25`, `temperature`, `humidite`, `bruit`), `unite` (texte) | appartient à une station |
+| Mesure | `id`, `date` (horodatage ISO 8601), valeurs (`pm25`, `temperature`, `humidite`, `bruit` : nombres), `indice` (texte dérivé) | rattachée à une station |
+
+### (b) Endpoints
+
+| Méthode et chemin | Renvoie |
+|---|---|
+| `GET /stations` | la liste des stations (id, nom, quartier, position) |
+| `GET /stations?quartier=Rosemont` | les stations d'un quartier (filtre par paramètre de requête) |
+| `GET /stations/:id` | le détail d'une station |
+| `GET /stations/:id/mesures?sort=timestamp:desc&limit=1`<br/> OU `GET /stations/:id/mesures/latest` (acceptable) | la dernière mesure de la station |
+| `GET /stations/:id/mesures?debut=...&fin=...` | l'historique des mesures sur une période |
+| `GET /stations?quartier=X&sort=qualityIndex:desc&limit=1` | la station du quartier à la pire qualité de l'air |
+
+### (c) Stratégie de persistance
+
+Les stations (peu nombreuses, lues souvent) et les mesures (volume **croissant sans fin**) vivent en **base de données**, pas en mémoire : il faut durabilité, partage entre serveurs et interrogation.  
+**Modèle :** une collection `stations`, une collection `mesures` référençant la station et portant un `date`, avec un **index sur `{ station, date }`**.
+
+- Les mesures ne devraient pas être simplement imbriquées directement dans le document station, car leur volume croît sans fin.
+- Pour lire rapidement la dernière mesure d'une station, on peut maintenir une donnée dénormalisée (ex: un champ latestMeasure dans la station).
+- Pour consulter l'historique sur une période, les mesures doivent être indexées par stationId (`station`) et timestamp (`date`). 
+- Comme le volume de mesures croît continuellement, il faut aussi prévoir une stratégie d'archivage ou d'agrégation. Par exemple, on peut conserver les mesures brutes récentes, puis agréger les anciennes par minute, heure ou jour.
