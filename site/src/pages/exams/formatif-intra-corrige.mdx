@@ -83,11 +83,11 @@ Trois contraintes REST importantes sont :
 
 2. **Sans état**
   - Chaque requête doit contenir les informations nécessaires pour être comprise. 
-  - Conséquence : le serveur ne doit pas dépendre d’un contexte implicite entre deux requêtes ; cela facilite la mise à l’échelle, les tests et la robustesse.
+  - **Conséquence :** le serveur ne doit pas dépendre d’un contexte implicite entre deux requêtes ; cela facilite la mise à l’échelle, les tests et la robustesse.
 
 3. **Mise en cache**
   - Les réponses doivent pouvoir indiquer si elles peuvent être mises en cache. 
-  - Conséquence : une requête `GET /users/12` peut être comprise comme une lecture et donc potentiellement être mise en cache, alors qu’un `POST /api?action=getUser&id=12` masque cette intention et rend le cache plus difficile ou risqué.
+  - **Conséquence :** une requête `GET /users/12` peut être comprise comme une lecture et donc potentiellement être mise en cache, alors qu’un `POST /api?action=getUser&id=12` masque cette intention et rend le cache plus difficile ou risqué.
 
 La première API perd donc une partie des bénéfices de HTTP : lisibilité, usage correct des méthodes, cache, interopérabilité, observabilité et prévisibilité. Elle utilise HTTP, mais ne respecte pas vraiment l’esprit REST. La seconde API est plus RESTful parce qu’elle expose des ressources et utilise la méthode HTTP pour exprimer l’action attendue.
 
