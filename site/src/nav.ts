@@ -1,12 +1,3 @@
-/**
- * nav.ts — Structure de navigation du site.
- *
- * Source unique de vérité pour la sidebar. Modifie ici pour
- * ajouter/réordonner des pages. Le layout lit cette structure.
- *
- * `href` correspond au chemin de la page (sans extension).
- */
-
 export interface NavItem {
   label: string;
   href: string;
@@ -25,37 +16,26 @@ export const navigation: NavGroup[] = [
       { label: "Accueil", href: "/" }
     ],
   },
-  // {
-  //   titre: "Notes de cours",
-  //   items: [
-  //     { label: "Séance 1", href: "/sessions/seance-01" },
-  //     { label: "Séance 2", href: "/sessions/seance-02" },
-  //     { label: "Séance 3", href: "/sessions/seance-03" },
-  //     { label: "Séance 4", href: "/sessions/seance-04" },
-  //     { label: "Séance 5", href: "/sessions/seance-05" },
-  //   ],
-  // },
+  {
+    titre: "Notes ⭐",
+    items: [
+      { label: "Conception d'API", href: "/notes/conception-api" },
+      { label: "Stratégie de persistance", href: "/notes/persistance" },
+      { label: "Identité et Authentification ⭐", href: "/notes/identite" },
+      { label: "Interface réactive ⭐", href: "/notes/interface-reactive" },
+    ],
+  },
   {
     titre: "Guide",
     items: [
       { label: "Intro à Node.js et npm", href: "/guides/tuto-nodejs" },
       { label: "Intro à JavaScript (partie 1)", href: "/guides/tuto-javascript-1" },
       { label: "Intro à JavaScript (partie 2)", href: "/guides/tuto-javascript-2" },
-      { label: "Concevoir une API ⭐", href: "/guides/tuto-conception-api" },
       { label: "Prise en main d'Express", href: "/guides/tuto-express" },
       { label: "Prise en main de MongoDB", href: "/guides/tuto-mongo" },
-      {
-        label: "Stratégie de persistance ⭐", href: "/guides/tuto-persistance", 
-        // children: [
-        //   { label: "Stockage côté client", href: "/guides/tuto-persistance-client" },
-        //   { label: "Mémoire serveur", href: "/guides/tuto-persistance-serveur" },
-        //   { label: "Bases de données", href: "/guides/tuto-persistance-bd" },
-        //   { label: "Cache et diffusion", href: "/guides/tuto-persistance-cache" },
-        // ]
-      },
-      // { label: "Identité ⭐", href: "/guides/tuto-identite" },
-      // { label: "Les middlewares dans Express", href: "/guides/tuto-express-middleware" },
-      // { label: "Les bases du DOM", href: "/guides/tuto-dom" },
+      // { label: "Les middlewares dans Express ⭐", href: "/guides/tuto-express-middleware" },
+      { label: "Les bases du DOM ⭐", href: "/guides/tuto-dom-1" },
+      { label: "Manipulation du DOM ⭐", href: "/guides/tuto-dom-2" },
     ],
   },
   // {
@@ -65,11 +45,14 @@ export const navigation: NavGroup[] = [
   //   ],
   // },
   {
-    titre: "Révisions",
+    titre: "Révision",
     items: [
-      { label: "Récapitulatif pour l'intra", href: "/exams/revision" },
-      { label: "Formatif pour l'intra", href: "/exams/formatif-intra" },
-      { label: "Formatif pour l'intra (corrigé) 🎯", href: "/exams/formatif-intra-corrige" },
+      {
+        label: "Récapitulatif pour l'intra", href: "/exams/revision", children: [
+          { label: "Formatif pour l'intra", href: "/exams/formatif-intra" },
+          { label: "Formatif pour l'intra (corrigé) 🎯", href: "/exams/formatif-intra-corrige" },
+        ]
+      },
     ],
   },
   {

@@ -1,0 +1,209 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Concevoir une interface réactive"
+description: "Le rôle de l'interface dans la boucle de communication, les heuristiques d'utilisabilité, la réactivité et la transparence de l'état, la composition par blocs dans le navigateur, et une méthodologie pour construire une interface progressivement, illustrée par un panneau de signalement d'autobus."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import BusSignalementPanel from "../../components/react/BusSignal.jsx";
+
+<MarginNote type="prerequis">
+Cette page relie deux fils du cours : la communication client-serveur et la manipulation du DOM dans le navigateur 
+([Les bases du DOM](/guides/tuto-dom-1), [Le DOM avancé](/guides/tuto-dom-2)). 
+On y conçoit l'interface comme le maillon humain de la boucle.
+</MarginNote>
+
+Une requête-réponse n'est pas qu'un échange technique : elle commence et finit chez une personne. 
+L'interface est le point où l'intention humaine devient protocole, et où la réponse du serveur redevient quelque chose de compréhensible. 
+Cette page part de ce rôle, rappelle ce qui rend une interface utilisable, introduit la réactivité, puis montre comment la construire par blocs dans le navigateur.
+
+## 1. Le rôle de l'interface dans la communication
+
+Tout part d'une **intention** : l'utilisateur veut quelque chose. L'interface traduit cette intention en une **interaction** (un geste, une saisie), qui devient une **requête**. Le serveur la **traite** et renvoie une **réponse**, que l'interface transforme en un **changement d'affichage**. L'utilisateur **évalue** ce changement, ce qui reforme une intention. La boucle recommence.
+
+<figure style="margin:1.75rem auto;max-width:700px;">
+<svg viewBox="0 0 760 350" role="img" aria-label="Boucle de communication : l'utilisateur formule une intention, l'interface la traduit en interaction puis en requête, le serveur traite et répond, l'interface traduit la réponse en affichage, l'utilisateur évalue, ce qui relance une intention." style="width:100%;height:auto;font-family:inherit;">
+<rect x="60" y="70" width="150" height="210" rx="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="135" y="100" text-anchor="middle" fill="currentColor" font-size="15" font-weight="600">Utilisateur</text>
+<text x="135" y="166" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">formule</text>
+<text x="135" y="180" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">une intention</text>
+<text x="135" y="236" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">évalue</text>
+<text x="135" y="250" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">le résultat</text>
+<rect x="305" y="70" width="170" height="210" rx="12" fill="none" stroke="#0d9488" stroke-width="2"/>
+<text x="390" y="98" text-anchor="middle" fill="currentColor" font-size="15" font-weight="600">Interface</text>
+<text x="390" y="116" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.6">(navigateur)</text>
+<text x="390" y="160" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">traduit l'intention</text>
+<text x="390" y="174" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">en requête</text>
+<text x="390" y="240" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">traduit la réponse</text>
+<text x="390" y="254" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">en affichage</text>
+<rect x="570" y="70" width="130" height="210" rx="12" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="635" y="98" text-anchor="middle" fill="currentColor" font-size="15" font-weight="600">Serveur</text>
+<text x="635" y="184" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">traite</text>
+<text x="635" y="198" text-anchor="middle" fill="currentColor" font-size="11" opacity="0.62">la requête</text>
+<line x1="210" y1="145" x2="297" y2="145" stroke="#0d9488" stroke-width="2"/>
+<polygon points="297,140 297,150 305,145" fill="#0d9488"/>
+<text x="253" y="137" text-anchor="middle" fill="#0d9488" font-size="12">intention</text>
+<line x1="475" y1="145" x2="562" y2="145" stroke="#0d9488" stroke-width="2"/>
+<polygon points="562,140 562,150 570,145" fill="#0d9488"/>
+<text x="522" y="137" text-anchor="middle" fill="#0d9488" font-size="12">requête</text>
+<line x1="570" y1="215" x2="483" y2="215" stroke="#0d9488" stroke-width="2"/>
+<polygon points="483,210 483,220 475,215" fill="#0d9488"/>
+<text x="522" y="233" text-anchor="middle" fill="#0d9488" font-size="12">réponse</text>
+<line x1="305" y1="215" x2="218" y2="215" stroke="#0d9488" stroke-width="2"/>
+<polygon points="218,210 218,220 210,215" fill="#0d9488"/>
+<text x="253" y="233" text-anchor="middle" fill="#0d9488" font-size="12">affichage</text>
+<path d="M 60 250 C 22 245, 22 105, 56 100" fill="none" stroke="#0d9488" stroke-width="2"/>
+<polygon points="50,95 50,107 60,100" fill="#0d9488"/>
+<text x="18" y="175" transform="rotate(-90 18 175)" text-anchor="middle" fill="#0d9488" font-size="11">nouvelle intention</text>
+</svg>
+<figcaption style="text-align:center;font-size:0.85rem;opacity:0.7;margin-top:0.5rem;">L'interface est le maillon qui traduit l'intention en requête, puis la réponse en affichage. La boucle se referme par l'évaluation.</figcaption>
+</figure>
+
+<Highlight>L'interface ne montre pas le protocole : elle le rend agissable, en amont, et lisible, en aval. Concevoir une interface, c'est concevoir cette double traduction.</Highlight>
+
+{/* Le protocole lui-même est une forme d'interaction (voir [le protocole comme interaction](/notes/reflexions)). Reste à rendre cette interaction réussie pour la personne en bout de chaîne. */}
+
+## 2. Heuristiques et bonnes pratiques d'utilisabilité
+
+Avant de parler de réactivité, voyons ce qui rend généralement une interface *utilisable*. 
+Les **heuristiques de Nielsen** en donnent une liste éprouvée. Les plus utiles ici :
+
+- **Visibilité de l'état du système** : l'utilisateur sait toujours ce que fait le système.
+- **Correspondance avec le monde réel** : le vocabulaire et les concepts sont ceux de l'utilisateur, pas ceux de la machine.
+- **Contrôle et liberté** : on peut annuler, revenir, sortir d'un état non voulu.
+- **Cohérence et standards** : les mêmes choses se font de la même façon.
+- **Prévention des erreurs** : mieux vaut empêcher l'erreur que la rattraper.
+- **Reconnaissance plutôt que rappel** : les options sont visibles, on n'a pas à se souvenir.
+- **Esthétique et minimalisme** : pas de bruit qui noie l'essentiel.
+
+À ces heuristiques s'ajoutent les principes de **Norman** : les **affordances** (ce qu'un objet permet de faire), les **signifiants** (les indices qui le donnent à voir), le **retour d'information**, la **correspondance** entre commandes et effets, les **contraintes** qui guident, et un **modèle conceptuel** clair que l'utilisateur peut se forger.
+
+<MarginNote type="lien" titre="Un fil conducteur">
+Plusieurs de ces principes convergent vers une même exigence : rendre visible l'état et les actions. C'est exactement ce que la réactivité, vue ensuite, met en oeuvre dans le navigateur.
+</MarginNote>
+
+
+## 3. Réactivité, transparence et contrôle
+ 
+Une interface **réactive** reflète en continu l'état du système et les actions possibles, et garde l'utilisateur aux commandes. Trois exigences la résument.
+ 
+1. **Rendre visible l'état** (retour d'information) : chargement, succès, erreur, hors ligne. Une action sans retour laisse l'utilisateur dans le doute.
+2. **Rendre lisibles les actions possibles et permises** (affordances, signifiants, contraintes) : on voit ce qu'on peut faire, et ce qui est interdit ou désactivé, sans deviner.
+3. **Garder l'utilisateur en contrôle** : pouvoir annuler, comprendre ce qui se passe, ne pas être surpris par un changement qu'on n'a pas déclenché.
+
+Quand une de ces exigences manque, l'interface trahit l'utilisateur, qu'elle soit physique ou numérique.
+ 
+- **Physique.** La **porte de Norman** : une poignée invite à tirer, mais il faut pousser. Une plaque de cuisson dont les boutons ne correspondent pas, dans l'espace, aux feux qu'ils commandent : un défaut de correspondance qui force l'essai-erreur.
+- **Numérique.** Un envoi de formulaire **sans aucun retour** (a-t-il abouti ?). Un indicateur qui **tourne sans fin** ni progression. Un bouton **désactivé qui a l'air actif**. Un état **caché** : l'application est hors ligne, mais rien ne le dit.
+
+<Highlight couleur="ambre">Le piège le plus subtil : une interface séduisante mais opaque. Un design très épuré où rien ne signale qu'un élément est cliquable, une animation léchée qui masque ce qui charge vraiment. L'attrait ne remplace pas la transparence ; une belle interface opaque trahit l'utilisateur autant qu'une laide.</Highlight>
+ 
+<Checkpoint question="Un bouton « Envoyer » lance une requête, mais l'interface ne change pas pendant l'attente. Quelle exigence est violée, et que se passe-t-il côté utilisateur ?">
+La **visibilité de l'état** : sans retour, l'utilisateur ne sait pas si son action a été prise en compte. Il risque de recliquer (et d'envoyer deux fois), ou d'abandonner en pensant à un bug. Un simple indicateur de chargement, ou un bouton désactivé pendant l'attente, rétablit la transparence et le contrôle.
+</Checkpoint>
+Refléter l'état n'est pas un instantané pris au chargement : une interface réactive s'adapte à l'état et le suit dans le temps.
+ 
+**Adapter l'interface à l'état.** La forme même de l'interface dépend de l'état. 
+  - Une liste vide n'affiche pas un blanc muet, mais une invitation à agir ; 
+  {/* pendant un chargement, une esquisse plutôt qu'une page figée ; en cas d'erreur, un message et un chemin de récupération.  */}
+  - Les actions proposées s'ajustent de la même façon : un bouton n'apparaît que si l'action est permise, et se désactive sinon. 
+  - L'interface se reconfigure selon l'état, et selon le contexte (taille d'écran, droits, capacités), au lieu d'être un gabarit figé. 
+ 
+**Mettre à jour en continu (temps réel).** L'état ne change pas qu'à l'initiative de l'utilisateur : le temps passe, le serveur pousse une donnée, un autre usager agit. 
+L'interface doit continuer de refléter l'état sans qu'on la rafraîchisse à la main. 
+{/* Le principe d'une vue liée à son état suffit (vue = f(état), détaillé plus loin) : peu importe la source du changement, un clic, une horloge ou un message du serveur, l'état change et les vues abonnées se redessinent. C'est ce qui rend le temps réel possible : par un canal de poussée (Server-Sent Events, WebSocket), une nouvelle donnée arrive, met à jour l'état, et l'affichage suit aussitôt. */}
+ 
+<Highlight>Une interface réactive n'est jamais terminée une fois affichée : elle reste un miroir vivant de l'état, qu'il change par l'utilisateur, par le temps ou par le serveur.</Highlight>
+ 
+{/* <MarginNote type="astuce" titre="Déjà à l'oeuvre plus bas">
+Dans le panneau de signalement, l'âge de chaque signalement se met à jour chaque seconde, sans aucune action : un avant-goût de la mise à jour continue. En conditions réelles, les signalements d'autres usagers y apparaîtraient de la même façon, poussés par le serveur.
+</MarginNote> */}
+
+## 4. Sur le web : réactivité et composition par blocs
+
+Le navigateur nous **expose des outils**, le DOM, les événements et la liaison de données, avec lesquels nous construisons des interfaces réactives sous forme de pages web. 
+On structure alors l'interface en **blocs** (des composants), chacun avec un rôle, un sous-état, des entrées et des sorties. Les blocs communiquent par l'**état partagé** et par des **événements**, jamais en lisant le contenu des autres.
+ 
+{/* Les techniques vues dans [Le DOM avancé](/notes/dom-avance) servent directement cette composition.
+ 
+- **Liaison de données** : synchroniser l'état et la vue, pour que l'affichage reflète toujours l'état.
+- **Templates** : la structure réutilisable d'un bloc.
+- **Web components** : des blocs encapsulés et réutilisables, dont le style ne déborde pas.
+- **Librairies comme React** : un rendu **déclaratif**, où l'on décrit la vue en fonction de l'état (vue = f(état)) et où le framework redessine ce qui change, plus la composition de blocs.
+<Highlight>Le principe commun à toutes ces techniques : une seule source de vérité, l'état, et des vues qui s'y abonnent. On ne synchronise pas des morceaux de DOM entre eux ; on redessine à partir de l'état.</Highlight> */}
+ 
+
+
+## 5. Méthodologie : construire une interface par étapes
+
+On ne dessine pas une interface d'un seul trait. On procède par blocs et par état. Prenons un **panneau de signalement d'arrivée d'autobus pour un arrêt** : choisir un arrêt, signaler une arrivée, et rechercher les signalements d'une ligne.
+
+### Étape 1 : identifier les blocs, leurs rôles et le sous-état
+
+| Bloc | Rôle | Rapport à l'état |
+|---|---|---|
+| Sélecteur d'arrêt | choisir l'arrêt courant | écrit `arretSelectionne` |
+| Signalements récents | afficher les signalements de l'arrêt | lit (filtré par l'arrêt) |
+| Formulaire de signalement | saisir une ligne et un délai, signaler | écrit `signalements` |
+| Bandeau d'état | montrer l'arrêt et le nombre de signalements actifs | lit (donnée dérivée) |
+| Recherche par ligne | filtrer les signalements par numéro de ligne | lit (filtré par la ligne) |
+
+L'**état partagé** se réduit à deux pièces centrales : `arretSelectionne` et `signalements`. La ligne cherchée est une petite donnée propre au bloc de recherche. Le reste (la liste filtrée, le nombre d'actifs) s'en **dérive**, sans être stocké à part.
+
+### Étape 2 : identifier les mécanismes d'interaction et la paramétrisation
+
+Chaque bloc se décrit par ses **entrées** (ce qu'on lui passe) et ses **sorties** (ce qu'il émet).
+
+| Bloc | Entrées | Sorties |
+|---|---|---|
+| Sélecteur | liste des arrêts, arrêt courant | `onChoisir(arretId)` |
+| Signalements récents | signalements de l'arrêt | `onRetirer(id)` |
+| Formulaire | lignes de l'arrêt | `onSignaler({ ligne, delai })` |
+| Recherche par ligne | liste des signalements | `onRechercher(ligne)` |
+| Bandeau | arrêt, nombre d'actifs | (aucune) |
+
+<Highlight couleur="ambre">Le motif est toujours le même : les données descendent (en paramètres), les événements remontent (en rappels). Un bloc ne modifie jamais un autre bloc directement ; il signale au parent, qui met à jour l'état.</Highlight>
+
+### Étape 3 : composer jusqu'à l'interface complète
+
+Un composant parent détient l'état partagé, distribue les données filtrées et reçoit les événements pour mettre à jour l'état. Toutes les vues se redessinent.
+
+```jsx
+function Panneau() {
+  const [arret, setArret] = useState("a1");
+  const [signalements, setSignalements] = useState([]);
+
+  const visibles = signalements.filter((s) => s.arretId === arret);
+
+  return (
+    <>
+      <SelecteurArret valeur={arret} onChoisir={setArret} />
+      <SignalementsRecents items={visibles} />
+      <FormulaireSignalement
+        arret={arret}
+        onSignaler={(sig) => setSignalements((prev) => [sig, ...prev])}
+      />
+    </>
+  );
+}
+```
+
+### Illustration du panneau composé
+
+<BusSignalementPanel client:visible />
+
+{/* <Checkpoint question="Pourquoi faire remonter un signalement vers le parent plutôt que de laisser le formulaire ajouter directement une ligne dans la liste ?">
+Parce que la liste n'est qu'une **vue** de l'état ; la vérité est dans `signalements`, détenu par le parent. Si le formulaire écrivait dans le DOM de la liste, l'état et l'affichage divergeraient, et le bandeau (qui compte les signalements) ne serait plus à jour. En passant par l'état, **toutes** les vues restent cohérentes d'un coup.
+</Checkpoint> */}
+
+## 6. À retenir
+
+| Idée | Point clé |
+|---|---|
+| Rôle de l'interface | Traduire l'intention en requête, puis la réponse en affichage ; la boucle se referme par l'évaluation |
+| Utilisabilité | Heuristiques de Nielsen et principes de Norman : rendre visibles l'état et les actions |
+| Réactivité | Montrer l'état, montrer les actions possibles et permises, garder l'utilisateur en contrôle |
+| Échecs courants | Action sans retour, état caché, affordance absente ; une belle interface peut être opaque |
+| Composition par blocs | Des composants avec un sous-état, reliés par un état partagé ; données vers le bas, événements vers le haut |
