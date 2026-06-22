@@ -1,0 +1,491 @@
+---
+/**
+ * Phase 1 · Corrigé de référence et pistes de solution
+ * Page autonome hors Starlight, jumelle de phase-01.astro.
+ */
+
+import Aside from '../../components/Aside.astro';
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Corrigé de référence · Phase 1 · IFT3225</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <div class="hero__meta">
+          <span class="hero__course">IFT3225</span>
+          <span class="hero__badge">Corrigé · Livrable 1</span>
+        </div>
+        <h1 class="hero__title">Corrigé de référence</h1>
+        <p class="hero__subtitle">Phase 1 · Infrastructure de collecte</p>
+        <p class="hero__desc">
+          Une solution de référence et des pistes de conception. Ce n'est pas
+          le seul chemin valide : une équipe peut atteindre les mêmes qualités
+          autrement, à condition de justifier ses choix. Les points de latitude
+          sont signalés comme pistes.
+        </p>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#apercu">Aperçu</a>
+      <a href="#donnees">Modèle de données</a>
+      <a href="#collecte-endpoints">Endpoints de collecte</a>
+      <a href="#semantiques">Endpoints sémantiques</a>
+      <a href="#auth">Authentification</a>
+      <a href="#collecte">Collecte</a>
+      <a href="#pistes">Pistes</a>
+      <a href="#limites">Limites</a>
+    </nav>
+
+    <main class="content">
+      <!-- ── 01 Aperçu ─────────────────────────────────────────── -->
+
+      <section id="apercu">
+        <h2><span class="h2-num">01</span> Aperçu de la solution</h2>
+        <p>
+          Le système reçoit deux flux (mesures capteur, observations
+          environnementales), les persiste, et expose des vues dérivées qui
+          répondent à des questions sur l'ambiance d'un lieu. Le principe
+          directeur : concevoir à partir des questions du client, pas à partir
+          des tables de la base de données.
+        </p>
+        <p>Quatre familles d'endpoints, du plus synthétique au plus brut :</p>
+        <table class="endpoint-table">
+          <thead><tr><th>Famille</th><th>Exemple</th><th>Rôle</th></tr></thead>
+          <tbody>
+            <tr><td>Sémantique</td><td><code>GET /ambiance/:loc</code></td><td>Portrait dérivé, prêt à afficher</td></tr>
+            <tr><td>Collecte</td><td><code>POST /measurements</code></td><td>Dépôt d'une mesure ou observation</td></tr>
+            <tr><td>Gestion</td><td><code>POST /devices</code></td><td>Enregistrement d'un device, clé API</td></tr>
+            <tr><td>Brut</td><td><code>GET /measurements?location=...</code></td><td>Accès direct aux mesures</td></tr>
+          </tbody>
+        </table>
+        <Aside type="note" title="Conventions de référence">
+          Horodatages en ISO 8601 (avec fuseau), ressources au pluriel, réponses
+          de collection sous forme d'objet avec métadonnées plutôt que tableau
+          nu, structure d'erreur stable. Ce sont des choix défendables : l'enjeu
+          est qu'ils soient explicités et tenus partout.
+        </Aside>
+      </section>
+
+      <!-- ── 02 Modèle de données ──────────────────────────────── -->
+
+      <section id="donnees">
+        <h2><span class="h2-num">02</span> Modèle de données</h2>
+
+        <p>
+          Trois collections, séparées parce que leurs formes et leurs cadences
+          diffèrent : les mesures capteur sont nombreuses, numériques et
+          automatiques ; les observations sont rares et qualitatives ; les
+          devices sont des identités stables. Les mêler forcerait des champs
+          nuls et des requêtes ambiguës.
+        </p>
+
+        <pre class="code-block"><code>{`// devices : identité d'une source de collecte
+const deviceSchema = new Schema({
+  name:      { type: String, required: true },
+  location:  { type: String, required: true },
+  apiKey:    { type: String, required: true, unique: true }, // un hash, en pratique
+  createdAt: { type: Date, default: Date.now }
+});
+
+// measurements : capteur, automatique
+const measurementSchema = new Schema({
+  type:       { type: String, enum: ["audio"], required: true },
+  value:      { type: Number, required: true, min: 0, max: 1 },
+  unit:       { type: String, default: "amplitude (0-1)" },
+  location:   { type: String, required: true },
+  deviceId:   { type: Schema.Types.ObjectId, ref: "Device" },
+  timestamp:  { type: Date, required: true },   // moment de la mesure
+  receivedAt: { type: Date, default: Date.now } // moment de réception
+});
+measurementSchema.index({ location: 1, timestamp: -1 });
+
+// observations : environnemental, manuel ou mixte
+const observationSchema = new Schema({
+  location:   { type: String, required: true },
+  proximity:  { type: String },
+  vibe:       { type: String },
+  notes:      { type: String },
+  timestamp:  { type: Date, required: true },
+  receivedAt: { type: Date, default: Date.now }
+});`}</code></pre>
+
+        <h3>Points de conception</h3>
+        <ul>
+          <li><strong>timestamp contre receivedAt.</strong> Le premier vient de la collecte (l'instant réel de la mesure), le second est posé par le serveur. La distinction est nécessaire dès que la collecte accumule des mesures avant un envoi en batch : sinon l'historique reflète l'heure d'arrivée, pas l'heure vécue.</li>
+          <li><strong>Unité stockée avec la valeur.</strong> En gardant <code>unit</code> sur la mesure, les réponses s'auto-décrivent et l'échelle (0 à 1) ne dépend pas d'une documentation externe.</li>
+          <li><strong>Index composé (location, timestamp).</strong> Toutes les requêtes sémantiques filtrent par lieu et bornent ou ordonnent par temps. Sans cet index, l'agrégation parcourt toute la collection.</li>
+          <li><strong>Validation.</strong> Champs requis et types au schéma, plage <code>0..1</code> sur la valeur, <code>enum</code> sur le type. Un corps incomplet ou hors plage est rejeté en <code>400</code>.</li>
+        </ul>
+
+        <Aside type="note" title="Piste · gestion des lieux">
+          Deux stratégies défendables. Implicite : le lieu existe dès la première
+          mesure (un slug suffit comme identifiant), simple mais sans validation.
+          Explicite : une collection <code>locations</code> (slug, nom, créé le)
+          et un <code>POST /locations</code>, qui valide les références et porte
+          des métadonnées. Le slug (<code>cafe-olimpico</code>) reste l'identifiant
+          stable dans les deux cas.
+        </Aside>
+      </section>
+
+      <!-- ── 03 Endpoints de collecte et de gestion ────────────── -->
+
+      <section id="collecte-endpoints">
+        <h2><span class="h2-num">03</span> Endpoints de collecte et de gestion</h2>
+
+        <table class="endpoint-table">
+          <thead><tr><th>Méthode</th><th>Endpoint</th><th>Corps</th><th>Réponse</th></tr></thead>
+          <tbody>
+            <tr><td><span class="method method--post">POST</span></td><td><code>/measurements</code></td><td><code>{`{ type, value, location, timestamp }`}</code></td><td><code>201</code> + document</td></tr>
+            <tr><td><span class="method method--post">POST</span></td><td><code>/observations</code></td><td><code>{`{ location, proximity, vibe, notes }`}</code></td><td><code>201</code> + document</td></tr>
+            <tr><td><span class="method method--post">POST</span></td><td><code>/devices</code></td><td><code>{`{ name, location }`}</code></td><td><code>201</code> + <code>{`{ id, apiKey }`}</code></td></tr>
+            <tr><td><span class="method method--get">GET</span></td><td><code>/devices</code></td><td>(aucun)</td><td><code>200</code> + tableau</td></tr>
+          </tbody>
+        </table>
+
+        <p>Structure d'erreur stable, réutilisée partout :</p>
+        <pre class="code-block"><code>{`400
+{
+  "error": "VALIDATION_ERROR",
+  "message": "Le champ 'value' doit être entre 0 et 1.",
+  "field": "value"
+}`}</code></pre>
+        <p>
+          Le serveur fixe <code>receivedAt</code> à la réception. La création
+          répond <code>201</code> avec le document créé ; un corps invalide
+          répond <code>400</code> ; une ressource absente répond <code>404</code>.
+        </p>
+      </section>
+
+      <!-- ── 04 Endpoints sémantiques ──────────────────────────── -->
+
+      <section id="semantiques">
+        <h2><span class="h2-num">04</span> Endpoints sémantiques</h2>
+
+        <p>
+          Les <code>/ambiance</code> ne stockent rien. Ils agrègent les mesures
+          et observations récentes pour produire un portrait. La logique
+          d'agrégation (seuils, fenêtre, classification) fait partie de la
+          conception. On les organise en niveaux de détail progressifs.
+        </p>
+
+        <table class="endpoint-table">
+          <thead><tr><th>Niveau</th><th>Endpoint</th><th>Retourne</th></tr></thead>
+          <tbody>
+            <tr><td>Résumé</td><td><code>/ambiance/:loc</code></td><td>Classification + chiffre clé</td></tr>
+            <tr><td>Détail</td><td><code>/ambiance/:loc/now</code></td><td>Toutes les dimensions, avec sources</td></tr>
+            <tr><td>Historique</td><td><code>/ambiance/:loc/history?last=3h</code></td><td>Évolution par tranches</td></tr>
+            <tr><td>Créneaux calmes</td><td><code>/ambiance/:loc/quiet-hours</code></td><td>Heures typiquement calmes</td></tr>
+          </tbody>
+        </table>
+
+        <h3>Résumé · classification du niveau sonore</h3>
+        <p>
+          Sur une fenêtre récente (par exemple 30 minutes), moyenne de
+          l'amplitude, puis classification par seuils. La réponse porte sa
+          propre échelle et indique sur quoi elle se fonde.
+        </p>
+        <pre class="code-block"><code>{`GET /ambiance/cafe-olimpico
+200
+{
+  "location": "cafe-olimpico",
+  "noise": {
+    "value": 0.72,
+    "unit": "amplitude (0-1)",
+    "label": "animé",
+    "thresholds": { "calme": [0, 0.3], "modéré": [0.3, 0.6], "animé": [0.6, 0.85] }
+  },
+  "basedOn": { "measurements": 142, "window": "30 min" },
+  "_links": {
+    "details":    "/ambiance/cafe-olimpico/now",
+    "history":    "/ambiance/cafe-olimpico/history?last=3h",
+    "quietHours": "/ambiance/cafe-olimpico/quiet-hours"
+  }
+}`}</code></pre>
+
+        <h3>Détail · toutes les dimensions avec sources</h3>
+        <pre class="code-block"><code>{`GET /ambiance/cafe-olimpico/now
+200
+{
+  "location": "cafe-olimpico",
+  "noise": { "value": 0.72, "label": "animé",
+             "basedOn": { "measurements": 12, "window": "5 min" } },
+  "environment": { "proximity": "table voisine", "vibe": "concentré",
+                   "observedAt": "2026-06-12T14:02:00-04:00" },
+  "sources": { "noise": "capteur Phyphox", "environment": "observation manuelle" }
+}`}</code></pre>
+
+        <h3>Historique · moyenne par tranches</h3>
+        <p>Agrégation par tranches de 15 minutes sur la fenêtre demandée :</p>
+        <pre class="code-block"><code>{`// GET /ambiance/:loc/history?last=3h
+db.measurements.aggregate([
+  { $match: { location, type: "audio", timestamp: { $gte: depuis } } },
+  { $group: {
+      _id: { $dateTrunc: { date: "$timestamp", unit: "minute", binSize: 15 } },
+      value: { $avg: "$value" },
+      n: { $sum: 1 }
+  } },
+  { $sort: { _id: 1 } }
+])`}</code></pre>
+
+        <h3>Créneaux calmes · agrégation sur l'historique</h3>
+        <p>
+          Amplitude moyenne par heure du jour sur tout l'historique du lieu,
+          puis on ne garde que les heures sous le seuil « calme », triées du
+          plus calme au moins calme.
+        </p>
+        <pre class="code-block"><code>{`// GET /ambiance/:loc/quiet-hours
+db.measurements.aggregate([
+  { $match: { location, type: "audio" } },
+  { $group: { _id: { $hour: "$timestamp" },
+              value: { $avg: "$value" }, n: { $sum: 1 } } },
+  { $match: { value: { $lt: 0.3 } } },   // seuil "calme"
+  { $sort: { value: 1 } }
+])`}</code></pre>
+
+        <Aside type="note" title="Piste · robustesse et confiance">
+          La moyenne est sensible aux pics ponctuels ; la médiane ou un
+          percentile donnent un portrait plus stable. Un champ
+          <code>confidence</code> (non requis en phase 1) peut refléter le nombre
+          de mesures et leur fraîcheur : un portrait fondé sur 4 mesures vieilles
+          d'une heure ne vaut pas un portrait fondé sur 140 mesures récentes.
+        </Aside>
+
+        <p>Lieu inconnu : une erreur qui aide, plutôt qu'un <code>404</code> nu.</p>
+        <pre class="code-block"><code>{`404
+{
+  "error": "INVALID_LOCATION",
+  "message": "Le lieu 'cafe-olypmico' n'existe pas.",
+  "suggestion": "Vouliez-vous dire 'cafe-olimpico'?",
+  "available": "/locations"
+}`}</code></pre>
+      </section>
+
+      <!-- ── 05 Authentification ───────────────────────────────── -->
+
+      <section id="auth">
+        <h2><span class="h2-num">05</span> Authentification</h2>
+
+        <p>
+          Les écritures sont protégées par une clé API transmise dans l'en-tête
+          <code>x-api-key</code> ; les lectures restent publiques. Le flux complet :
+        </p>
+        <ol class="design-list">
+          <li>Un device s'enregistre via <code>POST /devices</code> et reçoit, une seule fois, sa clé.</li>
+          <li>Le serveur stocke un <strong>hash</strong> de la clé, jamais la clé en clair.</li>
+          <li>À chaque écriture, le device envoie la clé dans <code>x-api-key</code>.</li>
+          <li>Le middleware retrouve le device par le hash de la clé reçue et l'attache à la requête.</li>
+        </ol>
+
+        <pre class="code-block"><code>{`function requireApiKey(req, res, next) {
+  const key = req.header("x-api-key");
+  if (!key) return res.status(401).json({ error: "MISSING_API_KEY" });
+  const device = await Device.findOne({ apiKey: hash(key) });
+  if (!device) return res.status(403).json({ error: "INVALID_API_KEY" });
+  req.device = device;
+  next();
+}
+
+router.post("/measurements", requireApiKey, createMeasurement);
+router.get("/ambiance/:location", getAmbiance); // public`}</code></pre>
+
+        <div class="status-grid">
+          <div class="status-item status-item--401"><code>401</code> En-tête absent</div>
+          <div class="status-item status-item--403"><code>403</code> Clé invalide</div>
+          <div class="status-item status-item--200"><code>200</code> Requête autorisée</div>
+        </div>
+
+        <Aside type="caution" title="La faille volontaire · POST /devices ouvert">
+          En phase 1, <code>POST /devices</code> n'est pas protégé : n'importe qui
+          peut enregistrer un device, obtenir une clé valide, et donc écrire dans
+          le système. Le rapport doit l'identifier et proposer une solution.
+        </Aside>
+
+        <h3>Pistes de solution</h3>
+        <ul>
+          <li><strong>Secret d'amorçage.</strong> Un token d'administration (variable d'environnement) requis pour enregistrer un device. Simple, efficace, déplace la confiance vers un secret unique à protéger.</li>
+          <li><strong>Provisionnement manuel.</strong> Pas d'endpoint ouvert : les devices sont créés hors ligne (script, seed). Le plus sûr, le moins souple.</li>
+          <li><strong>Limitation de débit et validation.</strong> Atténue (rend l'abus coûteux) sans corriger ; à présenter honnêtement comme une mitigation, pas une solution.</li>
+        </ul>
+
+        <h3>Durcissements supplémentaires</h3>
+        <ul>
+          <li><strong>Clés hachées au repos</strong> : une fuite de la base ne révèle pas les clés.</li>
+          <li><strong>Portée par lieu</strong> : un device ne peut écrire que pour son propre <code>location</code>, vérifié dans le handler après le middleware.</li>
+          <li><strong>Rotation et expiration</strong> des clés, et un journal des écritures pour l'audit.</li>
+        </ul>
+
+        <Aside type="note" title="Pourquoi les GET restent publics">
+          Lire l'ambiance d'un lieu n'est pas sensible : la lecture publique est
+          un choix de portée assumé pour la phase 1. Une authentification en
+          lecture pourrait s'ajouter plus tard si le besoin apparaît.
+        </Aside>
+      </section>
+
+      <!-- ── 06 Collecte ───────────────────────────────────────── -->
+
+      <section id="collecte">
+        <h2><span class="h2-num">06</span> Collecte</h2>
+        <p>
+          Un <strong>bridge</strong> interroge le capteur (Phyphox) à intervalle
+          régulier et fait un <code>POST</code> vers l'API. Il porte le
+          <code>timestamp</code> de la mesure ; le serveur ajoute
+          <code>receivedAt</code>. En cas d'accumulation hors ligne, un envoi en
+          batch reste cohérent grâce à cette distinction.
+        </p>
+        <p>
+          Pour les données environnementales, un formulaire de saisie sert de
+          <strong>fallback manuel</strong> (exigence obligatoire) ; l'heure et le
+          jour peuvent se dériver côté serveur, le reste (proximité, vibe) se
+          saisit. La méthode peut être automatique, manuelle ou mixte, tant que
+          le fallback existe.
+        </p>
+        <Aside type="note" title="Piste · fréquence et batch">
+          Un POST par mesure est simple mais bavard ; un batch toutes les N
+          secondes réduit le trafic au prix d'une latence. Le choix se justifie
+          par la cadence du capteur et la tolérance au délai.
+        </Aside>
+      </section>
+
+      <!-- ── 07 Pistes de conception ───────────────────────────── -->
+
+      <section id="pistes">
+        <h2><span class="h2-num">07</span> Pistes de conception transversales</h2>
+
+        <article class="piste">
+          <div class="piste__num">1</div>
+          <div class="piste__body">
+            <h4>Concevoir à partir des questions</h4>
+            <p>Partir des questions qu'un usager pose sur un lieu, plutôt que d'exposer les tables.</p>
+            <div class="compare">
+              <div class="compare__bad">
+                <div class="compare__header compare__header--bad">Générique</div>
+                <pre><code>GET /measurements?location=...&amp;type=audio&amp;from=...</code></pre>
+                <p>Le client doit tout interpréter.</p>
+              </div>
+              <div class="compare__good">
+                <div class="compare__header compare__header--good">Sémantique</div>
+                <pre><code>GET /ambiance/cafe-olimpico</code></pre>
+                <p>Réponse directement exploitable.</p>
+              </div>
+            </div>
+          </div>
+        </article>
+
+        <article class="piste">
+          <div class="piste__num">2</div>
+          <div class="piste__body">
+            <h4>Des réponses qui s'expliquent</h4>
+            <p>Inclure unités, seuils et sources dans la réponse, pas seulement dans une documentation externe. La réponse du résumé plus haut en est l'exemple : <code>unit</code>, <code>thresholds</code>, <code>basedOn</code>.</p>
+          </div>
+        </article>
+
+        <article class="piste">
+          <div class="piste__num">3</div>
+          <div class="piste__body">
+            <h4>Guider le client avec des liens</h4>
+            <p>Un champ <code>_links</code> indique les requêtes pertinentes après celle-ci (détail, historique, créneaux calmes), ce qui rend l'API explorable sans documentation.</p>
+          </div>
+        </article>
+
+        <article class="piste">
+          <div class="piste__num">4</div>
+          <div class="piste__body">
+            <h4>Niveaux de détail progressifs</h4>
+            <p>Résumé, détail, historique, brut : chaque niveau sert un besoin différent, du coup d'oeil à l'analyse fine. Le client choisit sa profondeur.</p>
+          </div>
+        </article>
+      </section>
+
+      <!-- ── 08 Limites et évolution ───────────────────────────── -->
+
+      <section id="limites">
+        <h2><span class="h2-num">08</span> Limites et évolution</h2>
+        <ul>
+          <li><strong>Sécurité.</strong> <code>POST /devices</code> ouvert (faille volontaire) ; clés en clair si non hachées ; pas d'autorisation par lieu par défaut.</li>
+          <li><strong>Agrégation.</strong> La moyenne lisse mal les pics ; médiane ou percentiles plus robustes ; pas de notion de confiance par défaut.</li>
+          <li><strong>Temps et fuseaux.</strong> Stocker en UTC, restituer en local ; <code>timestamp</code> contre <code>receivedAt</code> à respecter sur tout le pipeline.</li>
+          <li><strong>Brut.</strong> Pas de pagination sur <code>/measurements</code> : à prévoir si le volume grandit.</li>
+          <li><strong>Évolution.</strong> Hébergement en phase 3 ; mise à jour en continu (SSE ou WebSocket) pour pousser l'ambiance vers un client plutôt que la faire interroger.</li>
+        </ul>
+      </section>
+    </main>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--c-bg:#faf9f7;--c-surface:#fff;--c-border:#e0ded8;--c-border-s:#e8e6e1;--c-text:#1a1a2e;--c-mid:#44445a;--c-muted:#6b6b80;--c-dim:#9898ab;--c-accent:#0d9488;--c-accent-b:#f0fdfa;--c-accent-s:#ccfbf1;--c-warn:#d97706;--c-warn-b:#fffbeb;--c-blue:#3b6fca;--c-green:#2d8a4e;--c-red:#dc2626;--font:'DM Sans',system-ui,sans-serif;--serif:'Fraunces',Georgia,serif;--mono:'JetBrains Mono',Consolas,monospace}
+body{font-family:var(--font);color:var(--c-text);background:var(--c-bg);line-height:1.72;-webkit-font-smoothing:antialiased}
+.hero{background:linear-gradient(165deg,#0f766e,#134e4a);color:#fff;padding:4rem 2rem 3.5rem}
+.hero__inner{max-width:780px;margin:0 auto}
+.hero__meta{display:flex;gap:12px;align-items:center;margin-bottom:1.25rem}
+.hero__course{font-family:var(--mono);font-size:.82rem;font-weight:600;letter-spacing:.08em;opacity:.7}
+.hero__badge{font-size:.72rem;font-weight:700;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px}
+.hero__title{font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);font-weight:800;line-height:1.15;margin-bottom:.25rem}
+.hero__subtitle{font-size:1.1rem;opacity:.6;font-weight:500;margin-bottom:1.5rem}
+.hero__desc{font-size:.95rem;opacity:.75;line-height:1.7;max-width:600px}
+.toc{position:sticky;top:0;z-index:100;display:flex; justify-content: center; background:var(--c-surface);border-bottom:1px solid var(--c-border);overflow-x:auto;scrollbar-width:none}
+.toc::-webkit-scrollbar{display:none}
+.toc a{flex-shrink:0;padding:12px 18px;font-size:.78rem;font-weight:600;color:var(--c-muted);text-decoration:none;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
+.toc a:hover{color:var(--c-accent);border-bottom-color:var(--c-accent)}
+.content{max-width:780px;margin:0 auto;padding:0 2rem 6rem}
+section{scroll-margin-top:52px}
+h2{font-family:var(--serif);font-size:1.5rem;font-weight:700;margin-top:3.5rem;margin-bottom:1rem;padding-bottom:.4rem;border-bottom:2px solid var(--c-accent);display:flex;align-items:baseline;gap:12px}
+.h2-num{font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--c-accent);opacity:.5}
+h3{font-size:1.08rem;font-weight:700;margin-top:2rem;margin-bottom:.6rem}
+h4{font-size:.95rem;font-weight:700;color:var(--c-mid);margin-top:1.25rem;margin-bottom:.4rem}
+p{margin-bottom:.8rem}
+ul,ol{padding-left:1.25rem;margin-bottom:1rem}
+li{margin-bottom:.3rem}
+li::marker{color:var(--c-accent)}
+code{font-family:var(--mono);font-size:.87em;background:var(--c-accent-b);color:var(--c-accent);padding:1px 5px;border-radius:3px}
+pre{overflow-x:auto}
+.code-block{background:#1e1e2e;color:#cdd6f4;border-radius:10px;padding:1.1rem 1.3rem;margin:1rem 0;font-family:var(--mono);font-size:.82rem;line-height:1.6;border:1px solid #313244;overflow-x:auto;white-space:pre}
+.code-block code{background:none;color:inherit;padding:0;font-size:inherit}
+.endpoint-table{width:100%;border-collapse:separate;border-spacing:0;margin:1rem 0;font-size:.86rem;border:1px solid var(--c-border);border-radius:8px;overflow:hidden}
+.endpoint-table thead{background:var(--c-accent-b)}
+.endpoint-table th{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-accent);padding:9px 12px;text-align:left;border-bottom:2px solid var(--c-accent)}
+.endpoint-table td{padding:9px 12px;vertical-align:top;border-bottom:1px solid var(--c-border-s)}
+.endpoint-table tr:last-child td{border-bottom:none}
+.endpoint-table tbody tr:hover{background:var(--c-bg)}
+.method{font-family:var(--mono);font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.method--get{background:#dcfce7;color:#166534}
+.method--post{background:#dbeafe;color:#1e40af}
+.status-grid{display:flex;gap:10px;margin:1rem 0;flex-wrap:wrap}
+.status-item{padding:8px 16px;border-radius:8px;font-size:.88rem;font-weight:500}
+.status-item code{font-weight:700;font-size:.92em;margin-right:6px;background:none;color:inherit;padding:0}
+.status-item--401{background:#fee2e2;color:#991b1b}
+.status-item--403{background:#fef3c7;color:#92400e}
+.status-item--200{background:#dcfce7;color:#166534}
+.design-list{counter-reset:design;padding-left:0;list-style:none}
+.design-list li{counter-increment:design;padding:10px 14px 10px 44px;position:relative;margin-bottom:8px;background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:8px;font-size:.92rem}
+.design-list li::before{content:counter(design);position:absolute;left:14px;top:10px;font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--c-accent);background:var(--c-accent-b);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.piste{display:flex;gap:18px;margin-bottom:2rem;padding-bottom:2rem;border-bottom:1px solid var(--c-border-s)}
+.piste:last-child{border-bottom:none}
+.piste__num{font-family:var(--serif);font-size:2rem;font-weight:800;color:var(--c-accent);opacity:.25;flex-shrink:0;width:36px;text-align:right;line-height:1.1;padding-top:4px}
+.piste__body{flex:1;min-width:0}
+.piste__body h4{margin-top:0}
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:1rem 0}
+@media(max-width:640px){.compare{grid-template-columns:1fr}}
+.compare__bad,.compare__good{border-radius:10px;overflow:hidden;border:1px solid var(--c-border-s)}
+.compare__header{padding:8px 14px;font-weight:700;font-size:.82rem}
+.compare__header--bad{background:#fef2f2;color:var(--c-red)}
+.compare__header--good{background:#f0fdf4;color:var(--c-green)}
+.compare__bad pre,.compare__good pre{margin:0;border-radius:0;border:none;background:#1e1e2e;color:#cdd6f4;padding:12px 14px;font-size:.82rem}
+.compare__bad pre code,.compare__good pre code{background:none;color:inherit;padding:0}
+.compare__bad p,.compare__good p{padding:10px 14px;font-size:.86rem;margin:0}
+@media print{.hero{background:#134e4a!important;-webkit-print-color-adjust:exact}.toc{display:none}.content{max-width:none;padding:0 1rem}h2{break-after:avoid}.piste,.compare,table,pre,.design-list li{break-inside:avoid}}
+</style>
+</body>
+</html>

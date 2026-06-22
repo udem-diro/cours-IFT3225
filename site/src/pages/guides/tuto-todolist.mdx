@@ -1,0 +1,321 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Construire une TodoList avec les éléments natifs"
+description: "Un guide pas à pas pour construire une application de tâches en JavaScript natif : présenter le résultat, poser et découper le layout, extraire les morceaux réutilisables en templates, définir les actions et les écouteurs, puis assembler le tout."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import TodoApp from "../../components/TodoApp.astro";
+import TodoInspector from "../../components/react/TodoInspector.jsx";
+
+## Création d'une Todolist
+
+<MarginNote type="prerequis">
+Ce guide met en pratique [Le DOM avancé](/guides/tuto-dom-2) (templates, délégation d'événements, formulaires) et la méthodologie de [Concevoir une interface réactive](/notes/interface-reactive).  
+**Tout est fait en éléments natifs, sans librairie ou framework.**
+</MarginNote>
+
+Dans ce guide, on construit une application de tâches simple en manipulant le DOM et en utilisant les `<template>`, les événements et les formulaires. 
+
+<TodoApp />
+
+### Spécification
+
+1. **Ajouter une tâche** : l'utilisateur peut ajouter une tâche en saisissant un titre, éventuellement des tags et une date limite, puis en cliquant sur le bouton « Ajouter ».
+2. **Modifier le titre** : l'utilisateur peut modifier le titre d'une tâche par un double-clic dessus, qui le rend modifiable ; la modification est enregistrée à la sortie du champ.
+3. **Changer le statut** : l'utilisateur peut faire passer une tâche par les statuts « à faire », « en cours » et « terminé » à l'aide d'un menu déroulant.
+4. **Marquer comme complétée** : l'utilisateur peut cocher une case pour marquer une tâche complétée, indépendamment de son statut ; son texte pâlit alors et se barre (un trait horizontal le traverse).
+5. **Dupliquer une tâche** : l'utilisateur peut dupliquer une tâche, ce qui en crée une copie dans la liste.
+6. **Supprimer une tâche** : l'utilisateur peut supprimer une tâche de la liste.
+
+## 2. La démarche en trois étapes
+ 
+Créer une interface, c'est créer un protocole, un langage, qui facilite la communication entre l'utilisateur et
+l'application pour répondre à des intentions bien définies.
+ 
+Vu sous l'angle de la communication, la construire revient à :
+ 
+- définir le langage qui permet à l'utilisateur de dialoguer avec l'application ;
+- définir les flux d'action et les interactions avec leurs contraintes et effets;
+- optimiser les parties qui composent ce langage, pour faciliter son évolution ;
+
+La démarche proposée ici construit progressivement une interface cohérente avec les intentions et les besoins de l'utilisateur, en trois étapes :
+ 
+1. **Poser le layout** : organiser l'interface et définir son langage, c'est-à-dire les modes d'interaction et de visualisation.
+2. **Caractériser les composants** : repérer les morceaux distincts, optionnels ou répétés.
+3. **Définir les actions** : les actions possibles à travers les composants, leurs effets, et les événements à écouter pour y répondre.
+
+Ces trois étapes posées, il reste à les assembler en une application qui tient son état et se redessine à chaque changement.
+
+## 3. Poser le layout
+
+Le layout suit une structure linéaire (en une colonne) facilitant sa compréhension : 
+un en-tête avec le formulaire d'ajout, une liste vide, et un message d'état vide. 
+
+```html
+<section class="todo">
+  <header class="todo__head">
+    <h3>Todos</h3>
+    <form class="todo__add" id="todo-add">
+      <input name="title" type="text" placeholder="Nouvelle tâche" required />
+      <input name="tags" type="text" placeholder="tags, séparés, par virgules" />
+      <input name="dueDate" type="date" />
+      <button type="submit">Ajouter</button>
+    </form>
+  </header>
+
+  <ul class="todo__list" id="todo-list"></ul>
+  <p class="todo__empty" id="todo-empty" hidden>Aucune tâche.</p>
+</section>
+```
+
+<TodoInspector which="layout" client:visible />
+
+#### Détails du layout
+
+- **Formulaire `<form id="todo-add">`** en entête (dominant la page et fixe), pour créer une tâche. Le champ titre est `required`, ce qui empêche un envoi vide.
+- **Liste de tâches créées `<ul id="todo-list">`** (initialement vide). C'est sur elle que seront posés les écouteurs délégués (un seul `click`, un seul `change` pour toutes les tâches).
+- **Message d'état vide `<p id="todo-empty">`**, masqué dès qu'il y a au moins une tâche.
+- Les `id` (`todo-add`, `todo-list`, `todo-empty`) servent de points d'accroche stables pour le script ; les classes servent au style.
+
+
+En posant cette structure, on définit déjà le **langage de l'interface** : ses **modes d'interaction** 
+(saisir un titre, des tags et une date, puis valider par le formulaire) 
+et ses **modes de visualisation** (la liste qui présentera les tâches, le message qui signale une liste vide). 
+Chaque élément du layout anticipe une action de l'utilisateur ou un affichage.
+
+<MarginNote type="astuce" titre="Le CSS d'abord ou après">
+Le style peut venir maintenant ou à la fin. L'important est que la structure HTML soit posée : le JavaScript s'appuie sur des classes et des id stables, pas sur l'apparence.
+</MarginNote>
+
+
+## 4. Caractériser les composants
+ 
+On caractérise les composants de l'interface selon qu'ils sont distincts, optionnels ou répétés. 
+- Certains sont **distincts** et n'apparaissent qu'une fois, comme l'en-tête (`header`) et son formulaire d'ajout. 
+- D'autres sont **optionnels**, affichés selon l'état, comme le message de liste vide. 
+- D'autres enfin se **répètent** : ce sont les **composants ou widgets réutilisables**, comme une tâche qui se répète ici à l'identique. 
+On en fait un `<template>` qu'on clone à la demande.
+
+```html
+<template id="todo-item-template">
+  <li class="todo-item">
+    <input class="todo-item__check" type="checkbox" />
+    <div class="todo-item__body">
+      <span class="todo-item__title"></span>
+      <div class="todo-item__meta">
+        <select class="todo-item__status">
+          <option value="todo">à faire</option>
+          <option value="in-progress">en cours</option>
+          <option value="done">terminé</option>
+        </select>
+        <span class="todo-item__due"></span>
+        <span class="todo-item__tags"></span>
+      </div>
+    </div>
+    <div class="todo-item__actions">
+      <button data-action="duplicate">&#x29C9;</button>
+      <button data-action="delete">&times;</button>
+    </div>
+  </li>
+</template>
+```
+
+<TodoInspector which="task" client:visible />
+
+#### Détails de la composition d'une tâche
+
+- **`<li class="todo-item">`** est la tâche entière. Elle porte `data-id` (quelle tâche), `data-status` (pour la couleur de bordure) et la classe `is-done` quand la tâche est complétée.
+- **`<input type="checkbox">`** bascule la complétion : son `change` met `completed` à jour dans l'état.
+- **`<span class="todo-item__title">`** est le titre, éditable en ligne (double-clic, puis validation à la sortie du champ).
+- **`<select class="todo-item__status">`** porte le statut, avec ses trois options ; son `change` met `status` à jour. Les valeurs (`todo`, `in-progress`, `done`) sont en anglais ; les libellés affichés sont en français.
+- **`<span class="todo-item__due">`** affiche la date et reçoit la classe `is-late` si elle est dépassée.
+- **`<span class="todo-item__tags">`** est vide dans le gabarit ; le rendu le remplit de pastilles.
+- **Les deux `<button data-action="...">`** déclenchent dupliquer et supprimer ; leur `data-action` (`duplicate`, `delete`) est lu par l'écouteur délégué.
+
+<Checkpoint question="Pourquoi un <template> plutôt que de construire chaque <li> avec createElement et innerHTML ?">
+Le `<template>` garde la structure d'une tâche en HTML lisible, au même endroit que le reste du balisage, plutôt que dispersée dans des chaînes de caractères JavaScript. Il n'est pas rendu tant qu'on ne le clone pas, et `cloneNode(true)` donne une copie propre à remplir. On évite aussi `innerHTML` avec des données, donc la porte des injections.
+</Checkpoint>
+
+## 5. Définir les actions
+
+On liste d'abord les actions, puis on repère qu'un petit nombre d'écouteurs suffit, posés sur des éléments stables (le formulaire, la liste), grâce à la délégation d'événements.
+
+| Action | Déclencheur | Écouteur |
+|---|---|---|
+| Ajouter | envoi du formulaire | `submit` sur le formulaire |
+| Supprimer | clic sur le bouton supprimer | `click` délégué, puis `actionHandler` |
+| Dupliquer | clic sur le bouton dupliquer | `click` délégué, puis `actionHandler` |
+| Compléter | case à cocher | `change` délégué sur la liste |
+| Changer le statut | menu déroulant | `change` délégué sur la liste |
+| Éditer le titre | double-clic, puis sortie du champ | `dblclick` et `blur` délégués |
+
+Chaque action se décrit aussi par une **précondition** (ce qui doit être vrai pour l'autoriser) 
+et une **postcondition** (l'effet une fois exécutée). 
+
+**Exemple:** Ajouter exige un titre non vide et sa postcondition est une nouvelle tâche dans l'état, puis à l'écran. 
+
+#### Fonctionnement de l'ajout (via `FormData`)
+
+```js
+const getTitle = (data) => (data.get("title") ?? "").toString().trim();
+const getTags = (data) => (data.get("tags") ?? "").toString().split(",").map((tag) => tag.trim()).filter(Boolean);
+const getDueDate = (data) => (data.get("dueDate") ?? "").toString();
+const isEmpty = (value) => value.trim() === "";
+ 
+function createTask(title, tags, dueDate) {
+  return { id: uid(), title, tags, dueDate, status: "todo", completed: false };
+}
+ 
+form.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const data = new FormData(form);
+ 
+  const title = getTitle(data);
+  if (isEmpty(title)) return; // précondition
+ 
+  const task = createTask(title, getTags(data), getDueDate(data));
+  tasks.push(task);
+ 
+  form.reset();
+  render();
+});
+```
+
+Pour les boutons, plutôt qu'un écouteur par tâche, un seul écouteur sur la liste suffit: 
+1. L'événement bouillonne depuis le bouton cliqué ;
+2. On remonte jusqu'à la tâche avec `closest`, 
+3. On lit le `data-action`, 
+4. Une petite table de dispatch (`handlers`) relie ce marqueur à la bonne fonction
+
+Chaque action vit dans sa propre fonction : en ajouter une revient à ajouter une entrée dans la table.
+
+```js
+function createTaskFrom(task) {
+  return { ...task, id: uid(), tags: [...task.tags], title: task.title + " (copie)" };
+}
+ 
+function duplicateHandler(task) {
+  const copy = createTaskFrom(task);
+  tasks.splice(tasks.indexOf(task) + 1, 0, copy);
+}
+ 
+function deleteHandler(task) {
+  tasks.splice(tasks.indexOf(task), 1);
+}
+ 
+// Table de dispatch : ajouter une action revient à ajouter une entrée.
+const handlers = {
+  delete: deleteHandler,
+  duplicate: duplicateHandler,
+};
+ 
+function actionHandler(action, task) {
+  if (!Object.hasOwn(handlers, action)) return;
+  handlers[action](task);
+}
+ 
+// Un seul écouteur de clic, délégué sur la liste.
+list.addEventListener("click", (event) => {
+  const action = event.target.dataset.action;
+  if (!action) return;
+  
+  const item = event.target.closest(".todo-item");
+
+  const task = item && findTask(item.dataset.id);
+  if (!task) return;
+  
+  actionHandler(action, task);
+  render();
+});
+```
+
+<MarginNote type="lien" titre="Délégation d'événements">
+Un seul écouteur sur le parent traite tous les enfants, présents ou à venir. C'est essentiel ici : les tâches sont créées et supprimées en continu, et la délégation évite d'attacher puis de retirer des écouteurs à chaque fois. Le détail est dans [Le DOM avancé](/notes/dom-avance).
+</MarginNote>
+
+Les changements (case complétée, statut) suivent le même schéma avec l'événement `change` ; l'édition du titre combine `dblclick` (rendre le titre éditable) et `blur` (valider à la sortie).
+
+## 6. Assembler le tout
+
+Le liant, c'est un état en mémoire et une fonction de rendu. L'état est la seule source de vérité : un tableau de tâches. `render` vide la liste, puis reconstruit une ligne par tâche. On isole la fabrication d'une ligne dans `createTaskItem` (cloner le gabarit, le remplir, le retourner) et l'affichage du message vide dans `updateUI`.
+
+```js
+const tasks = [ /* ... */ ];
+ 
+function createTaskItem(template, task) {
+  const node = template.content.cloneNode(true);
+ 
+  const item = node.querySelector(".todo-item");
+  item.dataset.id = task.id;
+  item.dataset.status = task.status;
+  item.classList.toggle("is-done", task.completed);
+ 
+  node.querySelector(".todo-item__check").checked = task.completed;
+  node.querySelector(".todo-item__title").textContent = task.title;
+  node.querySelector(".todo-item__status").value = task.status;
+ 
+  const due = node.querySelector(".todo-item__due");
+  if (task.dueDate) {
+    due.textContent = "📅 " + task.dueDate;
+    due.classList.toggle("is-late", !task.completed && task.dueDate < today());
+  } else {
+    due.remove();
+  }
+ 
+  const tagsBox = node.querySelector(".todo-item__tags");
+  for (const label of task.tags) {
+    const chip = document.createElement("span");
+    chip.className = "todo-tag";
+    chip.textContent = label;
+    tagsBox.appendChild(chip);
+  }
+ 
+  return node;
+}
+ 
+function updateUI() {
+  emptyMessage.hidden = tasks.length > 0;
+}
+ 
+function emptyList() {
+  list.textContent = "";
+  updateUI();
+}
+ 
+function render() {
+  emptyList();
+
+  for (const task of tasks) {
+    const node = createTaskItem(template, task);
+    list.appendChild(node);
+  }
+}
+```
+
+Chaque action suit la même boucle : elle modifie l'état, puis appelle `render`. Le style « complétée » n'est qu'une classe posée pendant le rendu (`classList.toggle("is-done", task.completed)`), le CSS s'occupe du barré et de l'atténuation. Le statut se traduit en `data-status` sur l'élément, ce qui permet au CSS de colorer la tâche selon son état.
+
+<Highlight couleur="ambre">Une seule règle tient tout l'ensemble : l'état décide, la vue suit. Aucune action ne modifie le DOM d'une autre tâche directement ; tout passe par l'état, puis par un nouveau rendu.</Highlight>
+
+<Checkpoint question="Quand on coche une tâche, pourquoi mettre à jour l'état puis re-rendre, plutôt que d'ajouter directement la classe is-done à l'élément ?">
+Parce que l'élément du DOM n'est qu'un reflet de l'état. Si on modifiait seulement le DOM, l'état (`completed`) et l'affichage divergeraient : au prochain rendu, ou après une autre action, la coche reviendrait en arrière. En passant par l'état, la tâche reste complétée de façon durable, et toute la vue reste cohérente.
+</Checkpoint>
+
+## 7. Pistes d'extension
+
+L'application reste volontairement simple. Plusieurs directions permettent de l'enrichir, chacune posant ses propres questions de conception.
+
+- **Plusieurs listes.** Organiser les tâches en listes distinctes (projets, contextes), avec une liste active. L'état passe d'un tableau de tâches à un ensemble de listes.
+- **Tâches imbriquées.** Permettre des sous-tâches, donc passer d'un tableau plat à un arbre de tâches, et adapter le rendu pour refléter la hiérarchie.
+- **Dépendances entre tâches.** Une tâche peut en bloquer une autre tant qu'elle n'est pas terminée. Il faut représenter les liens et empêcher les cycles.
+- **Sauvegarde locale.** Persister l'état dans `localStorage` pour retrouver ses tâches au rechargement, en sérialisant le tableau et en le relisant au démarrage.
+- **Authentification.** Associer les tâches à un utilisateur connecté, ce qui suppose une identité et un contrôle d'accès.
+- **Partage.** Permettre à plusieurs personnes de voir ou de modifier une même liste, ce qui pose la question de la synchronisation et des conflits.
+
+<MarginNote type="plusloin" titre="La suite">
+Pour l'instant, l'état vit en mémoire et disparaît au rechargement. Dans un prochain guide, 
+on ajoutera une couche de communication avec un serveur Express pour persister les tâches 
+dans une base de données, et on verra comment relier les actions de l'interface aux requêtes HTTP.
+</MarginNote>

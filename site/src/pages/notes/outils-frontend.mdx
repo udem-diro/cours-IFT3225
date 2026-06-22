@@ -1,0 +1,328 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Les outils du développement web moderne"
+description: "Une page de cours qui situe les outils du développement web moderne : un rappel du serveur (Node.js, Express) et de la base de données (MongoDB), puis l'accent sur le côté client avec React, Vite et npm, et un aperçu des alternatives (Vue, Angular, Webpack, Turbopack, Astro, Next.js)."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import SimpleLayerDiagram from "../../components/SimpleLayerDiagram.astro";
+
+Une application web moderne s'appuie sur un ensemble d'outils répartis sur trois couches : le client (dans le navigateur), le serveur (l'API) et la base de données. 
+À date, on en a déjà vu dans la construction du serveur et permettre la persistance long-terme.
+
+Dans cette page, on les rapelle brièvement, puis met l'accent sur le côté client, où **React**, **Vite** et **npm** (encore) prennent le relais.
+
+## 1. Vue d'ensemble
+
+<SimpleLayerDiagram
+  ariaLabel="Les trois couches d'une application web moderne : le client, le serveur et la base de données. Le client communique avec le serveur par HTTP, et le serveur communique avec la base de données par un pilote."
+  caption="Les trois couches d'une application web. Le client échange en HTTP avec le serveur, qui parle à la base de données par un pilote. Cette page se concentre sur la couche client."
+  layers={[
+    { icon: "laptop", iconSize: "24", iconColor: "var(--accent)", title: "Client (navigateur)", lines: ["HTML · CSS · JavaScript", "DOM · événements"], accent: true, focus: { label: "React · Vite · npm", note: "le focus de cette page" } },
+    { icon: "server", iconColor: "#777", title: "Serveur (API)", lines: ["Node.js · npm", "Express · middlewares", "API REST · JWT", "Authentification"] },
+    { icon: "database", iconColor: "#777", title: "Base de données", lines: ["MongoDB (Atlas)", "Mongoose (ODM)", "Redis"] },
+  ]}
+  connectors={[
+    { label: "HTTP", accent: true },
+    { label: "pilote" },
+  ]}
+/>
+
+## 2. Rappel : le serveur et la base de données
+
+Le cours a déjà couvert la couche serveur et la persistance des données :
+
+| Outil ou sujet | Rôle | Note |
+|---|---|---|
+| Node.js et npm | exécuter du JavaScript hors du navigateur, gérer les dépendances | [Node.js et npm](/guides/tuto-nodejs) |
+| Express | bâtir l'API : routes, requête et réponse | [Prise en main d'Express](/guides/tuto-express) |
+| MongoDB (Atlas) | stocker les données, base orientée documents | [Prise en main de MongoDB](/guides/tuto-mongo) |
+| Authentification | vérifier l'identité, contrôler l'accès | [Identité et authentification](/notes/identite) |
+
+## 3. Le côté client
+
+Développer côté client, c'est jongler avec des outils spécialisés, facilitant la 
+réalisation de tâches répondant à des enjeux clés du développement:
+
+| Tâche | Enjeu | Outils |
+|---|---|---|
+| Structurer l'interface | éviter la duplication, isoler les responsabilités | les composants (React, Vue, Angular) |
+| Garder l'affichage à jour | synchroniser l'affichage avec un état qui change | la réactivité déclarative (vue = f(état)) |
+| Gérer l'état de l'application | une source de vérité cohérente, partagée entre composants | React Context, Zustand, localStorage |
+| Réagir aux interactions | gérer les événements et les entrées | les événements du DOM et des composants |
+| Naviguer entre les vues | plusieurs écrans sans recharger la page | un routeur (React Router, Vue Router) |
+| Échanger avec le serveur ou un service externe | gérer les états de chargement, succès et erreur | fetch, axios, React Query |
+| Optimiser les ressources | réduire la taille et ne charger que le nécessaire | tree-shaking, découpage du code, chargement différé |
+| Itérer rapidement | voir les changements sans tout reconstruire | un serveur de développement avec HMR (Vite) |
+| Livrer en production | produire un livrable optimisé et prêt à déployer | la compilation et le bundling (Vite, Webpack) |
+| Gérer les dépendances | installer et versionner les librairies | npm, pnpm, yarn |
+ 
+Le **flux de développement** suit en général les mêmes étapes : 
+
+1. initialiser le projet (`npm create vite`)
+2. lancer le serveur de développement à rechargement instantané
+3. composer l'interface en composants
+4. installer les dépendances avec npm, éventuellement typer le code avec TypeScript 
+5. construire le livrable optimisé pour la production (`npm run build`). 
+
+## 4. React
+
+React est une **librairie JavaScript open source** pour construire des interfaces utilisateur modulaires et réactives à partir de composants réutilisables.
+
+<MarginNote type="attention" titre="React : librairie ou framework ?">
+React est officiellement une **librairie** : il ne gère que la couche interface. Mais son écosystème (React Router, Redux, React Query) lui permet de couvrir les mêmes besoins qu'un cadriciel complet. Dans ce cours, on utilise React avec plusieurs de ces outils.
+</MarginNote>
+
+React fait, à ce jour, partie des technologies les plus utilisées par les développeurs professionnels du web ([sondage StackOverflow 2025](https://survey.stackoverflow.co/2025/technology#most-popular-technologies-webframe-prof)). Sa popularité tient à son approche par composants, à un écosystème mature et à une grande communauté.
+
+### Alternatives: Vue.js et Angular
+
+React n’est pas la seule option pour concevoir des applications web réactives.
+
+**Vue.js** est un framework progressif apprécié pour sa simplicité, sa flexibilité et sa courbe d’apprentissage accessible. 
+Il permet d’ajouter progressivement des fonctionnalités interactives à une application, tout en convenant aussi à des projets plus complets.
+
+**Angular**, développé et maintenu par Google, est un framework tout-en-un qui fournit une structure robuste et de nombreux outils intégrés. 
+Plus exigeant à prendre en main, il est particulièrement adapté aux applications complexes, aux grandes équipes et aux projets nécessitant une architecture fortement encadrée
+
+### Écosystème
+
+L'écosystème complète React pour couvrir les autres aspects d'une application.
+
+| Besoin | Outils |
+|---|---|
+| État partagé, intégré | React Context |
+| État centralisé (grandes applications) | Redux |
+| Données asynchrones d'API | React Query (états `loading`, `success`, `error`) |
+| Routage et navigation | React Router |
+| Rendu serveur et génération statique | Next.js |
+| Tests | Jest, React Testing Library |
+| Mobile natif (iOS, Android) | React Native |
+
+### Syntaxe JSX
+
+JSX (JavaScript XML) est une extension de syntaxe qui permet d'écrire un balisage proche du HTML directement dans un fichier JavaScript. C'est la façon standard de décrire l'interface dans React.
+
+```jsx
+// Ceci ressemble à du HTML, mais c'est du JSX
+const element = <h1>Bonjour, monde !</h1>;
+```
+
+Un atout du JSX est d'intégrer des **expressions JavaScript** dans le balisage, entre accolades `{}` :
+
+```jsx
+const prenom = "Maude";
+const age = 22;
+
+const element = (
+  <div>
+    <h1>Bienvenue, {prenom} !</h1>
+    <p>Vous avez {age} ans.</p>
+    <p>L'an prochain, vous aurez {age + 1} ans.</p>
+  </div>
+);
+```
+
+Trois règles essentielles encadrent le JSX.
+
+**1. Un seul élément racine.** Un composant retourne un seul élément parent ; on regroupe avec une balise comme `<div>` ou avec le fragment `<>...</>`.
+
+```jsx
+// Correct : un seul élément racine
+return (
+  <div>
+    <h1>Titre</h1>
+    <p>Contenu</p>
+  </div>
+);
+
+// Incorrect : deux éléments racines côte à côte
+return (
+  <h1>Titre</h1>
+  <p>Contenu</p>
+);
+```
+
+**2. Toutes les balises doivent être fermées,** y compris les balises auto-fermantes comme `<img />` ou `<br />`.
+
+```jsx
+// Correct
+<img src="photo.jpg" alt="Description" />
+
+// Incorrect : balise non fermée
+<img src="photo.jpg" alt="Description">
+```
+
+**3. `className` au lieu de `class`.** Comme `class` est un mot réservé en JavaScript, le JSX utilise `className`.
+
+```jsx
+// Correct en JSX
+<div className="conteneur">...</div>
+```
+
+<MarginNote type="plusloin">
+La documentation officielle propose un bon guide : [Écrire du balisage avec JSX](https://fr.react.dev/learn/writing-markup-with-jsx).
+</MarginNote>
+
+## 5. Vite et les outils de build
+
+Dans le développement moderne, les outils de compilation (*build tools*) jouent un rôle central. Ils gèrent les dépendances grâce à la modularité d'ES6 (`import` et `export`), éliminent le code inutile (*tree-shaking*) et réduisent la taille des fichiers livrés au navigateur (*bundling*).
+
+[Vite](https://vite.dev/) est un outil de build moderne, conçu pour un développement très rapide. Son principal atout : il s'appuie sur les **ES Modules natifs** du navigateur, ce qui évite un gros travail de bundling au démarrage et permet un rechargement quasi instantané à chaque modification (*Hot Module Replacement*).
+
+Vite n'est pas seul. **Webpack**, longtemps la référence, reste très répandu et très configurable. **Turbopack**, écrit en Rust, lui succède dans l'écosystème de Next.js. Au-dessus des bundlers, des **méta-frameworks** ajoutent le routage et le rendu serveur : **Next.js** pour React, et **Astro**, multi-framework et orienté contenu.
+
+### Créer un projet React avec Vite
+
+Dans un terminal, depuis le dossier voulu, une seule séquence suffit :
+
+```sh
+npm create vite@latest mon-app -- --template react
+cd mon-app
+npm install
+npm run dev
+```
+
+L'application est servie à l'adresse affichée, en général `http://localhost:5173`.
+
+<MarginNote type="attention" titre="Particularités Windows">
+Sur Windows, utilisez **trois tirets** (`---`) au lieu de deux avant `--template`.
+```sh
+npm create vite@latest mon-app --- --template react
+```
+</MarginNote>
+
+## 6. npm (rappel)
+
+Le **npm** déjà rencontré côté serveur sert aussi côté client : c'est lui qui installe React et Vite, et qui exécute les scripts du projet (`npm run dev`, `npm run build`).   
+Les dépendances et les scripts sont déclarés dans `package.json` et installés avec `npm install` (ou `npm install -D`) qui télécharge les dépendances dans le dossier `node_modules` 
+du projet. 
+
+## 7. TypeScript
+
+**TypeScript** est un sur-ensemble de JavaScript qui ajoute un **typage statique**. 
+Donc tout JavaScript valide est déjà du TypeScript et peut être utilisé dans un script TypeScript (`.ts`).  
+TypeScript fournit des annotations de types, vérifiées avant l'exécution, puis compilées en JavaScript ordinaire que le navigateur exécute.
+Ceci permet de repérer certaines erreurs à la compilation plutôt qu'à l'exécution (ex: un mauvais type, un champ absent), obtenir une autocomplétion et une documentation plus riches dans l'éditeur, et refactoriser plus sûrement.   
+TypeScript est fortement recommandé pour du développement côté serveur.
+
+```ts
+let age: number = 22;
+age = "vingt-deux"; // erreur signalée à la compilation
+
+function greet(name: string): string {
+  return `Bonjour, ${name}`;
+}
+
+// un type décrivant la forme d'un objet
+interface Task {
+  id: string;
+  title: string;
+  completed: boolean;
+}
+```
+
+En React avec Vite, il suffit de choisir le gabarit TypeScript à la création :
+
+**Linux / Mac:**
+
+```sh
+npm create vite@latest mon-app -- --template react-ts
+```
+
+**Windows:**
+
+```sh
+npm create vite@latest mon-app --- --template react-ts
+```
+
+Avec TypeScript, les fichiers utilisent l'extension `.ts`, ou `.tsx` lorsqu'ils contiennent du JSX. 
+Les types sont contrôlés par le compilateur TypeScript (`tsc`) et par l'éditeur. 
+Le code est ensuite converti en JavaScript exécutable par le navigateur, sans coût à l'exécution.
+
+<MarginNote type="astuce" titre="Adopter progressivement">
+TypeScript s'adopte par degrés. Un fichier `.ts` accepte du JavaScript ordinaire, ce qui permet de typer peu au début, puis de resserrer au fil du projet.
+</MarginNote>
+
+<MarginNote type="plusloin">
+Le manuel officiel : [TypeScript Handbook](https://www.typescriptlang.org/docs/), et le guide [React et TypeScript](https://fr.react.dev/learn/typescript).
+</MarginNote>
+
+## 8. DevTools
+ 
+Tous les navigateurs modernes intègrent des **outils de développement** (*DevTools*), ouverts par la touche F12 ou par un clic droit sur la page puis « Inspecter ». Ils sont l'instrument quotidien du développement côté client : examiner et modifier la page en direct, suivre ce que fait le code, et diagnostiquer les problèmes sans quitter le navigateur.
+ 
+Les DevTools regroupent plusieurs panneaux, dont en voici les principaux : 
+ 
+| Panneau (Chrome) | Équivalent Firefox | À quoi il sert |
+|---|---|---|
+| Elements | Inspector | inspecter et modifier le DOM et le CSS en direct |
+| Console | Console | lire les messages et les erreurs, exécuter du JavaScript |
+| Sources | Debugger | poser des points d'arrêt, exécuter le code pas à pas |
+| Network | Network | observer les requêtes HTTP : statut, contenu, durée |
+| Performance | Performance | profiler le rendu et repérer les ralentissements |
+| Application | Storage | examiner cookies, `localStorage`, cache et service workers |
+ 
+#### Elements / Inspector
+
+Ce panneau affiche le **DOM actuel** de la page, y compris les modifications effectuées par JavaScript. 
+Il permet de tester temporairement des changements au HTML ou au CSS sans modifier les fichiers du projet.
+
+#### Console
+
+La console affiche les erreurs JavaScript et les messages produits par `console.log()`. 
+Elle permet aussi d’exécuter directement des instructions dans le contexte de la page.
+
+#### Network
+
+Ce panneau présente les ressources et les requêtes échangées avec les serveurs. 
+Il permet notamment d’examiner la méthode HTTP, le statut, les données envoyées et le contenu de la réponse.
+
+#### Sources / Debugger
+
+Ce panneau permet de placer des **points d’arrêt**, d’examiner les variables et 
+d’exécuter le code étape par étape. Il est particulièrement utile pour comprendre
+ le déroulement d’un programme lorsque la console ne suffit pas.
+ 
+<MarginNote type="astuce" titre="Inspecter React">
+Pour React, l'extension **React Developer Tools** (Chrome, Firefox, Edge) ajoute deux panneaux : *Components*, qui montre l'arbre des composants avec leurs props et leur état, et *Profiler*, qui mesure les performances de rendu.
+</MarginNote>
+<MarginNote type="plusloin">
+Documentation : [Chrome DevTools](https://developer.chrome.com/docs/devtools), [Firefox DevTools](https://firefox-source-docs.mozilla.org/devtools-user/), [React Developer Tools](https://react.dev/learn/react-developer-tools).
+</MarginNote>
+
+## 9. Pour aller plus loin
+
+Les outils présentés dans cette page permettent de construire des interfaces riches dans le navigateur. 
+Deux technologies prolongent ces bases en donnant aux applications web de nouvelles capacités : PWA et WebAssembly
+
+Une **PWA** (*Progressive Web App*) est une application web conçue pour offrir certaines caractéristiques d'une application installée : 
+elle peut être ajoutée à l'appareil, fonctionner partiellement ou entièrement hors ligne et, lorsque la plateforme le permet, envoyer des notifications. 
+Elle repose toujours sur HTML, CSS et JavaScript, auxquels s'ajoutent généralement un **manifeste**, fichier JSON qui décrit l'application, et un **service worker**, 
+qui peut intercepter les requêtes réseau et gérer la mise en cache. Il s'agit d'un prolongement direct des notions de [persistance et de cache](/notes/persistance).
+
+**WebAssembly** (*Wasm*) est un format binaire conçu pour exécuter efficacement dans le navigateur du code compilé depuis des langages comme C, C++ ou Rust. 
+Il est notamment utilisé pour certains traitements intensifs, comme le traitement d'images, les simulations ou les jeux. 
+WebAssembly ne remplace pas JavaScript : les deux technologies collaborent, JavaScript assurant notamment l'interaction avec le DOM et les API du navigateur.
+
+## 10. À retenir
+
+| Notion | Point clé |
+|---|---|
+| Les trois couches | Client, serveur et base de données, reliés par HTTP et un pilote |
+| React et JSX | Librairie d'interface par composants ; le JSX mêle logique JavaScript et balisage dans un même fichier |
+| Vite | Outil de build moderne, démarrage instantané et rechargement rapide grâce aux ES Modules natifs |
+| npm | Gestionnaire de paquets, côté serveur comme côté client |
+| TypeScript | JavaScript typé, vérifié à la compilation puis effacé ; gabarit Vite react-ts |
+| Outils du navigateur | Inspecter, déboguer et profiler l'application, dans Chrome comme dans les autres navigateurs |
+
+## Ressources
+
+- [Écrire du balisage avec JSX, React (en français)](https://fr.react.dev/learn/writing-markup-with-jsx)
+- [Documentation de React (en français)](https://fr.react.dev/)
+- [Guide d'utilisation de Vite](https://vite.dev/guide/)
+- [Vue.js](https://vuejs.org/), [Angular](https://angular.dev/), [Next.js](https://nextjs.org/), [Astro](https://astro.build/)
+- [Webpack](https://webpack.js.org/), [Turbopack](https://turbo.build/pack)
+- [TypeScript](https://www.typescriptlang.org/)

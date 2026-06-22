@@ -1,0 +1,232 @@
+---
+import Icon from "./Icon.astro";
+
+/**
+ * TodoApp : application de tâches en éléments natifs.
+ * Sert à la fois de démo interactive et d'implémentation de référence du guide.
+ * Techniques : <template> + cloneNode, <form> + FormData, délégation
+ * d'événements, classList et dataset. Aucun framework.
+ */
+---
+
+<section class="todo" aria-label="Application de tâches">
+  <header class="todo__head">
+    <div class="todo__title">Todos</div>
+    <form class="todo__add" id="todo-add">
+      <input class="todo__input todo__input--title" name="title" type="text"
+        placeholder="Nouvelle tâche" required aria-label="Titre de la tâche" />
+      <input class="todo__input todo__input--tags" name="tags" type="text"
+        placeholder="tags, séparés, par virgules" aria-label="Tags" />
+      <input class="todo__input todo__input--date" name="dueDate" type="date"
+        aria-label="Date limite" />
+      <button class="todo__addbtn" type="submit">Ajouter</button>
+    </form>
+  </header>
+
+  <ul class="todo__list" id="todo-list"></ul>
+  <p class="todo__empty" id="todo-empty" hidden>Aucune tâche. Ajoutez-en une ci-dessus.</p>
+  <p style="font-size: 0.8em; color: #555"><Icon name="lightbulb" color="orangered"/> Pour modifier une tache, <b>double-clic sur le titre</b></p>
+
+  <template id="todo-item-template">
+    <li class="todo-item">
+      <input class="todo-item__check" type="checkbox" aria-label="Marquer complétée" />
+      <div class="todo-item__body">
+        <div>
+          <span class="todo-item__title" tabindex="0" title="Double-cliquer pour modifier"></span>
+          <Icon class="todo-item__edit-icon" name="pen" size={15}/>
+        </div>
+
+        <div class="todo-item__meta">
+          <select class="todo-item__status" aria-label="Statut">
+            <option value="todo">à faire</option>
+            <option value="in-progress">en cours</option>
+            <option value="done">terminé</option>
+          </select>
+          <span class="todo-item__due"></span>
+          <span class="todo-item__tags"></span>
+        </div>
+      </div>
+      <div class="todo-item__actions">
+        <button class="todo-item__btn" data-action="duplicate" aria-label="Dupliquer" title="Dupliquer">&#x29C9;</button>
+        <button class="todo-item__btn todo-item__btn--del" data-action="delete" aria-label="Supprimer" title="Supprimer">&times;</button>
+      </div>
+    </li>
+  </template>
+</section>
+
+<style is:global>
+.todo{--t-accent:#0d9488;--t-bg:#fff;--t-raised:#f8f7f4;--t-border:#e2e0db;--t-text:#1a1a2e;--t-mut:#6b6b80;--t-blue:#3b6fca;--t-green:#2d8a4e;--t-red:#dc2626;font-family:'DM Sans',system-ui,sans-serif;color:var(--t-text);background:var(--t-bg);border:1px solid var(--t-border);border-radius:16px;padding:18px;max-width:680px;margin:2rem auto}
+.todo *{box-sizing:border-box}
+.todo__head{margin-bottom:14px}
+.todo__title{font-family:'Fraunces',serif;font-size:1.2rem;font-weight:700;margin:0 0 10px}
+.todo__add{display:flex;flex-wrap:wrap;gap:8px}
+.todo__input{font:inherit;font-size:.88rem;padding:8px 10px;border:1px solid var(--t-border);border-radius:8px;background:var(--t-bg);color:var(--t-text)}
+.todo__input--title{flex:1 1 160px}
+.todo__input--tags{flex:1 1 140px}
+.todo__input:focus-visible,.todo__addbtn:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px}
+.todo__addbtn{font:inherit;font-weight:600;font-size:.88rem;padding:8px 16px;border:1px solid var(--t-accent);background:var(--t-accent);color:#fff;border-radius:8px;cursor:pointer}
+.todo__list{list-style:none;margin:14px 0 0;padding:0!important;display:flex;flex-direction:column;gap:8px}
+.todo__empty{color:var(--t-mut);font-size:.86rem;font-style:italic;text-align:center;padding:18px}
+.todo-item{display:flex;align-items:flex-start;gap:11px;background:var(--t-raised);border:1px solid var(--t-border);border-left:3px solid var(--t-border);border-radius:10px;padding:11px 13px}
+.todo-item[data-status="todo"]{border-left-color:#cbd5e1}
+.todo-item[data-status="in-progress"]{border-left-color:var(--t-blue)}
+.todo-item[data-status="done"]{border-left-color:var(--t-green)}
+.todo-item__check{margin-top:3px;width:17px;height:17px;accent-color:var(--t-accent);cursor:pointer;flex-shrink:0}
+.todo-item__body{flex:1;min-width:0}
+.todo-item__title{display:inline-block;font-size:.95rem;font-weight:600;padding:1px 4px;border-radius:5px;cursor:text;outline:none}
+.todo-item__title:focus{background:#fff;box-shadow:0 0 0 2px var(--t-accent)}
+.todo-item__edit-icon { opacity: 0; transition: .2s; }
+.todo-item__title:hover + .todo-item__edit-icon { opacity: 1; } 
+.todo-item__title:focus + .todo-item__edit-icon { opacity: 1; } 
+.todo-item__meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:6px}
+.todo-item__status{font:inherit;font-size:.74rem;font-weight:600;padding:2px 6px;border:1px solid var(--t-border);border-radius:6px;background:var(--t-bg);color:var(--t-mut);cursor:pointer}
+.todo-item__status:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+.todo-item__due{font-size:.76rem;color:var(--t-mut);white-space:nowrap}
+.todo-item__due.is-late{color:var(--t-red);font-weight:600}
+.todo-item__tags{display:inline-flex;flex-wrap:wrap;gap:5px}
+.todo-tag{font-size:.7rem;font-weight:600;color:var(--t-accent);background:color-mix(in srgb,var(--t-accent) 12%,var(--t-bg));border:1px solid color-mix(in srgb,var(--t-accent) 30%,var(--t-border));padding:1px 7px;border-radius:20px}
+.todo-item__actions{display:flex;gap:4px;flex-shrink:0}
+.todo-item__btn{border:1px solid var(--t-border);background:var(--t-bg);color:var(--t-mut);font-size:1rem;line-height:1;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.todo-item__btn:hover{border-color:var(--t-accent);color:var(--t-accent)}
+.todo-item__btn--del:hover{border-color:var(--t-red);color:var(--t-red)}
+.todo-item__btn:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+.todo-item.is-done{opacity:.6}
+.todo-item.is-done .todo-item__title{text-decoration:line-through;text-decoration-thickness:1.5px}
+[data-theme="dark"] .todo{--t-bg:#10141d;--t-raised:#161b26;--t-border:#2a3142;--t-text:#e8e8f0;--t-mut:#aeb6c4}
+[data-theme="dark"] .todo-item__title:focus{background:#0b0f16}
+[data-theme="dark"] .todo__addbtn{color:#0b0f16}
+</style>
+
+<script>
+  // État : seule source de vérité, un tableau de tâches.
+  let seq = 0;
+  const uid = () => "t" + (seq += 1);
+
+  let tasks = [
+    { id: uid(), title: "Préparer la démo du cours", tags: ["cours"], dueDate: "", status: "in-progress", completed: false },
+    { id: uid(), title: "Lire le chapitre sur le DOM", tags: ["lecture", "dom"], dueDate: "", status: "todo", completed: false },
+  ];
+
+  // Points d'accroche du DOM.
+  const list = document.getElementById("todo-list");
+  const emptyMessage = document.getElementById("todo-empty");
+  const template = document.getElementById("todo-item-template");
+  const form = document.getElementById("todo-add");
+
+  const findTask = (id) => tasks.find((task) => task.id === id);
+  const today = () => new Date().toISOString().slice(0, 10);
+
+  // Reconstruit la liste à partir de l'état.
+  function render() {
+    list.textContent = "";
+    emptyMessage.hidden = tasks.length > 0;
+
+    for (const task of tasks) {
+      const node = template.content.cloneNode(true);
+      const item = node.querySelector(".todo-item");
+      item.dataset.id = task.id;
+      item.dataset.status = task.status;
+      item.classList.toggle("is-done", task.completed);
+
+      node.querySelector(".todo-item__check").checked = task.completed;
+      node.querySelector(".todo-item__title").textContent = task.title;
+      node.querySelector(".todo-item__status").value = task.status;
+
+      const due = node.querySelector(".todo-item__due");
+      if (task.dueDate) {
+        due.textContent = "\u{1F4C5} " + task.dueDate;
+        due.classList.toggle("is-late", !task.completed && task.dueDate < today());
+      } else {
+        due.remove();
+      }
+
+      const tagsBox = node.querySelector(".todo-item__tags");
+      for (const label of task.tags) {
+        const chip = document.createElement("span");
+        chip.className = "todo-tag";
+        chip.textContent = label;
+        tagsBox.appendChild(chip);
+      }
+
+      list.appendChild(node);
+    }
+  }
+
+  // Gestionnaire des actions déléguées (boutons data-action).
+  function actionHandler(action, task) {
+    if (action === "delete") {
+      tasks = tasks.filter((t) => t.id !== task.id);
+    } else if (action === "duplicate") {
+      const copy = { ...task, id: uid(), tags: [...task.tags], title: task.title + " (copie)" };
+      tasks.splice(tasks.indexOf(task) + 1, 0, copy);
+    }
+  }
+
+  // Ajout : le formulaire crée une tâche via FormData.
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const data = new FormData(form);
+    const title = (data.get("title") ?? "").toString().trim();
+    if (!title) return;
+    const tags = (data.get("tags") ?? "").toString().split(",").map((s) => s.trim()).filter(Boolean);
+    tasks.push({ id: uid(), title, tags, dueDate: (data.get("dueDate") ?? "").toString(), status: "todo", completed: false });
+    form.reset();
+    render();
+  });
+
+  // Délégation : un seul écouteur de clic pour les boutons d'action.
+  list.addEventListener("click", (event) => {
+    const action = event.target.dataset.action;
+    if (!action) return;
+    const item = event.target.closest(".todo-item");
+    const task = item && findTask(item.dataset.id);
+    if (!task) return;
+    actionHandler(action, task);
+    render();
+  });
+
+  // Délégation : case complétée et statut.
+  list.addEventListener("change", (event) => {
+    const item = event.target.closest(".todo-item");
+    const task = item && findTask(item.dataset.id);
+    if (!task) return;
+    if (event.target.classList.contains("todo-item__check")) {
+      task.completed = event.target.checked;
+      render();
+    } else if (event.target.classList.contains("todo-item__status")) {
+      task.status = event.target.value;
+      render();
+    }
+  });
+
+  // Édition du titre en ligne (double-clic pour ouvrir).
+  list.addEventListener("dblclick", (event) => {
+    if (!event.target.classList.contains("todo-item__title")) return;
+    event.target.contentEditable = "true";
+    event.target.focus();
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(event.target);
+    selection.removeAllRanges();
+    selection.addRange(range);
+  });
+
+  list.addEventListener("keydown", (event) => {
+    if (event.target.classList.contains("todo-item__title") && event.key === "Enter") {
+      event.preventDefault();
+      event.target.blur();
+    }
+  });
+
+  // blur ne bouillonne pas : on écoute en phase de capture.
+  list.addEventListener("blur", (event) => {
+    if (!event.target.classList.contains("todo-item__title")) return;
+    const item = event.target.closest(".todo-item");
+    const task = item && findTask(item.dataset.id);
+    if (task) task.title = event.target.textContent.trim() || task.title;
+    event.target.contentEditable = "false";
+    render();
+  }, true);
+
+  render();
+</script>
