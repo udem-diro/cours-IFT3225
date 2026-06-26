@@ -21,7 +21,7 @@ export const navigation: NavGroup[] = [
     items: [
       { label: "Conception d'API", href: "/notes/conception-api" },
       { label: "Stratégie de persistance", href: "/notes/persistance" },
-      { label: "Identité et Authentification ⭐", href: "/notes/identite" },
+      { label: "Identité et Authentification", href: "/notes/identite" },
       { label: "Interface réactive ⭐", href: "/notes/interface-reactive" },
       { label: "Développement coté client ⭐", href: "/notes/outils-frontend" },
     ],
