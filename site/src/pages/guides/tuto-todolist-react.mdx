@@ -1,0 +1,301 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Construire la TodoList avec React"
+description: "Reprendre la TodoList construite en éléments natifs et la rebâtir en React, technique par technique, pour voir le passage de l'impératif au déclaratif et ce que React simplifie."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import TodoList from "../../components/react/TodoList.jsx";
+
+{/* <MarginNote type="prerequis">
+Ce guide suppose [Prise en main de React](/notes/react-prise-en-main) (composants, props, état) et [Construire une TodoList avec les éléments natifs](/notes/todo-natif), dont on reprend ici la même application.
+</MarginNote> */}
+
+## 1. Application TodoList (à reconstruire)
+
+Dans ce guide, on reprend la même application TodoList construite dans le guide [Construire une TodoList](/tuto-todo-1), et on la rebâtit en React.
+
+<TodoList client:visible />
+
+## 2. Décomposer le layout
+
+On part du résultat et on le découpe en blocs, comme en natif. On distingue trois familles :
+
+- **Distinct** (une seule fois) : l'en-tête et son formulaire d'ajout.
+- **Optionnel** (selon l'état) : le message affiché quand la liste est vide.
+- **Répété** : la tâche, qui revient à l'identique.
+
+En React, chaque bloc devient un composant. À ce stade, on retient deux **gros composants**, le formulaire d'ajout et la liste, que le parent assemble :
+
+```
+TodoApp
+├── TodoForm     le formulaire d'ajout
+└── TodoList     la liste (ou le message vide)
+```
+
+La tâche répétée deviendra elle aussi un composant, mais plus tard (étape 6) : on commence par les gros blocs.
+
+## 3. Créer les gros composants réutilisables
+
+On pose d'abord la forme de chaque gros composant, sans logique.
+
+```jsx
+// TodoForm : le bloc d'ajout
+function TodoForm() {
+  return (
+    <form className="todo__add">
+      <input type="text" placeholder="Nouvelle tâche" required />
+      <input type="text" placeholder="tags, séparés, par virgules" />
+      <input type="date" />
+      <button type="submit">Ajouter</button>
+    </form>
+  );
+}
+```
+
+```jsx
+// TodoList : le bloc d'affichage
+function TodoList() {
+  return (
+    <ul className="todo__list">
+      {/* les tâches viendront ici */}
+    </ul>
+  );
+}
+```
+
+Ce sont des coquilles : elles décrivent la structure, mais ne reçoivent encore aucune donnée et ne communiquent pas. C'est l'objet des deux étapes suivantes.
+
+## 4. Brancher les props et les gestionnaires d'événements
+
+Un composant communique par deux canaux : les **props** (les données qui descendent) et les **gestionnaires d'événements** (les intentions qui remontent, sous forme de rappels). C'est le principe données vers le bas, événements vers le haut, déjà rencontré dans [Concevoir une interface réactive](/notes/interface-reactive).
+
+Le formulaire doit signaler un ajout : il reçoit un rappel `onAdd`.
+
+```jsx
+// TodoForm reçoit le rappel onAdd et l'appelle à la soumission
+function TodoForm({ onAdd }) {
+  const [title, setTitle] = useState("");
+  const [tags, setTags] = useState("");
+  const [dueDate, setDueDate] = useState("");
+
+  function submit(event) {
+    event.preventDefault();
+    const titre = title.trim();
+    if (!titre) return;
+    onAdd({ title: titre, tags: parseTags(tags), dueDate });
+    setTitle("");
+    setTags("");
+    setDueDate("");
+  }
+
+  return (
+    <form className="todo__add" onSubmit={submit}>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+      <input value={tags} onChange={(e) => setTags(e.target.value)} />
+      <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+      <button type="submit">Ajouter</button>
+    </form>
+  );
+}
+```
+
+La liste, elle, a seulement besoin des tâches. On lui passe `tasks`, et **rien de plus** pour l'instant. On affiche déjà un `<li>` de base, qui suffit à voir la liste fonctionner :
+
+```jsx
+// TodoList ne reçoit que les tâches et rend un <li> minimal
+function TodoList({ tasks }) {
+  if (tasks.length === 0) {
+    return <p className="todo__empty">Aucune tâche. Ajoutez-en une ci-dessus.</p>;
+  }
+  return (
+    <ul className="todo__list">
+      {tasks.map((task) => (
+        <li key={task.id} className="todo-item" data-status={task.status}>
+          <span className="todo-item__title">{task.title}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Ce `<li>` minimal fonctionne déjà : il affiche chaque tâche. Il ne porte encore aucune action ; on les ajoutera en enrichissant la tâche (étape 6).
+
+<MarginNote type="attention" titre="La key, toujours">
+Dès qu'on rend une liste avec `.map()`, chaque élément reçoit une `key` stable (`task.id`), pour que React suive les ajouts, suppressions et déplacements.
+</MarginNote>
+
+<MarginNote type="astuce" titre="État local ou partagé">
+Le formulaire garde l'état de ses propres champs en local (`title`, `tags`, `dueDate`) : cet état transitoire ne regarde que lui. Seule la liste des tâches, partagée entre le formulaire et la liste, sera remontée au parent.
+</MarginNote>
+
+## 5. Préserver l'état dans le parent
+
+Le formulaire ajoute des tâches, la liste les affiche. Cette donnée est **partagée** entre deux composants frères : elle doit vivre dans leur parent commun. On remonte l'état (lifting state up).
+
+```jsx
+function TodoApp() {
+  const [tasks, setTasks] = useState([
+    { id: "t1", title: "Préparer la démo du cours", tags: ["cours"], dueDate: "", status: "in-progress", completed: false },
+    { id: "t2", title: "Lire le chapitre sur le DOM", tags: ["lecture", "dom"], dueDate: "", status: "todo", completed: false }
+  ]);
+
+  const addTask = ({ title, tags, dueDate }) =>
+    setTasks((prev) => [...prev, { id: uid(), title, tags, dueDate, status: "todo", completed: false }]);
+
+  return (
+    <section className="todo">
+      <header className="todo__head">
+        <h3 className="todo__title">Mes tâches</h3>
+        <TodoForm onAdd={addTask} />
+      </header>
+      <TodoList tasks={tasks} />
+    </section>
+  );
+}
+```
+
+À ce stade, l'application fonctionne déjà : on ajoute une tâche par le formulaire, et la liste l'affiche. (`uid()` produit un identifiant unique, `parseTags` découpe la chaîne de tags sur les virgules.) Les autres actions (statut, complétée, dupliquer, supprimer) arrivent avec l'enrichissement de la tâche, à l'étape suivante.
+
+<MarginNote type="rappel" titre="Ne jamais muter l'état">
+On ne modifie pas `tasks` en place. Chaque action construit une **nouvelle** valeur et la confie à `setTasks` : c'est ce qui signale le changement à React et déclenche le nouveau rendu.
+</MarginNote>
+
+<Highlight>L'état partagé vit dans le parent. Les enfants le reçoivent en props et signalent leurs intentions par des rappels. Le parent est la source unique de vérité.</Highlight>
+
+<Checkpoint question="Pourquoi placer tasks dans le parent plutôt que dans TodoList ?">
+Parce que `TodoForm`, qui est un frère de `TodoList`, doit aussi agir sur cette donnée (l'ajout d'une tâche). Une donnée partagée par plusieurs composants se place dans leur plus proche parent commun, qui la redescend à chacun. Si `tasks` vivait dans `TodoList`, le formulaire n'aurait aucun moyen d'y ajouter une tâche.
+</Checkpoint>
+
+## 6. Enrichir la tâche et extraire le widget
+
+La liste de base affiche les tâches mais n'autorise aucune action. On **enrichit** le `<li>` avec la case à cocher, le statut, les boutons. Du coup, le `<li>` a besoin de rappels : on **ajoute les props correspondantes** à `TodoList`.
+
+```jsx
+// Le <li> enrichi : TodoList reçoit maintenant les rappels d'action
+function TodoList({ tasks, onToggle, onStatus, onDuplicate, onDelete }) {
+  if (tasks.length === 0) {
+    return <p className="todo__empty">Aucune tâche. Ajoutez-en une ci-dessus.</p>;
+  }
+  return (
+    <ul className="todo__list">
+      {tasks.map((task) => (
+        <li key={task.id} className={"todo-item" + (task.completed ? " is-done" : "")} data-status={task.status}>
+          <input type="checkbox" checked={task.completed} onChange={() => onToggle(task.id)} />
+          <span className="todo-item__title">{task.title}</span>
+          <select value={task.status} onChange={(e) => onStatus(task.id, e.target.value)}>
+            <option value="todo">à faire</option>
+            <option value="in-progress">en cours</option>
+            <option value="done">terminé</option>
+          </select>
+          <button onClick={() => onDuplicate(task.id)}>Dupliquer</button>
+          <button onClick={() => onDelete(task.id)}>Supprimer</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+Ce `<li>` enrichi se répète et porte sa propre logique d'affichage : c'est le **widget**. On l'extrait en `TodoItem`, et `TodoList` se contente de le réinstancier.
+
+```jsx
+// TodoItem : le widget répété, une tâche
+function TodoItem({ task, onToggle, onStatus, onDuplicate, onDelete }) {
+  return (
+    <li className={"todo-item" + (task.completed ? " is-done" : "")} data-status={task.status}>
+      <input type="checkbox" checked={task.completed} onChange={() => onToggle(task.id)} />
+      <span className="todo-item__title">{task.title}</span>
+      <select value={task.status} onChange={(e) => onStatus(task.id, e.target.value)}>
+        <option value="todo">à faire</option>
+        <option value="in-progress">en cours</option>
+        <option value="done">terminé</option>
+      </select>
+      {/* date limite et tags */}
+      <button onClick={() => onDuplicate(task.id)}>Dupliquer</button>
+      <button onClick={() => onDelete(task.id)}>Supprimer</button>
+    </li>
+  );
+}
+```
+
+```jsx
+// TodoList réinstancie le widget par tâche
+function TodoList({ tasks, onToggle, onStatus, onDuplicate, onDelete }) {
+  if (tasks.length === 0) {
+    return <p className="todo__empty">Aucune tâche. Ajoutez-en une ci-dessus.</p>;
+  }
+  return (
+    <ul className="todo__list">
+      {tasks.map((task) => (
+        <TodoItem
+          key={task.id}
+          task={task}
+          onToggle={onToggle}
+          onStatus={onStatus}
+          onDuplicate={onDuplicate}
+          onDelete={onDelete}
+        />
+      ))}
+    </ul>
+  );
+}
+```
+
+Côté parent, on définit les actions correspondantes et on les passe à `TodoList` :
+
+```jsx
+const toggle = (id) =>
+  setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
+const changeStatus = (id, status) =>
+  setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+const remove = (id) => setTasks((prev) => prev.filter((t) => t.id !== id));
+// duplicate : insère une copie juste après la tâche source
+
+// <TodoList tasks={tasks} onToggle={toggle} onStatus={changeStatus}
+//           onDuplicate={duplicate} onDelete={remove} />
+```
+
+<MarginNote type="lien" titre="L'équivalent du gabarit">
+`TodoItem` est le pendant du `<template>` du guide natif : le fragment qu'on clonait à la demande devient ici un composant qu'on instancie une fois par tâche.
+</MarginNote>
+
+<MarginNote type="astuce" titre="D'autres candidats de widget">
+Le `<li>` n'est pas le seul widget possible. Les champs du formulaire et les boutons d'action sont aussi des candidats : on pourrait extraire un `Champ` ou un `Bouton` réutilisable. Ici on s'arrête à `TodoItem`, mais le même raisonnement vaut pour les plus petits éléments répétés.
+</MarginNote>
+
+<MarginNote type="astuce" titre="L'édition en ligne">
+L'édition du titre suit le même schéma : un état d'édition (`editingId`) dans le parent, passé jusqu'au widget, qui affiche un champ ou le titre selon le cas. Le code complet figure dans la démo en tête de page.
+</MarginNote>
+
+## 7. Assembler le tout
+
+L'arbre complet réunit les pièces :
+
+```
+TodoApp                état : les tâches (et l'édition)
+├── TodoForm           onAdd
+└── TodoList           tasks, rappels
+    └── TodoItem       task, rappels        (répété)
+```
+
+Le parent détient l'état et les actions. Les gros composants structurent l'interface ; le widget porte l'unité répétée. Chacun reçoit ses données par les props et signale ses intentions par des rappels. La démo en tête de page est exactement cet assemblage, et son code en est l'implémentation de référence.
+
+## 8. À retenir
+
+| Étape | Ce qu'on fait |
+|---|---|
+| Décomposer le layout | Repérer les blocs : distinct, optionnel, répété |
+| Gros composants | Créer `TodoForm` et `TodoList` |
+| Props et gestionnaires | Données vers le bas, intentions vers le haut ; `TodoList` ne prend d'abord que `tasks` |
+| État dans le parent | Remonter l'état partagé, source unique de vérité |
+| Widget répété | Enrichir le `<li>`, ajouter les props à `TodoList`, puis extraire `TodoItem` (avec `key`) |
+
+La même méthode vaut pour toute interface React : on découpe en blocs, on en fait des composants, on place l'état partagé au bon niveau, et on concentre l'effort sur les widgets qui se répètent.
+
+<MarginNote type="plusloin" titre="Brancher sur l'API">
+Cette TodoList garde son état en mémoire : elle s'oublie au rechargement. Pour la rendre persistante, on remplace l'état local par des appels à une couche client et on rafraîchit après chaque écriture, comme dans [Connecter la TodoList à un serveur](/notes/todo-serveur).
+</MarginNote>

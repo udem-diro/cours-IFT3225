@@ -1,0 +1,277 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Connecter la TodoList à un serveur Express"
+description: "Suite du guide natif : persister les tâches en passant par un serveur. Un modèle partagé, une couche client de communication, un serveur Express et l'accès à une base de données, avec une introduction à TypeScript pour typer le contrat entre le client et le serveur."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+
+<MarginNote type="prerequis">
+Ce guide prolonge [Construire une TodoList en natif](/notes/todo-natif). Il suppose les bases du protocole HTTP (méthodes, codes de statut) et introduit TypeScript au passage, sans le présupposer.
+</MarginNote>
+
+Dans le guide précédent, l'état vivait en mémoire : au rechargement de la page, toutes les tâches disparaissaient. Pour les conserver, l'état doit vivre ailleurs, dans une base de données, atteinte à travers un serveur. Ce guide ajoute cette couche serveur et la couche client qui lui parle.
+
+## 1. De la mémoire à la persistance
+
+Le navigateur ne parle pas directement à la base de données. Il parle à un serveur par HTTP, et c'est le serveur qui parle à la base de données. On obtient une suite de couches, chacune avec une seule responsabilité.
+
+<figure style="margin:1.75rem auto;max-width:720px;">
+<svg viewBox="0 0 760 240" role="img" aria-label="Architecture en couches : l'interface et la couche client vivent dans le navigateur, le serveur Express, le modèle et la base de données du côté serveur ; les deux sont séparés par le réseau HTTP. La requête descend de l'interface vers la base de données, la réponse remonte." style="width:100%;height:auto;font-family:inherit;">
+<text x="143" y="28" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" opacity="0.55">Navigateur</text>
+<text x="525" y="28" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" opacity="0.55">Serveur</text>
+<line x1="300" y1="44" x2="300" y2="190" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.6"/>
+<text x="300" y="40" text-anchor="middle" fill="#0d9488" font-size="11" font-weight="600">réseau</text>
+<rect x="8" y="78" width="120" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="68" y="108" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Interface</text>
+<text x="68" y="125" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">DOM, événements</text>
+<rect x="148" y="78" width="130" height="68" rx="10" fill="none" stroke="#0d9488" stroke-width="2"/>
+<text x="213" y="108" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Couche client</text>
+<text x="213" y="125" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">le module api</text>
+<rect x="322" y="78" width="130" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="387" y="108" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Serveur</text>
+<text x="387" y="125" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">Express, routes</text>
+<rect x="472" y="78" width="100" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="522" y="116" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Modèle</text>
+<rect x="592" y="78" width="160" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+<text x="672" y="108" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Base de</text>
+<text x="672" y="125" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">données</text>
+<line x1="128" y1="112" x2="146" y2="112" stroke="#0d9488" stroke-width="2"/>
+<polygon points="146,108 146,116 154,112" fill="#0d9488"/>
+<line x1="278" y1="112" x2="320" y2="112" stroke="#0d9488" stroke-width="2"/>
+<polygon points="320,108 320,116 328,112" fill="#0d9488"/>
+<text x="300" y="103" text-anchor="middle" fill="#0d9488" font-size="10" font-weight="600">HTTP</text>
+<line x1="452" y1="112" x2="470" y2="112" stroke="#0d9488" stroke-width="2"/>
+<polygon points="470,108 470,116 478,112" fill="#0d9488"/>
+<line x1="572" y1="112" x2="590" y2="112" stroke="#0d9488" stroke-width="2"/>
+<polygon points="590,108 590,116 598,112" fill="#0d9488"/>
+<path d="M 672 146 L 672 188 L 68 188 L 68 152" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.55"/>
+<polygon points="62,160 74,160 68,150" fill="currentColor" opacity="0.55"/>
+<text x="370" y="183" text-anchor="middle" fill="currentColor" font-size="10.5" opacity="0.6">réponse (JSON), puis réaffichage</text>
+</svg>
+<figcaption style="text-align:center;font-size:0.85rem;opacity:0.7;margin-top:0.5rem;">La requête descend de l'interface vers la base de données ; la réponse remonte et l'interface se redessine.</figcaption>
+</figure>
+
+<Highlight>Chaque couche ne connaît que sa voisine. L'interface ne connaît que la couche client ; le serveur ne connaît que le modèle. Aucune ne saute par-dessus les autres.</Highlight>
+
+## 2. Le modèle
+
+On commence par décrire la forme d'une tâche. En TypeScript, un **type** fixe cette forme, et le compilateur signale tout écart. Ce type devient le contrat partagé entre le client et le serveur.
+
+```ts
+type Status = "a-faire" | "en-cours" | "termine";
+
+interface Task {
+  id: string;
+  titre: string;
+  tags: string[];
+  dueDate: string;     // date ISO, ou "" si absente
+  status: Status;
+  completed: boolean;
+}
+```
+
+`Status` est une **union** : seulement trois valeurs sont permises, et le compilateur refuse toute autre chaîne. Pour les échanges, on dérive des formes plus précises, les **DTO** (objets de transfert) :
+
+```ts
+type CreateTask = Pick<Task, "titre" | "tags" | "dueDate">;
+type UpdateTask = Partial<Pick<Task, "titre" | "status" | "completed">>;
+```
+
+<MarginNote type="definition" titre="DTO">
+*Data Transfer Object* : la forme exacte des données pour un échange donné. À la création, le client n'envoie ni `id` (le serveur l'attribue) ni `status` (par défaut). À la modification, il n'envoie que les champs qui changent, d'où le `Partial`.
+</MarginNote>
+
+<MarginNote type="astuce" titre="Pourquoi typer ici">
+Le type `Task` est écrit une fois et utilisé des deux côtés. Si le serveur renvoie un champ d'un mauvais type, ou si le client oublie un champ requis, l'erreur apparaît à la compilation, pas en production.
+</MarginNote>
+
+## 3. La couche client de communication
+
+Un seul module sait parler au serveur : il construit les URL, envoie les requêtes, lit le JSON et gère les erreurs. Le reste de l'application l'appelle sans jamais toucher à `fetch`.
+
+```ts
+const BASE = "/api";
+
+async function http<T>(url: string, options?: RequestInit): Promise<T> {
+  const res = await fetch(BASE + url, {
+    headers: { "Content-Type": "application/json" },
+    ...options,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.status === 204 ? (undefined as T) : await res.json();
+}
+
+export const api = {
+  list:   ()                          => http<Task[]>("/tasks"),
+  create: (data: CreateTask)          => http<Task>("/tasks",      { method: "POST",   body: JSON.stringify(data) }),
+  update: (id: string, d: UpdateTask) => http<Task>(`/tasks/${id}`, { method: "PATCH",  body: JSON.stringify(d) }),
+  remove: (id: string)                => http<void>(`/tasks/${id}`, { method: "DELETE" }),
+};
+```
+
+Le paramètre générique `<T>` type la réponse : `api.list()` rend une `Promise<Task[]>`, `api.create(...)` une `Promise<Task>`. L'appelant reçoit des données déjà typées, et toute la mécanique HTTP tient en un endroit.
+
+<MarginNote type="astuce" titre="Une seule porte vers le serveur">
+L'interface ne sait pas que les tâches viennent du réseau : elle appelle `api.create(...)` comme une fonction ordinaire. Le jour où l'URL change, ou la gestion d'erreur, un seul fichier bouge.
+</MarginNote>
+
+## 4. Brancher l'interface
+
+Dans le guide précédent, chaque action modifiait le tableau `taches` puis appelait `rendre`. Désormais, elle passe par `api`, puis recharge la liste depuis le serveur. La fonction de rendu, elle, ne change pas : seule la source de `taches` change.
+
+```js
+async function charger() {
+  taches = await api.list();   // la source de vérité est le serveur
+  rendre();
+}
+
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const data = new FormData(form);
+  const titre = (data.get("titre") ?? "").toString().trim();
+  if (!titre) return;
+  const tags = (data.get("tags") ?? "").toString().split(",").map((s) => s.trim()).filter(Boolean);
+  await api.create({ titre, tags, dueDate: (data.get("dueDate") ?? "").toString() });
+  form.reset();
+  await charger();
+});
+```
+
+Cocher une tâche, changer son statut, la supprimer : même schéma, une action asynchrone qui appelle `api` puis `charger`.
+
+```js
+async function basculerComplete(id, completed) {
+  await api.update(id, { completed });
+  await charger();
+}
+```
+
+<MarginNote type="plusloin" titre="Recharger ou anticiper">
+Recharger après chaque mutation (refetch) garde l'affichage parfaitement aligné sur le serveur, au prix d'un aller-retour de plus. La mise à jour optimiste (changer l'affichage tout de suite, puis envoyer, et revenir en arrière en cas d'échec) est plus rapide mais doit gérer l'échec. On reste ici sur le refetch, plus simple à raisonner.
+</MarginNote>
+
+<Checkpoint question="Après avoir créé une tâche, pourquoi recharger toute la liste plutôt que d'ajouter localement la tâche envoyée ?">
+Parce que le serveur est désormais la source de vérité : c'est lui qui attribue l'`id` et applique les valeurs par défaut (statut, `completed`). Recharger garantit que l'affichage reflète exactement ce qui est en base de données, y compris l'`id` réel nécessaire aux actions suivantes. Ajouter localement risquerait de désynchroniser le client et le serveur.
+</Checkpoint>
+
+## 5. Le serveur Express
+
+Le serveur expose les routes REST que la couche client appelle. Chaque route lit la requête, sollicite le modèle, et renvoie un code de statut avec du JSON.
+
+```ts
+import express, { Request, Response } from "express";
+import { TaskModel, toTask } from "./model";
+
+const router = express.Router();
+
+router.get("/tasks", async (_req, res) => {
+  const docs = await TaskModel.find();
+  res.json(docs.map(toTask));
+});
+
+router.post("/tasks", async (req: Request, res: Response) => {
+  const { titre, tags, dueDate } = req.body;
+  if (!titre || typeof titre !== "string") {
+    return res.status(400).json({ error: "titre requis" });
+  }
+  const doc = await TaskModel.create({ titre, tags: tags ?? [], dueDate: dueDate ?? "" });
+  res.status(201).json(toTask(doc));
+});
+
+router.patch("/tasks/:id", async (req, res) => {
+  const doc = await TaskModel.findByIdAndUpdate(req.params.id, req.body, { new: true });
+  if (!doc) return res.status(404).json({ error: "introuvable" });
+  res.json(toTask(doc));
+});
+
+router.delete("/tasks/:id", async (req, res) => {
+  const doc = await TaskModel.findByIdAndDelete(req.params.id);
+  if (!doc) return res.status(404).end();
+  res.status(204).end();
+});
+
+export default router;
+```
+
+La validation rejette une entrée fautive avec `400` ; une ressource absente répond `404` ; une suppression réussie répond `204` (pas de contenu). Le serveur ne connaît rien du DOM : sa frontière, c'est HTTP d'un côté et le modèle de l'autre.
+
+## 6. La communication avec la base de données
+
+Le modèle décrit la forme d'un document, le valide, et traduit ce document vers le contrat `Task`. On utilise Mongoose sur MongoDB.
+
+```ts
+import { Schema, model } from "mongoose";
+import type { Task, Status } from "./types";
+
+interface TaskDoc {
+  titre: string;
+  tags: string[];
+  dueDate: string;
+  status: Status;
+  completed: boolean;
+}
+
+const taskSchema = new Schema<TaskDoc>({
+  titre:     { type: String, required: true },
+  tags:      { type: [String], default: [] },
+  dueDate:   { type: String, default: "" },
+  status:    { type: String, enum: ["a-faire", "en-cours", "termine"], default: "a-faire" },
+  completed: { type: Boolean, default: false },
+});
+
+export const TaskModel = model<TaskDoc>("Task", taskSchema);
+
+export function toTask(doc: TaskDoc & { _id: unknown }): Task {
+  return {
+    id: String(doc._id),
+    titre: doc.titre,
+    tags: doc.tags,
+    dueDate: doc.dueDate,
+    status: doc.status,
+    completed: doc.completed,
+  };
+}
+```
+
+Deux points méritent l'attention. D'abord, `toTask` traduit le document de la base de données (dont l'identifiant est `_id`) vers le contrat client (dont l'identifiant est `id`) : la forme stockée et la forme échangée peuvent différer. Ensuite, l'`enum` du schéma reprend exactement l'union `Status` : les deux côtés disent la même chose, et il faut les garder alignés.
+
+```ts
+// connexion, au démarrage du serveur
+import mongoose from "mongoose";
+await mongoose.connect(process.env.MONGODB_URI ?? "");
+```
+
+<MarginNote type="erreur" titre="Le secret reste hors du code">
+L'URI de connexion contient des identifiants : elle vit dans une variable d'environnement (`process.env.MONGODB_URI`), jamais en clair dans le dépôt, avec un `.env.example` pour documenter la variable attendue.
+</MarginNote>
+
+## 7. Le tour complet
+
+Pour fixer l'ensemble, suivons une seule action, cocher une tâche, de bout en bout.
+
+1. L'utilisateur coche la case ; l'écouteur appelle `api.update(id, { completed: true })`.
+2. La couche client envoie `PATCH /api/tasks/:id` avec le corps JSON.
+3. Express valide la requête, puis appelle `TaskModel.findByIdAndUpdate`.
+4. MongoDB met à jour le document et renvoie sa nouvelle version.
+5. Le serveur répond `200` avec la tâche, traduite par `toTask`.
+6. La couche client retourne la `Task` typée.
+7. `charger` recharge la liste, `rendre` redessine ; la coche est maintenant persistée.
+
+<Highlight couleur="ambre">L'état n'est plus en mémoire : il vit dans la base de données. L'interface n'en est qu'un reflet, rechargé à chaque tour de la boucle.</Highlight>
+
+## 8. À retenir
+
+| Couche | Responsabilité |
+|---|---|
+| Le modèle (types) | Décrire la forme d'une tâche, contrat partagé entre client et serveur |
+| La couche client | Parler au serveur en HTTP, rendre des données typées, isoler `fetch` |
+| L'interface | Appeler la couche client, puis recharger et redessiner |
+| Le serveur Express | Exposer les routes REST, valider, renvoyer les bons codes de statut |
+| Le modèle de données | Valider et stocker les documents, traduire vers le contrat |
+
+<MarginNote type="plusloin" titre="La suite">
+Restent à traiter la gestion fine des erreurs côté interface (afficher un message quand une requête échoue), la mise à jour optimiste, et l'authentification des écritures, dans la lignée de ce qui est vu pour le projet.
+</MarginNote>

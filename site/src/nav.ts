@@ -37,7 +37,11 @@ export const navigation: NavGroup[] = [
       // { label: "Les middlewares dans Express", href: "/guides/tuto-express-middleware" },
       { label: "Les bases du DOM", href: "/guides/tuto-dom-1" },
       { label: "Manipulation du DOM", href: "/guides/tuto-dom-2" },
-      { label: "Création d'une TodoList ⭐", href: "/guides/tuto-todolist" },
+      { label: "Création d'une TodoList", href: "/guides/tuto-todolist" },
+      // { label: "Persister une TodoList ⭐", href: "/guides/tuto-todolist-2" },
+      { label: "Prise en main de React ⭐", href: "/guides/tuto-react-1" },
+      { label: "Les hooks dans React ⭐", href: "/guides/tuto-react-2" },
+      // { label: "Création d'une TodoList avec React ⭐", href: "/guides/tuto-todolist-react" },
     ],
   },
   // {
@@ -60,8 +64,9 @@ export const navigation: NavGroup[] = [
   {
     titre: "Projet",
     items: [
-      { label: "Phase 1 — Collecte", href: "/projets/phase-01" },
-      { label: "Phase 1 — Collecte (Retour)", href: "/projets/phase-01-re" },
+      { label: "Phase 1 : Collecte", href: "/projets/phase-01" },
+      { label: "Phase 1 : Collecte (Retour)", href: "/projets/phase-01-re" },
+      // { label: "Phase 2 : Visualisation", href: "/projets/phase-02" },
     ],
   },
 ];

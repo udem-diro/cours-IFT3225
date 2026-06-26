@@ -1,0 +1,354 @@
+---
+/**
+ * Phase 2 · Consommation et visualisation de l'ambiance
+ * Page autonome hors Starlight, jumelle de phase-01.astro.
+ */
+
+import Aside from '../../components/Aside.astro';
+---
+
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Phase 2 · Consommation et visualisation · IFT3225</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,700;9..144,800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__inner">
+        <div class="hero__meta">
+          <span class="hero__course">IFT3225</span>
+          <span class="hero__badge">Livrable 2 · 15 %</span>
+        </div>
+        <h1 class="hero__title">Consommation et visualisation</h1>
+        <p class="hero__subtitle">Phase 2</p>
+        <p class="hero__question">Comment rendre une donnée d'ambiance lisible et actionnable pour un usager?</p>
+        <p class="hero__desc">
+          La phase 1 a produit une API qui expose l'ambiance d'un lieu. La phase 2
+          construit l'application qui la consomme : une interface réactive qui rend
+          l'ambiance lisible, qui laisse soumettre des observations, et qui
+          authentifie les actions protégées.
+        </p>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="Sections">
+      <a href="#contexte">Contexte</a>
+      <a href="#travail">Travail</a>
+      <a href="#bonus">Bonus</a>
+      <a href="#livrables">Livrables</a>
+      <a href="#evaluation">Évaluation</a>
+      <a href="#echeancier">Échéancier</a>
+    </nav>
+
+    <main class="content">
+      <!-- ── 01 Contexte ───────────────────────────────────────── -->
+
+      <section id="contexte">
+        <h2><span class="h2-num">01</span> Contexte</h2>
+        <p>
+          Au terme de la phase 1, chaque équipe dispose d'une API qui collecte,
+          persiste et expose l'ambiance d'un lieu. Cette API est maintenant
+          l'entrée : la phase 2 construit l'application cliente qui la consomme et
+          la rend compréhensible pour une personne, pas seulement pour un outil
+          comme Postman.
+        </p>
+
+        <div class="cards">
+          <div class="card">
+            <div class="card__icon">&#x1F4E1;</div>
+            <h4>Ce que vous consommez</h4>
+            <p>L'API de votre phase 1 : la liste des lieux, le portrait d'ambiance (résumé, détail, historique, créneaux calmes), et la soumission d'observations, protégée par authentification.</p>
+          </div>
+          <div class="card">
+            <div class="card__icon">&#x1F4F1;</div>
+            <h4>Ce que vous construisez</h4>
+            <p>Une interface réactive de consommation et de visualisation, qui authentifie les actions protégées et qui reste lisible dans tous ses états (chargement, erreur, vide).</p>
+          </div>
+        </div>
+
+        <p>
+          L'application consomme l'API de votre propre équipe. Les lectures
+          (consulter l'ambiance) sont publiques ; les écritures (soumettre une
+          observation) demandent une authentification.
+        </p>
+      </section>
+
+      <!-- ── 02 Travail à réaliser ─────────────────────────────── -->
+
+      <section id="travail">
+        <h2><span class="h2-num">02</span> Travail à réaliser</h2>
+        <p>Le travail se décompose en sept tâches, qui peuvent se chevaucher.</p>
+
+        <h3>Tâche 1 : Collecter de nouvelles données</h3>
+        <p>
+          À l'aide du mécanisme de collecte de la phase 1, recueillir de nouvelles
+          données : au moins <strong>10 nouvelles mesures</strong>, réparties sur
+          <strong>3 lieux différents</strong>. La reprise du lieu de la phase 1 est
+          permise comme l'un des trois. Ces données alimentent les visualisations et
+          rendent l'application réaliste.
+        </p>
+
+        <h3>Tâche 2 : Concevoir l'interface</h3>
+        <p>
+          Partir du résultat visé, puis identifier les blocs : sélection d'un lieu,
+          portrait d'ambiance, historique, créneaux calmes, soumission d'une
+          observation. Poser le layout, repérer les actions et leurs écouteurs,
+          puis assembler. C'est la méthodologie vue en cours : le layout, les
+          morceaux réutilisables, les actions, l'assemblage.
+        </p>
+
+        <h3>Tâche 3 : Consommer l'API</h3>
+        <p>
+          Construire une couche client (un module <code>api</code>) qui isole les
+          appels HTTP : lister les lieux, obtenir le portrait d'ambiance et son
+          historique, soumettre une observation. Le reste de l'application appelle
+          cette couche sans toucher à <code>fetch</code>, et reçoit des données
+          déjà mises en forme.
+        </p>
+
+        <div class="arch-diagram">
+          <svg viewBox="0 0 640 170" role="img" aria-label="L'application (interface et couche client) consomme l'API de la phase 1 par HTTP ; la réponse JSON remonte vers l'interface.">
+            <text x="177" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" opacity="0.55">Votre application</text>
+            <text x="528" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" opacity="0.55">Phase 1</text>
+            <line x1="388" y1="36" x2="388" y2="150" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.6"/>
+            <text x="388" y="32" text-anchor="middle" fill="#0d9488" font-size="11" font-weight="600">réseau</text>
+            <rect x="14" y="54" width="150" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="89" y="84" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Interface</text>
+            <text x="89" y="101" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">vues, états</text>
+            <rect x="190" y="54" width="150" height="68" rx="10" fill="none" stroke="#0d9488" stroke-width="2"/>
+            <text x="265" y="84" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Couche client</text>
+            <text x="265" y="101" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">le module api</text>
+            <rect x="430" y="54" width="196" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
+            <text x="528" y="84" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">API phase 1</text>
+            <text x="528" y="101" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">Express + base de données</text>
+            <line x1="164" y1="88" x2="186" y2="88" stroke="#0d9488" stroke-width="2"/>
+            <polygon points="186,84 186,92 194,88" fill="#0d9488"/>
+            <line x1="340" y1="88" x2="426" y2="88" stroke="#0d9488" stroke-width="2"/>
+            <polygon points="426,84 426,92 434,88" fill="#0d9488"/>
+            <text x="388" y="78" text-anchor="middle" fill="#0d9488" font-size="10" font-weight="600">HTTP</text>
+            <path d="M 528 122 L 528 150 L 89 150 L 89 126" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.55"/>
+            <polygon points="83,134 95,134 89,124" fill="currentColor" opacity="0.55"/>
+            <text x="300" y="145" text-anchor="middle" fill="currentColor" font-size="10.5" opacity="0.6">réponse (JSON), puis réaffichage</text>
+          </svg>
+          <p class="arch-caption">L'interface ne parle qu'à la couche client ; la couche client est la seule à connaître l'API de la phase 1.</p>
+        </div>
+
+        <h3>Tâche 4 : Visualiser l'ambiance</h3>
+        <p>
+          Rendre le portrait lisible d'un coup d'oeil : un badge de classification
+          (calme, modéré, animé), une courbe d'historique, les créneaux calmes. Les
+          réponses de l'API portent leur échelle (seuils, unités) : l'interface s'en
+          sert pour rester compréhensible sans documentation externe. Une carte des
+          lieux est une visualisation possible, en option.
+        </p>
+
+        <h3>Tâche 5 : Soumettre des observations</h3>
+        <p>
+          Offrir un formulaire qui envoie une observation environnementale à l'API
+          (une action d'écriture). Respecter les valeurs attendues : la vibe et la
+          proximité par tranches, l'évènement éventuel, la date. C'est ici que se
+          referme la boucle : l'usager ne fait pas que consulter, il contribue.
+        </p>
+
+        <h3>Tâche 6 : Authentifier les actions protégées</h3>
+        <p>
+          L'application permet à un usager de s'authentifier. Les écritures
+          (soumettre une observation, gérer un lieu) exigent cette authentification ;
+          les lectures restent publiques. L'interface reflète l'état connecté ou
+          déconnecté : elle affiche ou masque les actions selon ce qui est permis, et
+          conserve le justificatif (clé ou jeton) de façon appropriée.
+        </p>
+        <Aside type="note" title="Où l'authentification se place">
+          L'authentification est une exigence du côté client : envoyer le
+          justificatif sur les requêtes d'écriture, gérer la connexion et la
+          déconnexion, et adapter l'interface à l'état. Le mécanisme côté serveur
+          vient de la phase 1 (clé API sur les routes d'écriture).
+        </Aside>
+
+        <h3>Tâche 7 : Soigner la réactivité et la transparence</h3>
+        <p>
+          Une interface réactive reflète l'état du système et garde l'usager en
+          contrôle. Gérer les états de chargement, d'erreur et vide ; donner un
+          retour à chaque action ; adapter l'affichage à l'état. Une requête qui
+          échoue doit le dire, pas laisser l'usager dans le doute.
+        </p>
+
+      </section>
+
+      <!-- ── 03 Bonus ──────────────────────────────────────────── -->
+
+      <section id="bonus">
+        <h2><span class="h2-num">03</span> Bonus</h2>
+        <p>
+          Deux extensions sont valorisées au-delà du socle et peuvent ajouter jusqu'à
+          5 % à la note du livrable. Elles sont indépendantes : l'une, l'autre, ou les
+          deux.
+        </p>
+        <div class="cards">
+          <div class="card">
+            <div class="card__icon">&#x1F537;</div>
+            <h4>Backend en TypeScript</h4>
+            <p>Porter le serveur de la phase 1 en TypeScript : typer le modèle, la couche d'accès aux données et les routes, pour que le contrat entre le client et le serveur soit vérifié à la compilation.</p>
+          </div>
+          <div class="card">
+            <div class="card__icon">&#x26A1;</div>
+            <h4>Temps réel</h4>
+            <p>Pousser les mises à jour d'ambiance vers le client (SSE ou WebSocket) plutôt que de les faire interroger, pour que l'affichage suive l'état sans rechargement.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 04 Livrables ──────────────────────────────────────── -->
+
+      <section id="livrables">
+        <h2><span class="h2-num">04</span> Livrables</h2>
+
+        <h3>Implémentation <span class="tag">Dépôt Git</span></h3>
+        <p>L'application cliente (React) doit satisfaire les exigences suivantes :</p>
+        <ul>
+          <li><strong>Consommation de l'API</strong> : une couche client (module <code>api</code>) qui isole les appels HTTP vers l'API de la phase 1</li>
+          <li><strong>Visualisation de l'ambiance</strong> : classification, historique et créneaux calmes, lisibles et fondés sur les réponses de l'API</li>
+          <li><strong>Soumission d'observations</strong> : un formulaire qui envoie une observation, en respectant les valeurs attendues</li>
+          <li><strong>Authentification des actions protégées</strong> : connexion, envoi du justificatif sur les écritures, état connecté reflété dans l'interface, lectures publiques</li>
+          <li><strong>Gestion des états</strong> : chargement, erreur et vide traités explicitement</li>
+          <li><strong>Organisation facilitant l'évolution</strong> : composants distincts, couche client séparée de l'interface</li>
+        </ul>
+
+        <h3>Présentation intermédiaire <span class="tag">en labo, semaine 2</span></h3>
+        <p>
+          Présenter l'interface publique (consultation et visualisation, sans
+          l'authentification) devant l'enseignant, 3 à 5 minutes par équipe. Montrer
+          que l'application consomme l'API et rend l'ambiance lisible ; chaque membre
+          doit pouvoir expliquer sa partie.
+        </p>
+
+        <h3>README.md <span class="tag">dans le dépôt</span></h3>
+        <p>Document technique pour un développeur qui veut relancer le projet :</p>
+        <ul>
+          <li>Description du projet (2-3 phrases)</li>
+          <li>Prérequis (Node, l'API de la phase 1 en marche)</li>
+          <li>Installation et lancement (<code>npm install</code>, <code>npm run dev</code>)</li>
+          <li>Configuration : l'URL de l'API de la phase 1, avec un <code>.env.example</code></li>
+          <li>Comment se connecter et tester les actions protégées</li>
+        </ul>
+
+        <h3>Rapport (un par équipe)<span class="tag">PDF sur Studium</span></h3>
+        <p>Le rapport décrit la conception de l'interface et les choix faits. Il suit la structure suivante :</p>
+        <ol class="design-list">
+          <li><strong>Conception de l'interface</strong> : les blocs, les vues, la méthodologie suivie, du layout à l'assemblage.</li>
+          <li><strong>Consommation de l'API</strong> : la couche client, les endpoints utilisés, la gestion des erreurs et des cas limites.</li>
+          <li><strong>Visualisation</strong> : les représentations choisies, comment les seuils et les unités rendent le portrait lisible, ce qui a été écarté.</li>
+          <li><strong>Authentification</strong> : le flux côté client, les actions protégées, la conservation du justificatif, la façon dont l'état se reflète dans l'interface.</li>
+          <li><strong>Réactivité et utilisabilité</strong> : les états gérés, la transparence, les heuristiques retenues.</li>
+          <li><strong>Limites et évolution</strong> : compromis assumés, ce qui changerait avec plus de temps, et le cas échéant les bonus réalisés.</li>
+        </ol>
+      </section>
+
+      <!-- ── 05 Évaluation ─────────────────────────────────────── -->
+
+      <section id="evaluation">
+        <h2><span class="h2-num">05</span> Évaluation</h2>
+        <table class="eval-table"><thead><tr><th>Critère</th><th>Poids</th><th>Ce qu'on évalue</th></tr></thead><tbody>
+          <tr><td>Interface et expérience</td><td>25 %</td><td>Réactivité, gestion des états, utilisabilité de l'ensemble</td></tr>
+          <tr><td>Consommation de l'API</td><td>20 %</td><td>Couche client isolée, endpoints bien utilisés, erreurs gérées</td></tr>
+          <tr><td>Visualisation</td><td>25 %</td><td>Classification, historique, créneaux calmes, lisibilité</td></tr>
+          <tr><td>Authentification</td><td>15 %</td><td>Flux côté client, actions protégées, état connecté, lectures publiques</td></tr>
+          <tr><td>README</td><td>5 %</td><td>Reproductible, configuration de l'API documentée</td></tr>
+          <tr><td>Rapport</td><td>10 %</td><td>Analyse des choix, identification des limites</td></tr>
+        </tbody></table>
+      </section>
+
+      <!-- ── 06 Échéancier ─────────────────────────────────────── -->
+
+      <section id="echeancier">
+        <h2><span class="h2-num">06</span> Échéancier</h2>
+        <div class="timeline">
+          <div class="tl-item"><div class="tl-date">Semaine 1</div><div class="tl-desc">Nouvelles données collectées (10 mesures, 3 lieux) ; interface esquissée ; couche client qui liste les lieux et affiche un portrait d'ambiance</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine 2</div><div class="tl-desc">Visualisations (historique, créneaux calmes) ; états de chargement et d'erreur ; présentation intermédiaire de l'interface publique (3 à 5 min)</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine 3</div><div class="tl-desc">Soumission d'observations ; authentification des actions protégées</div></div>
+          <div class="tl-item tl-item--final"><div class="tl-date">Remise</div><div class="tl-desc">Dépôt Git + rapport PDF sur Studium (date à fixer)</div></div>
+        </div>
+      </section>
+    </main>
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--c-bg:#faf9f7;--c-surface:#fff;--c-border:#e0ded8;--c-border-s:#e8e6e1;--c-text:#1a1a2e;--c-mid:#44445a;--c-muted:#6b6b80;--c-dim:#9898ab;--c-accent:#0d9488;--c-accent-b:#f0fdfa;--c-accent-s:#ccfbf1;--c-warn:#d97706;--c-warn-b:#fffbeb;--c-blue:#3b6fca;--c-green:#2d8a4e;--c-red:#dc2626;--font:'DM Sans',system-ui,sans-serif;--serif:'Fraunces',Georgia,serif;--mono:'JetBrains Mono',Consolas,monospace}
+body{font-family:var(--font);color:var(--c-text);background:var(--c-bg);line-height:1.72;-webkit-font-smoothing:antialiased}
+.hero{background:linear-gradient(165deg,#0f766e,#134e4a);color:#fff;padding:4rem 2rem 3.5rem}
+.hero__inner{max-width:780px;margin:0 auto}
+.hero__meta{display:flex;gap:12px;align-items:center;margin-bottom:1.25rem}
+.hero__course{font-family:var(--mono);font-size:.82rem;font-weight:600;letter-spacing:.08em;opacity:.7}
+.hero__badge{font-size:.72rem;font-weight:700;background:rgba(255,255,255,.15);padding:3px 10px;border-radius:20px}
+.hero__title{font-family:var(--serif);font-size:clamp(2rem,5vw,3rem);font-weight:800;line-height:1.15;margin-bottom:.25rem}
+.hero__subtitle{font-size:1.1rem;opacity:.6;font-weight:500;margin-bottom:1.5rem}
+.hero__question{font-family:var(--serif);font-size:1.35rem;font-style:italic;border-left:3px solid rgba(255,255,255,.3);padding-left:1.25rem;margin-bottom:1.25rem;opacity:.9}
+.hero__desc{font-size:.95rem;opacity:.75;line-height:1.7;max-width:600px}
+.toc{position:sticky;top:0;z-index:100;display:flex; justify-content: center; background:var(--c-surface);border-bottom:1px solid var(--c-border);overflow-x:auto;scrollbar-width:none}
+.toc::-webkit-scrollbar{display:none}
+.toc a{flex-shrink:0;padding:12px 18px;font-size:.78rem;font-weight:600;color:var(--c-muted);text-decoration:none;border-bottom:2px solid transparent;transition:color .2s,border-color .2s;white-space:nowrap}
+.toc a:hover{color:var(--c-accent);border-bottom-color:var(--c-accent)}
+.content{max-width:780px;margin:0 auto;padding:0 2rem 6rem}
+section{scroll-margin-top:52px}
+h2{font-family:var(--serif);font-size:1.5rem;font-weight:700;margin-top:3.5rem;margin-bottom:1rem;padding-bottom:.4rem;border-bottom:2px solid var(--c-accent);display:flex;align-items:baseline;gap:12px}
+.h2-num{font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--c-accent);opacity:.5}
+h3{font-size:1.08rem;font-weight:700;margin-top:2rem;margin-bottom:.6rem}
+h3 .tag{font-size:.68rem;font-weight:600;background:var(--c-accent-b);color:var(--c-accent);padding:2px 8px;border-radius:20px;vertical-align:middle;margin-left:8px;text-transform:uppercase;letter-spacing:.04em}
+h4{font-size:.95rem;font-weight:700;color:var(--c-mid);margin-top:1.25rem;margin-bottom:.4rem}
+p{margin-bottom:.8rem}
+ul,ol{padding-left:1.25rem;margin-bottom:1rem}
+li{margin-bottom:.3rem}
+li::marker{color:var(--c-accent)}
+code{font-family:var(--mono);font-size:.87em;background:var(--c-accent-b);color:var(--c-accent);padding:1px 5px;border-radius:3px}
+pre{overflow-x:auto}
+.callout{display:flex;gap:14px;padding:16px 18px;border-radius:10px;margin:1.25rem 0;font-size:.9rem;line-height:1.6;border:1px solid var(--c-border-s)}
+.callout--info{background:var(--c-accent-b);border-color:var(--c-accent-s)}
+.callout--warn{background:var(--c-warn-b);border-color:#fde68a}
+.callout__icon{font-size:1.2rem;flex-shrink:0;margin-top:1px}
+.callout__body code{font-size:.84em}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:1rem 0}
+@media(max-width:640px){.two-col{grid-template-columns:1fr}}
+.source-card{background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:10px;padding:18px}
+.source-card__header{font-weight:700;font-size:.92rem;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.arch-diagram{margin:1.5rem -2rem;padding:1.5rem 2rem;background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:12px;overflow-x:auto}
+.arch-diagram svg{width:100%;height:auto;min-width:600px}
+.arch-caption{font-size:.88rem;color:var(--c-muted);font-style:italic;margin-top:.5rem}
+.code-block{background:#1e1e2e;color:#cdd6f4;border-radius:10px;padding:1.1rem 1.3rem;margin:1rem 0;font-family:var(--mono);font-size:.82rem;line-height:1.6;border:1px solid #313244;overflow-x:auto;white-space:pre}
+.code-block code{background:none;color:inherit;padding:0;font-size:inherit}
+.endpoint-table,.eval-table{width:100%;border-collapse:separate;border-spacing:0;margin:1rem 0;font-size:.86rem;border:1px solid var(--c-border);border-radius:8px;overflow:hidden}
+.endpoint-table thead,.eval-table thead{background:var(--c-accent-b)}
+.endpoint-table th,.eval-table th{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--c-accent);padding:9px 12px;text-align:left;border-bottom:2px solid var(--c-accent)}
+.endpoint-table td,.eval-table td{padding:9px 12px;vertical-align:top;border-bottom:1px solid var(--c-border-s)}
+.endpoint-table tr:last-child td,.eval-table tr:last-child td{border-bottom:none}
+.endpoint-table tbody tr:hover,.eval-table tbody tr:hover{background:var(--c-bg)}
+.eval-table td:nth-child(2){font-family:var(--mono);font-weight:700;color:var(--c-green);text-align:right;white-space:nowrap}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:1.25rem 0}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+.card{background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:10px;padding:20px;transition:border-color .2s,box-shadow .2s}
+.card:hover{border-color:var(--c-accent);box-shadow:0 2px 20px rgba(13,148,136,.06)}
+.card__icon{font-size:1.5rem;margin-bottom:8px}
+.card h4{font-weight:700;color:var(--c-accent);margin-bottom:6px;margin-top:0}
+.card p{font-size:.88rem;color:var(--c-mid);margin:0;line-height:1.55}
+.design-list{counter-reset:design;padding-left:0;list-style:none}
+.design-list li{counter-increment:design;padding:10px 14px 10px 44px;position:relative;margin-bottom:8px;background:var(--c-surface);border:1px solid var(--c-border-s);border-radius:8px;font-size:.92rem}
+.design-list li::before{content:counter(design);position:absolute;left:14px;top:10px;font-family:var(--mono);font-size:.78rem;font-weight:700;color:var(--c-accent);background:var(--c-accent-b);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.timeline{margin:1.5rem 0;padding-left:28px;border-left:2px solid var(--c-accent-s)}
+.tl-item{position:relative;padding:12px 0 12px 20px}
+.tl-item::before{content:'';position:absolute;left:-7px;top:18px;width:12px;height:12px;border-radius:50%;background:var(--c-surface);border:2px solid var(--c-accent)}
+.tl-item--final::before{background:var(--c-accent)}
+.tl-date{font-family:var(--mono);font-size:.78rem;font-weight:600;color:var(--c-muted);margin-bottom:2px}
+.tl-item--final .tl-date{color:var(--c-accent)}
+.tl-desc{font-size:.9rem}
+.tl-desc code{font-size:.84em}
+@media print{.hero{background:#134e4a!important;-webkit-print-color-adjust:exact}.toc{display:none}.content{max-width:none;padding:0 1rem}h2{break-after:avoid}.card,.callout,table,pre,.arch-diagram{break-inside:avoid}}
+</style>
+</body>
+</html>

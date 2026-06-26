@@ -1,0 +1,403 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Prise en main de React"
+description: "Premiers composants React : la fonction qui retourne du JSX, la composition, les props, et l'état avec useState, illustrés par le signalement d'arrivée des autobus."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import Compteur from "../../components/react/Compteur.jsx";
+
+<MarginNote type="prerequis">
+Ce guide poursuit les notes sur [Les outils du développement web moderne](/notes/outils-frontend), qui situe React, JSX et le rôle d'un cadriciel.
+</MarginNote>
+
+## Introduction
+
+React est une **librairie JavaScript open source** pour construire des interfaces utilisateur modulaires et réactives à partir de composants réutilisables.
+
+En construisant une application comme un assemblage de composants, on favorise la modularité (chaque composant a une responsabilité claire) et la réutilisabilité (un même composant sert à plusieurs endroits).
+
+
+## Un premier composant
+
+#### Fichier `HelloWorld.jsx`
+
+```jsx
+function HelloWorld() {
+  return <h1>Hello, World!</h1>;
+}
+
+export default HelloWorld;
+```
+
+**Un composant est une fonction qui retourne un élément JSX**. 
+
+<MarginNote type="rappel" titre="Rappel: JSX">
+JSX (JavaScript XML) est une extension de syntaxe qui permet d'écrire un balisage proche du HTML directement dans un fichier JavaScript. 
+</MarginNote>
+
+<MarginNote type="attention" titre="Règle de la majuscule">
+Un composant React commence **toujours par une majuscule** (`<HelloWorld />`). En minuscule (`<helloWorld />`), React l'interprète comme une balise HTML standard et le composant n'est pas rendu.
+</MarginNote>
+
+Pour l'utiliser, on l'écrit comme une balise :
+
+#### Exemple: Utilisation de `HelloWorld.jsx` dans `App.jsx` (code ci-dessous)
+
+```jsx
+import HelloWorld from "./HelloWorld";
+
+function App() {
+  return (
+    <div>
+      <HelloWorld />
+    </div>
+  );
+}
+```
+
+## Composer des composants
+
+Une interface se décompose naturellement en sections. Dans React, chaque section devient un composant. Pour un panneau de signalement d'arrivée des autobus :
+
+```jsx
+// PanneauSignalement.jsx
+import EnTete from "./EnTete";
+import SelecteurArret from "./SelecteurArret";
+import ListeSignalements from "./ListeSignalements";
+import PiedPage from "./PiedPage";
+
+function PanneauSignalement() {
+  return (
+    <div>
+      <EnTete />
+      <SelecteurArret />
+      <ListeSignalements />
+      <PiedPage />
+    </div>
+  );
+}
+
+export default PanneauSignalement;
+```
+
+L'arbre des composants ressemble à ceci :
+
+```
+App
+└── PanneauSignalement
+    ├── EnTete
+    ├── SelecteurArret
+    ├── ListeSignalements
+    └── PiedPage
+```
+
+Le point d'entrée de l'application monte ce composant racine dans la page :
+
+```jsx
+// main.jsx
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
+import PanneauSignalement from "./PanneauSignalement";
+
+createRoot(document.getElementById("root")).render(
+  <StrictMode>
+    <PanneauSignalement />
+  </StrictMode>
+);
+```
+
+## Retourner plusieurs éléments
+
+Un composant retourne toujours **un seul élément racine**. Retourner plusieurs éléments frères provoque une erreur :
+
+```jsx
+// Erreur : deux éléments racine
+function EnTete() {
+  return (
+    <h1>Arrivées d'autobus</h1>
+    <p>Réseau STM</p>
+  );
+}
+```
+
+La solution conseillée est le **Fragment** (`<>...</>`), qui groupe sans ajouter de balise au DOM :
+
+```jsx
+function EnTete() {
+  return (
+    <>
+      <h1>Arrivées d'autobus</h1>
+      <p>Réseau STM</p>
+    </>
+  );
+}
+```
+
+On peut aussi employer un élément englobant, par exemple un `<div>`, quand un conteneur réel est utile :
+
+```jsx
+function EnTete() {
+  return (
+    <div>
+      <h1>Arrivées d'autobus</h1>
+      <p>Réseau STM</p>
+    </div>
+  );
+}
+```
+
+Le Fragment s'utilise quand un `<div>` serait superflu.
+
+## Les props
+
+Un composant devient réutilisable quand son contenu peut varier. Les **props** (propriétés) transmettent de l'information d'un composant parent à un composant enfant.
+
+```jsx
+// Parent.jsx
+import Enfant from "./Enfant";
+
+function Parent() {
+  const message = "Prochain 11 dans 3 min";
+
+  return (
+    <div>
+      <h1>Signalement</h1>
+      <Enfant message={message} />
+    </div>
+  );
+}
+
+export default Parent;
+```
+
+```jsx
+// Enfant.jsx
+function Enfant(props) {
+  return <p>{props.message}</p>;
+}
+
+export default Enfant;
+```
+
+Le parent passe `message` comme attribut JSX ; l'enfant le reçoit dans l'objet `props` et l'affiche.
+
+<MarginNote type="rappel" titre="Les props sont immuables">
+Un composant enfant ne modifie jamais les props qu'il reçoit. Les props circulent dans un seul sens, du parent vers l'enfant. Si une donnée doit changer, c'est au parent de la changer et de transmettre une nouvelle valeur. C'est le même principe que la liaison de données vue dans [Concevoir une interface réactive](/notes/interface-reactive) : les données descendent, les événements remontent.
+</MarginNote>
+
+### Destructuration des props
+
+La forme `props.message` fonctionne, mais on préfère souvent **destructurer** les props dans la signature de la fonction :
+
+```jsx
+// Enfant.jsx
+function Enfant({ message }) {
+  return <p>{message}</p>;
+}
+```
+
+Cette écriture est plus concise et rend visibles d'un coup d'oeil les props attendues. On peut aussi donner des **valeurs par défaut** :
+
+```jsx
+function Bouton({ libelle = "Cliquez", actif = true }) {
+  return <button disabled={!actif}>{libelle}</button>;
+}
+```
+
+## Afficher une liste de composants
+
+Dans une application réelle, on affiche rarement un élément seul : on affiche **une liste**. On utilise `.map()` pour transformer un tableau de données en un tableau d'éléments JSX.
+
+```jsx
+function CarteSignalement({ ligne, arret, delai }) {
+  return (
+    <div className="carte-signalement">
+      <h2>Ligne {ligne}</h2>
+      <p>{arret}, arrive dans ~{delai} min</p>
+    </div>
+  );
+}
+
+function ListeSignalements() {
+  const signalements = [
+    { id: 1, ligne: "11",  arret: "Mont-Royal / Saint-Denis", delai: 3 },
+    { id: 2, ligne: "747", arret: "Berri-UQAM",               delai: 2 },
+    { id: 3, ligne: "80",  arret: "Parc / Beaubien",          delai: 6 }
+  ];
+
+  return (
+    <div className="liste-signalements">
+      {signalements.map((s) => (
+        <CarteSignalement
+          key={s.id}
+          ligne={s.ligne}
+          arret={s.arret}
+          delai={s.delai}
+        />
+      ))}
+    </div>
+  );
+}
+
+export default ListeSignalements;
+```
+
+<MarginNote type="attention" titre="La prop spéciale key">
+Dans une liste générée par `.map()`, React a besoin d'une **`key`** unique sur chaque élément pour identifier celui qui a changé, été ajouté ou supprimé. Utiliser un identifiant stable (comme `id`), jamais l'index du tableau si la liste peut changer d'ordre. L'oubli de `key` provoque un avertissement et des bogues de rendu subtils.
+</MarginNote>
+
+## Props et état
+
+Avant de construire le compteur, une distinction centrale.
+
+| | Props | État (state) |
+|---|---|---|
+| Source | Fournies par le parent | Internes au composant |
+| Mutabilité | Immuables | Modifiables via `setXxx` |
+| Effet sur le rendu | Change quand le parent passe de nouvelles valeurs | Change quand `setXxx` est appelé |
+
+Les props **configurent** un composant (le parent dit « voici tes paramètres »). L'état **mémorise** quelque chose qui évolue pendant la vie du composant (la valeur d'un champ, l'onglet actif, le contenu d'un panier).
+
+## Construire un compteur
+
+On a déjà construit un compteur en JavaScript natif dans [Les bases du DOM](/notes/dom-bases). Le voici en React, pour voir précisément ce que `useState` change.
+
+<Compteur client:visible />
+
+On le construit par étapes, pour comprendre **pourquoi** `useState` est nécessaire.
+
+### Étape 1 : la structure
+
+```jsx
+function Compteur() {
+  let compteur = 0;
+
+  return (
+    <div>
+      <p>Valeur : {compteur}</p>
+      <button>Incrémenter</button>
+    </div>
+  );
+}
+```
+
+Un composant statique. Le bouton existe mais ne fait rien.
+
+### Étape 2 : ajouter un gestionnaire d'événement
+
+```jsx
+function Compteur() {
+  let compteur = 0;
+
+  const handleClick = () => {
+    compteur += 1;
+    console.log("Valeur en mémoire :", compteur);
+  };
+
+  return (
+    <div>
+      <p>Valeur : {compteur}</p>
+      <button onClick={handleClick}>Incrémenter</button>
+    </div>
+  );
+}
+```
+
+En testant ce code, la console affiche bien la valeur qui grimpe en mémoire, mais l'affichage à l'écran reste figé à `0`.
+
+<Highlight couleur="ambre">React ne surveille pas les variables locales. Il ne sait pas qu'il doit redessiner le composant quand `compteur` change. Pour que l'affichage suive, il faut dire explicitement à React que l'état a changé : c'est le rôle de `useState`.</Highlight>
+
+### Étape 3 : utiliser `useState`
+
+```jsx
+import { useState } from "react";
+
+function Compteur() {
+  const [compteur, setCompteur] = useState(0);
+
+  const handleClick = () => {
+    setCompteur(compteur + 1);
+  };
+
+  return (
+    <div>
+      <p>Valeur : {compteur}</p>
+      <button onClick={handleClick}>Incrémenter</button>
+    </div>
+  );
+}
+```
+
+La ligne `const [compteur, setCompteur] = useState(0)` se lit ainsi : `compteur` est la valeur actuelle de l'état, `setCompteur` la fonction qui la met à jour, et `useState(0)` la valeur initiale. Quand `setCompteur(...)` est appelée, React **redessine automatiquement le composant** avec la nouvelle valeur. C'est ce nouveau rendu qui met l'affichage à jour, contrairement à l'étape 2.
+
+### Étape 4 : rendre le composant configurable
+
+```jsx
+import { useState } from "react";
+
+function Compteur({ valeurInitiale = 0, pas = 1 }) {
+  const [compteur, setCompteur] = useState(valeurInitiale);
+
+  return (
+    <div>
+      <p>Valeur : {compteur}</p>
+      <button onClick={() => setCompteur(compteur + pas)}>
+        Incrémenter
+      </button>
+    </div>
+  );
+}
+```
+
+Deux choses à noter. Le composant accepte maintenant des **props** (`valeurInitiale`, `pas`) avec des valeurs par défaut. Et le gestionnaire d'événement est défini **en ligne** (`() => setCompteur(...)`), une écriture courante quand la logique est courte.
+
+### Étape 5 : utilisation
+
+```jsx
+// App.jsx
+import Compteur from "./Compteur";
+
+function App() {
+  return (
+    <div>
+      <h1>Mon application React</h1>
+      <Compteur valeurInitiale={500} pas={10} />
+    </div>
+  );
+}
+
+export default App;
+```
+
+<Checkpoint question="À l'étape 2, le clic incrémente bien compteur en mémoire, mais l'affichage reste à 0. Pourquoi useState corrige-t-il cela ?">
+Parce que React ne redessine un composant que lorsqu'il sait que son état a changé. Une variable locale (`let compteur`) change en mémoire, mais React ne le surveille pas, donc le rendu ne se refait pas. `useState` enregistre la valeur comme un état suivi : appeler `setCompteur(...)` signale le changement à React, qui redessine le composant avec la nouvelle valeur.
+</Checkpoint>
+
+## Erreurs communes à éviter
+
+| Erreur | Symptôme | Correction |
+|---|---|---|
+| Composant en minuscule | Le composant ne s'affiche pas, sans erreur claire | `<Compteur />` et non `<compteur />` |
+| Modifier un prop (`props.x = ...`) | Comportement imprévisible, avertissement | Les props sont en lecture seule, demander au parent |
+| Modifier l'état directement (`compteur += 1`) | L'affichage ne se met pas à jour | Toujours passer par `setCompteur(...)` |
+| Oublier `key` dans un `.map()` | Avertissement, bogues de rendu | Ajouter `key={item.id}` |
+| Plusieurs éléments sans racine | Erreur de compilation | Englober dans `<>...</>` ou un `<div>` |
+| Appeler `setXxx` dans le corps du composant | Boucle infinie de rendus | Ne mettre à jour l'état que dans un gestionnaire ou un `useEffect` |
+
+## Récapitulatif
+
+| Idée | Point clé |
+|---|---|
+| Composant | Une fonction qui retourne du JSX, nommée avec une majuscule |
+| Composition | Des composants dans des composants, pour bâtir l'interface |
+| Props | Données du parent vers l'enfant, immuables |
+| État (`useState`) | Mémoire d'un composant ; la modifier déclenche un nouveau rendu |
+| Listes | Rendues avec `.map()` et une `key` unique par élément |
+| Fragment | `<>...</>` groupe sans ajouter de balise au DOM |
+
+<MarginNote type="plusloin" titre="La suite">
+L'état qui pilote la vue (vue = f(état)) est le coeur d'une interface réactive : [Concevoir une interface réactive](/notes/interface-reactive) le développe, et les guides TodoList le mettent en pratique, du natif au serveur.
+</MarginNote>

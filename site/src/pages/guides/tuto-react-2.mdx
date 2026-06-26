@@ -1,0 +1,542 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Hooks et cycle de vie de composants"
+description: "useState en profondeur, useEffect et le cycle de vie d'un composant (montage, mise à jour, démontage), useRef, les événements et les hooks personnalisés (useClickOutside, useLocalStorage)."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import SimpleLayerDiagram from "../../components/SimpleLayerDiagram.astro";
+import ComponentLifeCycle from "../../components/react/ComponentLifeCycle.jsx";
+import { Image } from 'astro:assets';
+import OneWayVSTwoWayImage from '../../assets/images/one-way-vs-two-way-data-binding.png';
+
+<MarginNote type="prerequis">
+Cette page fait suite à [Prise en main de React](tuto-react-1), 
+où l'on a vu les composants, les props et l'état avec `useState`. On approfondit
+ici `useState`, on ajoute `useEffect` et le cycle de vie d'un composant, `useRef`, 
+la gestion des événements et les hooks personnalisés.
+</MarginNote>
+
+## Introduction aux hooks
+
+Un **hook** est une fonction (intégrée) fournie par React qui donne accès à certaines de ses capacités (état, effets, références, contexte) depuis un composant fonctionnel.
+
+Deux règles qu'il faut absolument respecter :
+
+1. **Toujours appeler les hooks au niveau supérieur** du composant. Jamais à l'intérieur d'une condition, d'une boucle ou d'une fonction imbriquée.
+2. **N'appeler les hooks que depuis un composant React ou un autre hook personnalisé**. Jamais depuis une fonction JavaScript ordinaire.
+
+> Ces règles permettent à React d'associer correctement chaque appel de hook à la bonne « case mémoire » du composant.
+
+## `useState` : mémoriser ce qui évolue
+
+`useState` permet à un composant de mémoriser une donnée qui peut changer entre deux rendus.
+
+```jsx
+const [valeur, setValeur] = useState(valeurInitiale);
+```
+
+- `valeur` contient l’état courant ; 
+- `setValeur` le met à jour **et déclenche un nouveau rendu** ; 
+- `useState(valeurInitiale)` fixe la valeur initiale, utilisée lors du premier rendu du composant. 
+
+`useState` est notamment utilisé pour créer des champs contrôlés :
+
+```jsx
+const [nom, setNom] = useState("");
+
+<input
+  value={nom}
+  onChange={event => setNom(event.target.value)}
+/>
+```
+
+La valeur de l'état est transmise au champ par `value`, tandis que `onChange` met 
+l'état à jour lorsque l'utilisateur saisit du texte. 
+
+<MarginNote type="rappel" titre="Liaison de données">
+Cela ressemble à une liaison bidirectionnelle, mais repose en réalité sur le flux 
+de données unidirectionnel de React.
+
+<div style={{width: "100%"}}>
+<img src={OneWayVSTwoWayImage.src} alt="A bird." style={{width: "100%", height: "auto"}} />
+</div>
+
+React privilégie plutôt un flux de données unidirectionnel explicite : 
+l’état demeure la source de vérité, l’interface en reçoit la valeur, puis les événements demandent sa mise à jour.
+</MarginNote>
+
+### Mettre à jour à partir de la valeur précédente
+
+Lorsque la nouvelle valeur dépend de l'ancienne, il est préférable d'utiliser la **mise à jour fonctionnelle**:
+
+```jsx
+setCompteur(prev => prev + 1);
+```
+
+<MarginNote type="definition" titre="L'état est un (photo) instantané">
+Lors d'un rendu, la valeur de l'état reste fixe : elle représente un instantané à ce moment précis. 
+Lorsque plusieurs mises à jour dépendent de la valeur précédente, la forme `setValeur(prev => ...)` 
+garantit que chaque mise à jour parte du résultat de la précédente, plutôt que de la valeur capturée par le rendu en cours.
+</MarginNote>
+
+### Particularités pour les objets ou tableaux
+
+Lorsque l'état est un objet ou un tableau, on ne **ne doit pas** modifier directement
+l'état en place. On recrée une copie pour que React voit le changement.
+
+```jsx
+const [signalement, setSignalement] = useState({ ligne: "11", arret: "" });
+
+// Mettre à jour un seul champ, sans muter l'objet existant
+setSignalement(prev => ({ ...prev, arret: "Berri-UQAM" }));
+```
+
+Écrire `signalement.arret = "Berri-UQAM"` modifierait directement l’objet existant, 
+sans appeler la fonction de mise à jour (aucun nouveau rendu), car la référence
+de l'objet n'a pas changé.
+
+### Initialiser avec une fonction
+
+Si la valeur initiale demande un calcul, passez une **fonction** à `useState` : elle n'est appelée qu'à l'apparition, pas à chaque rendu.
+
+```jsx
+const [places, setPlaces] = useState(() => genererPlaces(config));
+```
+
+## `useEffect` : les effets de bord
+
+Un **effet de bord** est tout ce qui sort du « rendu pur » d'un composant : appel HTTP (`fetch`), abonnement à un événement global, modification du titre de la page, minuterie, etc.
+
+```jsx
+useEffect(() => {
+  // code à exécuter après le rendu
+  return () => {
+    // fonction de nettoyage (optionnelle)
+  };
+}, [dependances]);
+```
+
+### Le cycle de vie d'un composant
+
+Un composant traverse trois phases. `useEffect` permet de se brancher sur chacune, selon son tableau de dépendances.
+
+| Forme | Exécution |
+|---|---|
+| `useEffect(() => {...})` | Après **chaque** rendu (risque de boucle infinie si l'effet modifie l'état). |
+| `useEffect(() => {...}, [])` | Une seule fois, à l'apparition du composant. |
+| `useEffect(() => {...}, [x, y])` | À l'apparition, puis chaque fois que `x` ou `y` change. |
+
+
+#### 1. Le montage (mounting)
+
+C'est l'étape où le composant est créé et inséré dans le DOM.
+
+- **Fonctionnement** : les états initiaux sont créés, le code principal s'exécute, puis le composant est affiché.
+- **Équivalent `useEffect`** : avec un tableau de dépendances vide `[]`, le code ne s'exécute qu'une seule fois, au chargement.
+- **Usage** : idéal pour récupérer des données d'une API, initialiser des écouteurs d'événements ou démarrer des abonnements.
+
+```jsx
+import { useState, useEffect } from "react";
+
+function ListeSignalements() {
+  const [signalements, setSignalements] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [chargement, setChargement] = useState(true);
+
+  useEffect(() => {
+    fetch("/api/signalements")
+      .then((reponse) => {
+        // Verifier si la réponse est une erreur (ex: 400, 401, 404, etc)
+        if (!reponse.ok) {
+            throw new Error(`HTTP ${reponse.status}`);
+        }
+
+        return reponse.json(); // transforme le JSON en objet
+      })
+      .then((data) => setSignalements(data))  // Mise à jour de `signalements` => Nouveau rendu
+      .catch((err) => setErreur(err.message)) // Mise à jour de `erreur` => Nouveau rendu
+      .finally(() => setChargement(false));   // Mise à jour de `chargement` => Nouveau rendu
+  }, []); // une seule fois, à l'apparition
+
+
+  if (chargement) {
+    return <p>Chargement…</p>;
+  }
+
+  if (erreur) {
+    return <p>Erreur : {erreur}</p>;
+  }
+
+  return (
+    <ul>
+      {signalements.map((signal) => (
+        <li key={signal.id}>Ligne {signal.ligne} à {signal.arret}</li>
+      ))}
+    </ul>
+  );
+}
+```
+
+#### 2. La mise à jour (updating)
+
+Cette phase se produit lorsque le composant reçoit de nouvelles *props* ou que son état change.
+
+- **Fonctionnement** : React détecte un changement de données et refait le rendu pour refléter ces nouvelles informations à l'écran.
+- **Équivalent `useEffect`** : sans tableau de dépendances, l'effet tourne à chaque rendu ; en mettant des variables dans le tableau `[variable]`, le code ne se déclenche que si cette variable change.
+- **Usage** : parfait pour réagir à une modification précise de l'interface, ou pour synchroniser un état dérivé (par exemple relancer une requête quand un filtre change).
+
+```jsx
+// Relancé chaque fois que `ligne` change
+useEffect(() => {
+  fetch(`/api/signalements?ligne=${ligne}`)
+    .then((reponse) => reponse.json())
+    .then((data) => setSignalements(data));
+}, [ligne]);
+```
+
+#### 3. Le démontage (unmounting)
+
+Le composant est retiré de l'écran (changement de page, ou condition d'affichage devenue fausse).
+
+- **Fonctionnement** : React détruit le composant et libère l'espace mémoire associé.
+- **Équivalent `useEffect`** : en renvoyant une **fonction de nettoyage** (cleanup) depuis `useEffect`.
+- **Usage** : crucial pour supprimer des abonnements, annuler des requêtes réseau en cours ou fermer des connexions WebSocket, afin d'éviter les fuites de mémoire.
+
+```jsx
+useEffect(() => {
+  const id = setInterval(() => rafraichir(), 5000);
+  return () => clearInterval(id); // annulé au démontage
+}, []);
+```
+
+Dans la démonstration ci-dessous, l'enfant porte un effet de **montage / démontage** (dépendances `[]`, avec nettoyage) et un effet de **mise à jour** (dépendance `[ligne]`). 
+
+<ComponentLifeCycle client:visible />
+
+<MarginNote type="attention" titre="En développement: Strict Mode">
+En développement, React invoque volontairement les effets **deux fois** (apparition, nettoyage, apparition) pour débusquer les effets mal nettoyés. Ce comportement disparaît en production.
+</MarginNote>
+
+## `useRef` : références mutables
+
+`useRef` permet de conserver une référence entre les rendus. La modification 
+de sa propriété `current` est immédiate, mais ne déclenche pas de nouveau rendu.
+
+```jsx
+const maRef = useRef(valeurInitiale);
+```
+
+Une `ref` sert principalement à accéder à un élément du DOM ou à mémoriser une information qui n’est pas utilisée pour produire l’affichage.
+
+### 1. Référencer un élément du DOM
+
+```jsx
+import { useRef, useEffect } from "react";
+
+function ChampAutoFocus() {
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    inputRef.current.focus();
+  }, []);
+
+  return <input ref={inputRef} placeholder="Tapez ici…" />;
+}
+```
+
+### 2. Conserver une valeur mutable
+
+```jsx
+const compteurDeClics = useRef(0);
+
+function handleClick() {
+  compteurDeClics.current += 1;
+  // mise à jour silencieuse : ne déclenche pas de nouveau rendu
+}
+```
+
+### `useState` ou `useRef` ?
+
+| Critère | `useState` | `useRef` |
+|---|---|---|
+| Déclenche un rendu quand la valeur change | Oui | Non |
+| La valeur doit s'afficher | Oui | Non |
+| Accès à un élément du DOM | Non | Oui |
+| Stocker une valeur sans l'afficher (minuterie, identifiant précédent) | Non | Oui |
+
+**Règle simple :** si la valeur est affichée ou influence ce qui est affiché, c'est du `useState`. Sinon, c'est du `useRef`.
+
+## `useContext` : un aperçu
+
+`useContext` permet de partager une valeur (thème, utilisateur connecté, langue) avec tous les composants descendants, sans la passer en props à chaque niveau.
+
+<MarginNote type="plusloin">
+Nous reviendrons en détail sur `useContext` au moment d'aborder la gestion de l'état partagé à l'échelle de l'application.
+</MarginNote>
+
+## Gestion des événements
+
+En React, les gestionnaires d’événements sont transmis à des props (attributs) JSX (ex: `onClick`, `onChange`, `onSubmit`). 
+
+```jsx
+function Bouton() {
+  function handleClick() {
+    alert("Bouton cliqué !");
+  }
+
+  return <button onClick={handleClick}>Cliquez-moi</button>;
+}
+```
+
+<MarginNote type="attention" titre="On passe la fonction sans l'appeler">
+```jsx
+<button onClick={handleClick()}>Cliquez-moi</button>
+```
+Attention! Ici, la fonction est appelée pendant le rendu ❌
+</MarginNote>
+
+### L'objet `event`
+
+Chaque gestionnaire peut recevoir un objet représentant l’événement, généralement nommé `event` ou `e` :
+
+```jsx
+function ChampArret() {
+  function handleChange(e) {
+    console.log(e.target.value); // valeur actuelle du champ
+    console.log(e.target.name);  // attribut name du champ
+  }
+
+  return <input name="arret" onChange={handleChange} />;
+}
+```
+
+Deux propriétés sont notamment utiles :
+
+- `e.target` désigne l'élément à l'origine de l'événement ;
+- `e.currentTarget` désigne l'élément sur lequel le gestionnaire est installé.
+
+Elles correspondent souvent au même élément, mais peuvent différer lorsque l’événement provient d’un élément enfant.
+
+Méthodes courantes :
+
+- **`e.preventDefault()`** empêche le comportement par défaut du navigateur, par exemple l’envoi classique d’un formulaire ;
+- **`e.stopPropagation()`**  empêche l’événement de poursuivre sa propagation vers les éléments ancêtres (parents).
+
+```jsx
+function Formulaire() { 
+    function handleSubmit(e) { 
+        e.preventDefault(); 
+        console.log("Formulaire traité par React"); 
+    } 
+    
+    return ( 
+        <form onSubmit={handleSubmit}>
+            <button type="submit">Envoyer</button>
+        </form> 
+    ); 
+}
+
+```
+
+### Passer des arguments à un gestionnaire
+
+Pour transmettre un argument, on peut créer une fonction fléchée qui différera l’appel jusqu’à l’événement :
+
+```jsx
+function BoutonMessage({ message }) {
+  function afficher(msg) {
+    alert(msg);
+  }
+
+  // On encapsule dans une fonction fléchée pour différer l'appel
+  return <button onClick={() => afficher(message)}>Afficher</button>;
+}
+```
+
+Le gestionnaire peut aussi recevoir à la fois l’argument et l’objet événement :
+
+```jsx
+<button onClick={e => afficher(message, e)}>
+  Afficher
+</button>
+```
+
+### Passer un gestionnaire à un enfant
+
+Un parent peut transmettre une fonction à un enfant afin que celui-ci lui signale une interaction.
+C'est le patron clé pour **faire remonter une action d'un composant enfant vers un parent** :
+
+```jsx
+import { useState } from "react";
+
+function BoutonRafraichir({ onRafraichir }) {
+  return <button onClick={onRafraichir}>Rafraîchir</button>;
+}
+
+function Panneau() {
+  const [rafraichissements, setRafraichissements] = useState(0);
+
+  return (
+    <div>
+      <h2>Rafraîchissements : {rafraichissements}</h2>
+      <BoutonRafraichir onRafraichir={() => setRafraichissements(prev => prev + 1)} />
+    </div>
+  );
+}
+```
+
+Le parent détient l’état et décide comment le modifier. L’enfant reçoit un gestionnaire par ses *props* et l’appelle lorsque l’utilisateur agit.
+
+## Hooks personnalisés
+
+Un **hook personnalisé** est une fonction dont le nom commence par `use` et qui encapsule une logique React réutilisable. 
+Il peut combiner des hooks intégrés comme `useState`, `useEffect`, `useRef`, etc.
+
+On crée généralement un hook personnalisé pour :
+
+- **réutiliser** une logique dans plusieurs composants ;
+- **isoler** une logique complexe afin d’alléger les composants ;
+- **donner** un nom explicite à un comportement particulier.
+
+<Highlight>Un hook personnalisé partage une logique, mais pas son état : chaque composant qui l’appelle obtient sa propre exécution du hook.</Highlight>
+
+
+<MarginNote type="attention" titre="Convention de nommage">
+Par convention, le nom d'un hook personnalisé doit commencer par `use`, suivi d'une majuscule : `useClickOutside`, `useLocalStorage` ou `useAlertes`.
+Ce nom permet à React, à l'outillage et aux développeurs de reconnaître qu'il s'agit d'un hook et que les règles des hooks doivent être respectées.
+</MarginNote>
+
+### Exemple : `useClickOutside`
+
+Ce hook détecte un clic **en dehors** d'un élément donné. 
+Il peut notamment servir à fermer un menu déroulant ou une fenêtre de dialogue.
+
+```jsx
+import { useEffect } from "react";
+
+function useClickOutside(ref, onOutsideClick) {
+  useEffect(() => {
+    function handleClick(event) {
+      if (ref.current && !ref.current.contains(event.target)) {
+        onOutsideClick();
+      }
+    }
+
+    document.addEventListener("mousedown", handleClick);
+    return () => {
+        document.removeEventListener("mousedown", handleClick);
+    }
+  }, [ref, onOutsideClick]);
+}
+```
+
+L’effet installe l’écouteur lorsque le hook est exécuté. Sa fonction de nettoyage le retire lorsque le composant disparaît ou qu’une dépendance change.
+
+Utilisation dans une fenêtre de détail simplifiée :
+
+```jsx
+import { useRef } from "react";
+
+function Modale({ onClose, enfants }) {
+  const modaleRef = useRef(null);
+
+  useClickOutside(modaleRef, onClose);
+
+  return (
+    <div ref={modaleRef} className="modale">
+      {enfants}
+      <button onClick={onClose}>Fermer</button>
+    </div>
+  );
+}
+```
+
+Utilisation de la fenêtre modale :
+
+```jsx
+<Modale onClose={fermerModale}>
+    <p>Détail du signalement</p>
+</Modale>
+```
+
+Cet exemple illustre uniquement la détection d’un clic extérieur. Une modale complète
+doit également gérer l’accessibilité, notamment le focus et la fermeture avec la touche *Échap*.
+
+### Exemple : `useLocalStorage`
+
+Ce hook s’utilise presque comme `useState`, mais enregistre également la valeur dans le stockage local du navigateur.
+
+Il combine :
+
+- `useState`, avec une initialisation paresseuse qui lit la valeur sauvegardée ;
+- `useEffect`, qui synchronise le stockage lorsque la valeur change.
+
+```jsx
+import { useState, useEffect } from "react";
+
+function useLocalStorage(cle, valeurInitiale) {
+  const [valeur, setValeur] = useState(() => {
+    const valeurSauvegardee = localStorage.getItem(cle); 
+    
+    if (valeurSauvegardee === null) { 
+        return valeurInitiale; 
+    }
+
+    try { 
+        return JSON.parse(valeurSauvegardee); 
+    } catch { 
+        return valeurInitiale; 
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem(cle, JSON.stringify(valeur));
+  }, [cle, valeur]);
+
+  return [valeur, setValeur];
+}
+```
+
+Son utilisation ressemble à celle de `useState` :
+
+```jsx
+function ArretFavori() {
+  const [arret, setArret] = useLocalStorage("arretFavori", "");
+
+  return (
+    <input
+      value={arret}
+      onChange={(e) => setArret(e.target.value)}
+      placeholder="Votre arrêt favori"
+    />
+  );
+}
+```
+
+Au rechargement de la page, la valeur est relue depuis le stockage local lors de l’initialisation paresseuse.
+
+<MarginNote type="plusloin" titre="Amélioration pour une version en production">
+Une version destinée à la production devrait également considérer l’indisponibilité éventuelle du stockage, 
+les erreurs d’écriture, les changements de clé et la synchronisation entre plusieurs onglets.
+</MarginNote>
+
+## Récapitulatif
+
+| Idée | Point clé |
+|---|---|
+| `useState` | Mémorise une valeur affichée ; la modifier déclenche un nouveau rendu ; forme fonctionnelle quand la nouvelle valeur dépend de l'ancienne |
+| `useEffect` | Exécute un effet de bord ; le tableau de dépendances le rattache à une phase du cycle de vie |
+| Cycle de vie | Montage (`[]`), mise à jour (`[deps]`), démontage (fonction de nettoyage) |
+| `useRef` | Valeur hors rendu, ou accès à un élément du DOM |
+| Hook personnalisé | Logique réutilisable préfixée `use` (`useClickOutside`, `useLocalStorage`) |
+
+<Checkpoint question="Un effet qui fait un fetch sans tableau de dépendances provoque une boucle de rendus. Pourquoi, et comment le corriger ?">
+Sans tableau de dépendances, l'effet s'exécute après **chaque** rendu. Or l'effet met à jour l'état (les données reçues), ce qui déclenche un nouveau rendu, donc une nouvelle exécution de l'effet, et ainsi de suite. On corrige en fournissant un tableau de dépendances : `[]` pour ne charger qu'une fois au montage, ou la liste des valeurs dont dépend la requête (par exemple `[ligne]`) pour relancer seulement quand elles changent.
+</Checkpoint>
+
+{/* <MarginNote type="plusloin" titre="La suite">
+Ces hooks se retrouvent à l'oeuvre dans [Construire la TodoList avec React](/notes/todo-react), où l'état et les événements se combinent dans une application complète.
+</MarginNote> */}
