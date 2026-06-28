@@ -1,0 +1,443 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "S'adapter à l'utilisateur"
+description: "Adapter une application React à son utilisateur : internationaliser l'interface avec react-i18next, gérer les préférences d'affichage (thème, taille du texte) et le niveau de guidage, en partant des préférences système et en ne persistant que les choix explicites."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import PreferencesPanel from "../../components/react/DemoPreferencesPanel.jsx";
+import BusSignalApp from "../../components/react/BusSignalAppMultiLang.jsx";
+
+<MarginNote type="prerequis">
+Cette page fait suite à [React pour des applications complexes](tuto-react-3), dont elle réutilise le contexte et l'application Bus en vue.
+</MarginNote>
+
+Une application réactive s'adapte à l'environnement logiciel et à l'appareil,
+mais aussi à l'**utilisateur**.
+Elle tient compte de la **langue**, des conventions culturelles, des préférences d'affichage
+et du niveau de guidage souhaité.
+
+## Internationaliser l'interface
+
+Le contexte (partagé) vu dans le guide précédent rend une valeur accessible à tout un sous-arbre React.
+Cette valeur peut contenir l'état métier (les signalements, les favoris),
+mais elle peut aussi représenter un **service** utilisé par de nombreux composants.
+C'est le cas du système de traduction.
+
+### Le principe de l'internationalisation
+
+L'**internationalisation**, souvent abrégée **i18n**, consiste à préparer une application
+pour qu'elle puisse afficher son interface dans plusieurs langues.
+
+Plutôt que d'écrire les textes directement dans les composants :
+
+```jsx
+<h1>Signalements</h1> // À éviter
+```
+
+on utilise plutôt une **clé de traduction** (ici `"titre"`):
+
+```jsx
+<h1>{t("titre")}</h1>
+```
+
+Cette clé correspond à un texte dans les ressources de chaque langue :
+
+```js
+const ressources = {
+  fr: {
+    titre: "Signalements",
+    nav_signaler: "Signaler"
+  },
+  en: {
+    titre: "Reports",
+    nav_signaler: "Report"
+  },
+};
+```
+
+Le système d'internationalisation doit donc connaître :
+- les langues disponibles
+- la langue sélectionnée
+- les traductions de chaque langue
+
+Il fournit aussi une fonction comme `t`, qui retrouve le texte associé à une clé.
+
+### Relier i18next à React
+
+La bibliothèque [`i18next`](https://www.i18next.com/) prend en charge les langues, les ressources et la recherche des textes.
+La bibliothèque [`react-i18next`](https://react.i18next.com/) adatpé à React permet aux composants React d'utiliser cette configuration.
+
+Dans notre application *Bus en vue*, on crée une instance :
+
+```jsx
+import i18next from "i18next";
+import { initReactI18next } from "react-i18next";
+
+export const i18n = i18next.createInstance();
+
+i18n.use(initReactI18next).init({
+  lng: "fr",               // l'application complète détecte navigator.language
+  fallbackLng: "fr",
+  supportedLngs: ["fr", "en"],
+  resources: {
+    fr: { translation: { nav_signaler: "Signaler", titre: "Signalements" } },
+    en: { translation: { nav_signaler: "Report", titre: "Reports" } },
+  },
+});
+```
+
+- `lng` définit la langue utilisée par défaut au démarrage
+- `fallbackLng` définit la langue utilisée lorsqu'une traduction n'est pas disponible dans la langue sélectionnée. 
+- `supportedLngs` indique la liste des langues prises en charge par l'application.
+
+L'instance est ensuite fournie à l'arbre React avec `I18nextProvider` :
+
+```jsx
+import { I18nextProvider } from "react-i18next";
+import { i18n } from "./i18n";
+
+export default function IleBusEnVue() {
+  return (
+    <I18nextProvider i18n={i18n}>
+      <BusSignalApp />
+    </I18nextProvider>
+  );
+}
+```
+
+<MarginNote type="definition" titre="Provider">
+Un provider est un composant React qui met une valeur ou un service à la disposition de tous les composants 
+qu’il englobe, sans avoir à la transmettre manuellement par les propriétés (props) à chaque niveau.
+</MarginNote>
+
+Le montage est le suivant: 
+
+1. L’instance `i18next` gère la langue active et les traductions. 
+2. `I18nextProvider` la met à la disposition de tous les composants du sous-arbre React, 
+3. Les composants peuvent ensuite y accéder grâce au hook useTranslation.
+
+Il est important de noter que `I18nextProvider` ne crée pas les traductions et ne détient pas l'état métier : il rend l'instance `i18n` (déjà configurée) accessible aux descendants.
+
+### Traduire un texte dans un composant
+
+Le hook `useTranslation` donne accès à `t`, qui traduit une clé, et à `i18n`, 
+qui permet notamment de changer de langue :
+
+```jsx
+import { useTranslation } from "react-i18next";
+
+function Barre() {
+  const { t, i18n } = useTranslation();
+  return (
+    <header>
+      <h1>{t("titre")}</h1>
+      <button type="button" onClick={() => i18n.changeLanguage("fr")}>FR</button>
+      <button type="button" onClick={() => i18n.changeLanguage("en")}>EN</button>
+    </header>
+  );
+}
+```
+
+Quand la langue change, tous les composants qui utilisent `useTranslation` affichent
+les traductions de la nouvelle langue. Il n'est pas nécessaire de transmettre `t` ou
+la langue par props : ils sont accessibles dans le sous-arbre fourni par `I18nextProvider`.
+
+### Insérer une valeur dynamique
+
+Certaines traductions contiennent des valeurs connues seulement à l'affichage. 
+On utilise alors l'**interpolation**, avec des accolades doubles dans la ressource :
+
+```js
+const ressources = {
+  fr: { translation: { item: "Ligne {{ligne}} à {{arret}}" } },
+  en: { translation: { item: "Route {{ligne}} at {{arret}}" } },
+};
+```
+
+Le composant fournit les valeurs à `t` :
+
+```jsx
+t("item", { ligne: "11", arret: "Berri-UQAM" });
+```
+
+En français, cette expression produit `Ligne 11 à Berri-UQAM`.
+
+<MarginNote type="astuce">
+L'instance i18next de Bus en vue est créée avec `i18next.createInstance()` : elle appartient à l'île et n'interfère pas avec une éventuelle configuration i18next du reste du site. `I18nextProvider` la fournit au sous-arbre ; le sélecteur FR/EN appelle `i18n.changeLanguage`, et les composants se mettent à jour.
+</MarginNote>
+
+### Langue, locale et fuseau horaire
+
+Traduire les textes ne suffit pas : une date, un nombre, une heure ne s'écrivent pas de la même façon d'une culture à l'autre.
+Plutôt que de formater à la main, on utilise l'API `Intl` du navigateur, qui connaît ces conventions :
+
+```js
+new Intl.DateTimeFormat("fr-CA", { dateStyle: "long" }).format(new Date("2026-06-21"));
+// "21 juin 2026"
+new Intl.NumberFormat("fr-CA").format(1234.5); // "1 234,5"
+```
+
+On distingue ici la **langue** de traduction (`fr`, qui choisit les textes d'i18next) 
+et la **locale** de formatage (`fr-CA`, qui précise la région). 
+On dérive la locale de la langue active, pour que textes et formats restent cohérents.
+
+Le **fuseau horaire** suit la même logique : `Intl.DateTimeFormat` utilise par défaut 
+le fuseau de l'appareil, qu'on peut fixer explicitement avec l'option `timeZone` 
+(par exemple `"America/Toronto"`) lorsque l'heure dépend d'un lieu précis plutôt 
+que de l'appareil.
+
+## Gérer les préférences d'affichage
+
+La langue n'est qu'une préférence parmi d'autres. 
+Un utilisateur peut souhaiter un thème sombre ou un texte plus grand.
+
+Voici d'abord le mécanisme isolé : les réglages disponibles modifient 
+l'aperçu et les choix explicites sont conservés au rechargement.
+
+<PreferencesPanel client:visible />
+
+Il faut distinguer deux sortes de valeurs :
+
+1. les préférences déjà exprimées dans le système, comme le thème;
+2. les réglages propres à l'application, comme la taille de texte proposée.
+
+
+### Partir des préférences système
+
+Le navigateur expose certaines préférences avec des requêtes média :
+
+```js
+const sombre = window.matchMedia("(prefers-color-scheme: dark)").matches;
+```
+
+Toutes les préférences ne viennent pas du système. Le **thème** a une
+préférence système (`prefers-color-scheme`) ; la **taille du texte** et 
+le **guidage**, eux, n'en ont pas : ce sont des réglages propres à l'application, 
+avec un défaut applicatif.
+
+Une préférence système peut changer pendant que l'application est ouverte. 
+Il vaut donc mieux écouter l'événement `change` que lire sa valeur une seule fois.
+
+```jsx
+function useMediaQuery(query, valeurInitiale = false) {
+  const [correspond, setCorrespond] = useState(valeurInitiale);
+
+  useEffect(() => {
+    const media = window.matchMedia(query);
+    const synchroniser = () => setCorrespond(media.matches);
+
+    synchroniser();
+    media.addEventListener("change", synchroniser);
+    return () => media.removeEventListener("change", synchroniser);
+  }, [query]);
+
+  return correspond;
+}
+```
+
+Ce hook lit l'API du navigateur dans un effet : son premier rendu reste donc
+compatible avec un rendu serveur.
+
+### Ne persister que les choix explicites
+
+Si l'utilisateur n'a rien choisi dans l'application, celle-ci doit continuer à suivre le système.
+On mémorise donc seulement les remplacements explicites.
+
+```jsx
+const CLE_STOCKAGE = "bus-en-vue:apparence:v1";
+const PreferencesContext = createContext(null);
+
+function lireChoix() {
+  try {
+    return JSON.parse(window.localStorage.getItem(CLE_STOCKAGE) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function FournisseurPreferences({ children }) {
+  const [choix, setChoix] = useState({});       // localStorage, ou {}
+  const [choixCharges, setChoixCharges] = useState(false);
+
+  const systemeSombre = useMediaQuery("(prefers-color-scheme: dark)");
+
+  useEffect(() => {
+    setChoix(lireChoix());
+    setChoixCharges(true);
+  }, []);
+
+  useEffect(() => {
+    if (!choixCharges) return;
+    window.localStorage.setItem(CLE_STOCKAGE, JSON.stringify(choix));
+  }, [choix, choixCharges]);
+
+
+  const preferences = {
+    theme: choix.theme ?? (systemeSombre ? "sombre" : "clair"),
+    taille: choix.taille ?? "normale",
+    niveau: choix.niveau ?? "standard",
+  };
+
+  function definir(cle, valeur) {
+    setChoix((precedents) => {
+      const suivants = { ...precedents };
+
+      if (valeur === null) delete suivants[cle];
+      else suivants[cle] = valeur;
+
+      return suivants;
+    });
+  }
+
+  function reinitialiser() {
+    setChoix({});
+  }
+
+  return (
+    <PreferencesContext.Provider value={{ preferences, definir, reinitialiser }}>
+      {children}
+    </PreferencesContext.Provider>
+  );
+}
+```
+
+Ici, `null` signifie « revenir à la valeur héritée ».
+- Pour le thème, l'application recommence alors à suivre le système.
+- Pour la taille et le guidage, elle revient au défaut applicatif.
+
+La valeur stockée et la valeur affichée ne sont pas toujours les mêmes. Le stockage contient seulement le choix explicite ; la valeur effective est calculée à partir de ce choix, de la préférence système et du défaut de l'application.
+
+
+### Appliquer les préférences
+
+Un composant lit les valeurs effectives sans avoir à connaître leur origine :
+
+```jsx
+const ECHELLE = {
+  normale: 1,
+  grande: 1.15,
+  "tres-grande": 1.32,
+};
+
+function Coquille({ children }) {
+  const { preferences } = usePreferences();
+
+  return (
+    <section data-theme={preferences.theme} style={{ fontSize: `${ECHELLE[preferences.taille]}rem` }}>
+      {children}
+    </section>
+  );
+}
+```
+
+Le thème peut ensuite être piloté en CSS :
+
+```css
+[data-theme="sombre"] {
+  color-scheme: dark;
+}
+```
+
+<MarginNote type="attention">
+Un réglage de taille de texte dans l'application complète le zoom du navigateur ;
+il ne doit jamais le remplacer ni empêcher la mise en page de se réorganiser lorsque le texte est agrandi.
+</MarginNote>
+
+## S'adapter au profil
+
+Au-delà de l'apparence, l'application peut s'adapter au **niveau de guidage** attendu.
+Un même écran peut être dense et direct pour un habitué, ou plus explicite pour un nouvel utilisateur : libellés complets, cibles plus grandes, aides contextuelles.
+Dans l'exemple ci-dessus, le mode « Guidé » illustre cette idée.
+
+C'est la même mécanique : une préférence `niveau` dans le contexte, et un affichage conditionnel là où c'est utile.
+
+```jsx
+function VueSignaler() {
+  const { preferences } = usePreferences();
+  const estGuide = preferences.niveau === "guide";
+
+  return (
+    <>
+      {estGuide && (
+        <p className="aide">
+          Choisissez une ligne, puis signalez son arrivée.
+        </p>
+      )}
+
+      <button className={estGuide ? "cta cta--grand" : "cta"}>
+        Signaler
+      </button>
+    </>
+  );
+}
+```
+
+<MarginNote type="attention">
+Le niveau de guidage devrait être un choix visible et réversible.
+Il ne faut pas déduire arbitrairement un « profil » à partir du comportement de
+l'utilisateur, ni cacher des fonctions essentielles. On adapte la présentation,
+pas les droits ni les possibilités.
+</MarginNote>
+
+## Réunir les préférences dans l'application
+
+Le mécanisme isolé ci-dessus est exactement celui que Bus en vue applique.
+Plutôt qu'un panneau à part, l'application réunit ses préférences d'apparence dans un `FournisseurPreferences` qui détient `{ theme, taille, niveau }`.
+La **langue, elle, garde sa propre source de vérité**, i18next : le choix FR/EN appelle `i18n.changeLanguage` et mémorise ce choix explicite.
+
+```jsx
+// la langue a sa propre source de vérité : i18next
+function changerLangue(langue) {
+  i18n.changeLanguage(langue);                            // i18next = source de vérité de la langue
+  localStorage.setItem("bus-en-vue:langue:v1", langue);   // on mémorise ce choix explicite
+}
+
+// les autres préférences (thème, taille, guidage) : un contexte, choix explicites
+function FournisseurPreferences({ children }) {
+  const [choix, setChoix] = useState({});       // localStorage, ou {}
+  const [choixCharges, setChoixCharges] = useState(false);
+  const systemeSombre = useMediaQuery("(prefers-color-scheme: dark)");
+  // ... persistance de `choix`, définir, réinitialiser
+}
+
+// la racine empile les fournisseurs : i18n (langue), préférences (apparence), état métier, routeur
+<I18nextProvider i18n={i18n}>
+  <FournisseurPreferences>
+    <FournisseurApp>
+      <MemoryRouter>
+        <Coquille />
+      </MemoryRouter>
+    </FournisseurApp>
+  </FournisseurPreferences>
+</I18nextProvider>
+```
+
+Ouvrez l'engrenage en haut à droite : langue, thème, taille du texte et guidage agissent sur l'application réelle.
+L'attribut `lang` de l'île suit la langue active (la locale `fr-CA` ou `en-CA`). Le mode guidé, par exemple,
+ajoute une aide et agrandit le bouton de signalement dans la vue Signaler.
+
+<BusSignalApp client:visible />
+
+<MarginNote type="attention">
+Le thème est appliqué au **conteneur de l'application** (un attribut `data-theme` sur sa racine), pas au document.
+Une île embarquée dans une note ne doit pas basculer le thème de toute la page. Dans une application autonome,
+cette même préférence piloterait le thème du document.
+</MarginNote>
+
+## Récapitulatif
+
+| Adaptation | Valeur de départ | Source de vérité | Application |
+|---|---|---|---|
+| Langue | défaut ou préférence du navigateur | i18next | `useTranslation` |
+| Locale | dérivée de la langue | application | `Intl` |
+| Fuseau horaire | contexte métier ou utilisateur | application | `Intl.DateTimeFormat` |
+| Thème | `prefers-color-scheme` | contexte de préférences | attribut `data-theme` |
+| Taille du texte | défaut de l'application | contexte de préférences | styles relatifs |
+| Guidage | défaut de l'application | contexte de préférences | rendu conditionnel |
+
+<Checkpoint question="Pourquoi ne mémoriser que les choix explicites plutôt que la valeur effective ?">
+Parce que la valeur héritée du système peut changer. Si l'application mémorise « sombre » alors que l'utilisateur n'a jamais remplacé son système, elle cesse ensuite de suivre un passage du système vers le thème clair. En ne stockant que le remplacement explicite, l'absence de choix continue de signifier « suivre le système ».
+</Checkpoint>

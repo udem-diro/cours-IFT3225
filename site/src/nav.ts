@@ -41,6 +41,8 @@ export const navigation: NavGroup[] = [
       // { label: "Persister une TodoList ⭐", href: "/guides/tuto-todolist-2" },
       { label: "Prise en main de React ⭐", href: "/guides/tuto-react-1" },
       { label: "Les hooks dans React ⭐", href: "/guides/tuto-react-2" },
+      { label: "Application complexe React ⭐", href: "/guides/tuto-react-3" },
+      { label: "Personnalisation avec React ⭐", href: "/guides/tuto-react-4" },
       // { label: "Création d'une TodoList avec React ⭐", href: "/guides/tuto-todolist-react" },
     ],
   },

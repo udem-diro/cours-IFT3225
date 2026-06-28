@@ -1,0 +1,408 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "React pour des applications complexes"
+description: "Les enjeux des applications React complexes : décomposer en vues avec React Router, partager un état avec React Context, et gérer le multilingue avec react-i18next, autour d'une application Signalement de bus intégrée."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import BusSignalApp from "../../components/react/BusSignalApp.jsx";
+
+<MarginNote type="prerequis">
+Cette page fait suite à [Prise en main de React](tuto-react-1) et [Hooks et cycle de vie](tuto-react-2). On y suppose les composants, les props, l'état et les effets acquis.
+</MarginNote>
+
+## Les enjeux des applications complexes
+
+Jusqu'ici, une application React tenait dans un écran : quelques composants, un état local, des événements. Dès qu'une application grandit, de nouveaux besoins apparaissent.
+
+| Enjeu | Solution (React) |
+|---|---|
+| Plusieurs écrans, une navigation | Décomposer en **vues (pages)** et router avec **React Router** |
+| Un état partagé entre des composants éloignés | Le fournir par **React Context**, sans le faire descendre en props partout |
+| Une structure qui tient à mesure que le code grandit | Découper par responsabilité : vues, composants, contexte, services |
+| Un public de plusieurs langues | Externaliser les textes et basculer la langue avec **react-i18next** |
+
+Voici l'application **Bus en vue**, utilisée tout au long de ce guide.
+
+<BusSignalApp client:visible />
+
+## Décomposer en vues et React Router
+
+Une application complexe se pense d'abord en **vues** : des **pages** ou espaces distinctes, chacun responsable d'une tâche. 
+
+Dans *Bus en vue*, chaque onglet peut être considéré comme une vue distincte :
+
+- **Signaler** un problème ;
+- **Rechercher** des signalements ;
+- Consulter **Mes arrêts**, c’est-à-dire les arrêts placés en favoris ;
+- Afficher le **détail d’un arrêt** précis.
+
+React ne fournit pas lui-même de système de routage. On utilise couramment la bibliothèque *React Router*.
+
+<MarginNote type="attention" titre="Installer React Router">
+Pour installer React Router : `npm install react-router-dom`.
+</MarginNote>
+
+**React Router** associe une **route (motif d'URL)** à une vue. 
+Étant du côté client, la navigation via les liens couverts par ces routes se fait sans rechargement de page.
+
+```jsx
+import { BrowserRouter, Routes, Route, Link, useParams } from "react-router-dom";
+
+function Application() {
+  return (
+    <BrowserRouter>
+      <nav>
+        <NavLink to="/" end>Signaler</NavLink>
+        <NavLink to="/rechercher">Rechercher</NavLink>
+        <NavLink to="/mes-arrets"> Mes arrêts </NavLink>
+      </nav>
+      <Routes>
+        <Route path="/" element={<VueSignaler />} />
+        <Route path="/rechercher" element={<VueRechercher />} />
+        <Route path="/mes-arrets" element={<VueMesArrets />} />
+        <Route path="/arret/:arretId" element={<VueArret />} />
+      </Routes>
+    </BrowserRouter>
+  );
+}
+```
+
+`BrowserRouter` relie *React Router* à l’URL et à l’historique du navigateur. 
+À l’intérieur de celui-ci :
+
+- `Routes` contient la configuration des routes ;
+- Chaque `Route` associe un chemin à l’élément à afficher ;
+- `NavLink` permet de naviguer sans demander un nouveau document HTML au serveur.
+
+<MarginNote type="astuce" titre="NavLink vs Link">
+`Link` est le composant de base, fourni par React, pour créer des liens. 
+Toutefois, lorsque les liens représentent des onglets ou les sections principales de l’application, `NavLink` permet de connaître et de styliser automatiquement le lien actif.  
+Pour la route `/`, la prop `end` évite qu’elle soit considérée comme active sur toutes les URL commençant par `/`.
+</MarginNote>
+
+<Checkpoint question="Pourquoi souhaite t-on modifier l'URL?">
+Contrairement à un simple état (interne) représentant l’onglet courant, une URL peut être copiée, 
+ajoutée aux favoris et retrouvée avec les boutons précédent et suivant du navigateur.
+</Checkpoint>
+
+
+### Paramètres d’URL
+
+Dans le chemin suivant, le segment `:arretId` est un **paramètre d'URL** (partie dynamique de l'URL).
+
+```jsx
+<Route path="/arrets/:arretId" element={<VueArret />} />
+```
+
+Une URL comme `/arrets/18` associe donc la valeur "18" au paramètre `arretId`.
+
+La vue peut lire ce paramètre avec `useParams` :
+
+```jsx
+function VueArret() {
+  const { arretId } = useParams();
+  // ... afficher les signalements de cet arrêt
+}
+```
+
+> Les paramètres lus dans l’URL sont des chaînes de caractères. 
+> Il faut les convertir lorsqu’une valeur numérique est réellement nécessaire.
+
+### Naviguer après une action
+
+Les liens conviennent à la navigation effectuée directement par l’utilisateur.  
+Cependant, lorsqu’une navigation doit avoir lieu à la suite d’un traitement, par exemple 
+après l’enregistrement réussi d’un signalement, on peut utiliser le hook `useNavigate` 
+fourni par *React Router*.
+
+```jsx
+import { useNavigate } from "react-router-dom";
+
+const navigate = useNavigate();
+navigate("/"); // retour à la liste
+```
+
+L’appel à `navigate("/rechercher")` ajoute normalement une nouvelle entrée à l’historique. Pour remplacer l’entrée courante, on peut utiliser :
+
+```jsx
+navigate("/rechercher", { replace: true });
+```
+
+<MarginNote type="attention" titre="MemoryRouter dans une démonstration embarquée">
+L’application présentée dans ce guide est intégrée à une page plus grande.
+Donc, pour éviter qu'elle modifie l'URL, nous avons utilisé `MemoryRouter` plutôt que `BrowserRouter` dans son implémentation.  
+`MemoryRouter` conserve son propre historique en mémoire sans modifier la barre d’adresse du navigateur.
+</MarginNote>
+
+<MarginNote type="attention" titre="Configurer le serveur">
+Avec `BrowserRouter`, une URL comme `/arrets/18` est une véritable adresse du navigateur. 
+Le serveur d’hébergement doit être configuré pour renvoyer l’application React à cette adresse, 
+sans quoi un accès direct ou un rechargement peut produire une erreur 404. 
+</MarginNote>
+
+## Un état partagé avec React Context
+
+Jusqu'à présent, chaque état était placé dans le composant qui en avait besoin :
+
+```jsx
+function Compteur() {
+  const [nombre, setNombre] = useState(0);
+  // ...
+}
+```
+
+Lorsqu'un composant enfant a besoin de cette donnée, son parent la lui transmet avec une prop :
+
+```jsx
+function Parent() {
+  const [nombre, setNombre] = useState(0);
+
+  return <Enfant nombre={nombre} />;
+}
+```
+
+### Quand plusieurs composants ont besoin du même état
+
+Dans Bus en vue, certaines données ne concernent pas un seul composant :
+
+- plusieurs vues affichent les mêmes signalements ;
+- les favoris sont utilisés dans la recherche et dans Mes arrêts ;
+- un vote effectué dans une vue doit être visible dans les autres.
+
+En suivant cette approche, ces données doivent donc être placées dans un composant suffisamment haut pour être communes à toutes les vues qui les utilisent.
+
+On pourrait ensuite les transmettre par props :
+
+```jsx
+function Application() { 
+  const [signalements, setSignalements] = useState([]); 
+
+  return ( 
+    <Coquille signalements={signalements}>
+      <Routes signalements={signalements} />
+    </Coquille> 
+    ); 
+}
+```
+
+Mais certains composants intermédiaires, comme Coquille, n’utilisent pas forcément signalements. 
+Ils ne font que recevoir la prop pour la transmettre plus bas.
+
+```
+Application 
+└── Coquille 
+    └── Routes
+        └── VueRechercher
+```
+
+> Faire passer une donnée à travers plusieurs composants qui n'en ont pas eux-mêmes besoin est appelé **prop drilling**.
+
+Sur un petit arbre, cela ne pose généralement aucun problème. 
+Lorsque la donnée est utilisée dans de nombreuses branches éloignées, 
+cette approche peut devenir répétitif et rendre les composants intermédiaires inutilement dépendants de cette donnée.
+
+
+{/* Dans Bus en vue, une même donnée sert **plusieurs vues** : la liste des signalements s'affiche dans Signaler et Rechercher, se filtre dans le détail d'un arrêt ; les favoris pilotent « Mes arrêts » ; les votes s'appliquent partout. Avec le routage, ces vues sont rendues par `<Route element={...} />`, et leur faire descendre l'état en props devient particulièrement pénible : on ne contrôle pas les niveaux intermédiaires. C'est le *prop drilling*. */}
+
+{/* **React Context** fournit une valeur à tout un sous-arbre, que n'importe quel descendant lit directement. On crée le contexte, un **fournisseur** qui détient l'état et les actions, et un **hook** d'accès. */}
+
+
+### Le rôle de React Context
+
+**React Context permet à un composant (parent) de mettre une valeur à la disposition
+de tous ses descendants**, sans devoir la transmettre manuellement à chaque niveau avec des props.
+
+<Highlight>Context ne crée cependant pas l’état et ne le modifie pas. </Highlight>
+L’état continue d’être géré avec `useState` ou `useReducer`.
+
+Pour mettre ce mécanisme en place, nous allons créer :
+
+- un **contexte**, qui représente la valeur partagée ;
+- un **fournisseur**, qui possède l’état et fournit sa valeur ;
+- un **hook personnalisé**, qui permet aux composants d’accéder facilement au contexte.
+
+#### 1. Créer le contexte et fournisseur
+
+```jsx
+import { createContext, useContext, useState } from "react";
+
+const AppContext = createContext(null);
+
+function FournisseurApp({ children }) {
+  const [signalements, setSignalements] = useState(/* ... */);
+  const [favoris, setFavoris] = useState([]); 
+  
+  function signaler(nouveauSignalement) { 
+    setSignalements((precedents) => [nouveauSignalement, ...precedents,]); 
+  } 
+  
+  function basculerFavori(idArret) { 
+    setFavoris((precedents) => precedents.includes(idArret) 
+      ? precedents.filter((id) => id !== idArret) 
+      : [...precedents, idArret] ); 
+  }
+
+  const voter = (idSignalement, direction) => { /* met à jour up / down */ };
+
+  const valeur = { signalements, favoris, signaler, basculerFavori, voter };
+
+  return (
+    <AppContext.Provider value={valeur}>
+      {children}
+    </AppContext.Provider>
+  );
+}
+```
+
+Le fournisseur remplit deux rôles :
+
+- il **possède l’état partagé**;
+- il expose les **actions autorisées** pour modifier cet état.
+
+Les composants consommateurs n’ont donc pas besoin d’accéder directement à `setSignalements` ou à `setFavoris`.
+
+#### 2. Créer un hook d’accès
+
+Pour éviter de répéter `useContext(AppContext)` dans chaque composant, on crée un hook personnalisé (`useAppContext`) qui enveloppe `useContext` :
+
+```jsx
+export function useAppContext() {
+  const contexte = useContext(AppContext);
+
+  if (contexte === null) {
+    throw new Error(
+      "useAppContext doit être utilisé dans <FournisseurApp>."
+    );
+  }
+
+  return contexte;
+}
+```
+
+Cette vérification produit une erreur claire si un composant essaie d’utiliser `useAppContext` en dehors du fournisseur.
+
+#### 3. Installer le fournisseur
+
+Le fournisseur doit entourer tous les composants qui utilisent `useAppContext`.
+
+Dans cette application, toutes les vues peuvent avoir besoin de l’état partagé. On peut donc placer le fournisseur autour du routeur :
+
+```jsx
+export default function BusSignalApp() {
+  return (
+    <FournisseurApp>
+      <MemoryRouter initialEntries={["/"]}>
+        <Coquille />
+      </MemoryRouter>
+    </FournisseurApp>
+  );
+}
+```
+
+>  `MemoryRouter` est ici le routeur choisi par l’application. Son utilisation est 
+> indépendante de Context : le fournisseur fonctionnerait de la même manière avec 
+> un autre type de routeur.
+
+#### 4. Consommer le contexte dans une vue
+
+Une vue récupère uniquement les données et les actions dont elle a besoin :
+
+```jsx
+function VueMesArrets() {
+  const { favoris, signalements, basculerFavori, } = useAppContext();
+
+  const signalementsDesFavoris = signalements.filter(
+    (signalement) => favoris.includes(signalement.idArret)
+  );
+
+  // Afficher les arrêts favoris
+  // et les signalements qui leur sont associés.
+}
+```
+
+Il n’est plus nécessaire de transmettre favoris et signalements à travers
+tous les composants intermédiaires.
+
+> Cela ne signifie pas que tous les props de nos composants disparaissent. Les props restent utiles pour 
+> **transmettre des informations locales et explicites** entre un parent et son enfant.
+
+<Highlight couleur="ambre">Le contexte sert à un état **largement partagé** (les signalements, les favoris, les votes). 
+L'état **local** d'une vue, lui, reste gérer en `useState` </Highlight>.
+Dans la vue Signaler, l'arrêt, la ligne et le délai en cours de sélection n'intéressent personne d'autre, ils n'ont aucune raison de monter dans le contexte.
+
+## Structurer le projet
+ 
+**Chaque responsabilité possède un emplacement clairement identifié.**
+Cette organisation facilite la compréhension du projet, sa maintenance et son évolution.
+ 
+```text
+src/
+├── App.jsx              // fournisseurs et structure principale de l'application
+├── routes.jsx           // table des routes (chemin vers vue)
+├── pages/               // une vue par écran routé
+│   ├── VueSignaler.jsx
+│   ├── VueRechercher.jsx
+│   ├── VueMesArrets.jsx
+│   └── VueArret.jsx
+├── components/          // composants d'interface aux responsabilités délimitées
+│   ├── Coquille.jsx
+│   ├── Signalement.jsx
+│   ├── Vote.jsx
+│   └── EtoileFavori.jsx
+├── context/             // état et actions partagés
+│   ├── AppContext.js    // création du contexte et hook useAppContext
+│   └── FournisseurApp.jsx
+├── hooks/               // hooks personnalisés (ex: useLocalStorage)
+├── services/            // communication avec les sources de données (externes)
+│   └── api.js           
+├── i18n/                // configuration et ressources de traduction
+│   ├── index.js         
+│   └── locales/
+│       ├── fr.json
+│       └── en.json
+└── data/                // constantes et données de démonstration
+```
+
+`App.jsx` assemble les différentes parties de l’application. 
+Il place les fournisseurs au-dessus des composants qui en ont besoin, 
+puis installe le routeur et la structure principale.
+ 
+<MarginNote type="rappel" titre="Vue et composant">
+Une **vue** correspond à un écran routé. Elle orchestre les données, les actions et les composants nécessaires à cet écran.
+
+Un **composant** possède une responsabilité d’interface plus délimitée. Il peut contenir un état local, réagir aux actions de l’utilisateur ou lire un contexte, mais il ne devrait pas dépendre inutilement de la structure complète de la vue qui l’utilise.
+
+Cette séparation garde les vues lisibles et permet de réutiliser les composants lorsque leur responsabilité s’y prête.
+</MarginNote>
+
+Ce découpage devient surtout utile quand l’application évolue :
+
+- **Ajouter un écran** : créer une vue dans `pages/`, l’associer à un chemin dans `routes.jsx`, puis ajouter au besoin un lien dans la navigation.
+- **Brancher un serveur réel** : remplacer l’implémentation simulée de `services/api.js` par des requêtes réseau tout en conservant la même interface pour le reste de l’application.
+- **Mémoriser une préférence** : utiliser useLocalStorage à l’endroit où la préférence est possédée, sans modifier les composants qui la consomment.
+- **Ajouter une langue** : ajouter ses ressources dans `i18n/` sans modifier la structure des composants.
+
+Cette arborescence est organisée principalement par type de responsabilité. 
+Elle convient bien à une application de cette taille. Dans un projet plus vaste, 
+on pourrait regrouper certains fichiers par fonctionnalité, par exemple tout ce
+qui concerne les signalements ou les favoris.
+
+<MarginNote type="rappel" titre="Une structure utile au code généré">
+Une organisation explicite aide autant les développeurs que les outils de génération de code. Elle permet de repérer plus facilement le fichier responsable d'un comportement et de limiter une modification à la partie concernée.
+Le code généré doit néanmoins être relu, testé et intégré selon les mêmes exigences que le code écrit manuellement.
+</MarginNote>
+
+## Récapitulatif
+ 
+| Notion | Rôle | Outils clés |
+|---|---|---|
+| Vues et navigation | Découper l'application en écrans liés à des URL | `BrowserRouter`, `Routes`, `Route`, `Link`, `useParams`, `useNavigate` |
+| État partagé | Fournir une donnée centrale sans prop drilling | `createContext`, `Provider`, `useContext`, hook `useSignalements` |
+| Structure | Une responsabilité par dossier, pour la maintenance et l'évolution | `pages/`, `components/`, `context/`, `services/`, `i18n/` |
+ 
+<MarginNote type="plusloin" titre="La suite: Internationalisation & Personnalisation">
+L'internationalisation et la personnalisation sont traitées en détail dans le prochain guide [S'adapter à l'utilisateur](tuto-react-4).
+</MarginNote>

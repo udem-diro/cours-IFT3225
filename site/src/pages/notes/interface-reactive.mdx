@@ -98,11 +98,12 @@ Quand une de ces exigences manque, l'interface trahit l'utilisateur, qu'elle soi
 - **Physique.** La **porte de Norman** : une poignée invite à tirer, mais il faut pousser. Une plaque de cuisson dont les boutons ne correspondent pas, dans l'espace, aux feux qu'ils commandent : un défaut de correspondance qui force l'essai-erreur.
 - **Numérique.** Un envoi de formulaire **sans aucun retour** (a-t-il abouti ?). Un indicateur qui **tourne sans fin** ni progression. Un bouton **désactivé qui a l'air actif**. Un état **caché** : l'application est hors ligne, mais rien ne le dit.
 
-<Highlight couleur="ambre">Le piège le plus subtil : une interface séduisante mais opaque. Un design très épuré où rien ne signale qu'un élément est cliquable, une animation léchée qui masque ce qui charge vraiment. L'attrait ne remplace pas la transparence ; une belle interface opaque trahit l'utilisateur autant qu'une laide.</Highlight>
+<Highlight couleur="ambre">Le piège le plus subtil : une interface séduisante mais opaque. Un design très épuré où rien ne signale qu'un élément est cliquable, une animation qui masque ce qui charge vraiment. Une belle interface opaque trahit l'utilisateur autant qu'une laide.</Highlight>
  
 <Checkpoint question="Un bouton « Envoyer » lance une requête, mais l'interface ne change pas pendant l'attente. Quelle exigence est violée, et que se passe-t-il côté utilisateur ?">
 La **visibilité de l'état** : sans retour, l'utilisateur ne sait pas si son action a été prise en compte. Il risque de recliquer (et d'envoyer deux fois), ou d'abandonner en pensant à un bug. Un simple indicateur de chargement, ou un bouton désactivé pendant l'attente, rétablit la transparence et le contrôle.
 </Checkpoint>
+
 Refléter l'état n'est pas un instantané pris au chargement : une interface réactive s'adapte à l'état et le suit dans le temps.
  
 **Adapter l'interface à l'état.** La forme même de l'interface dépend de l'état. 

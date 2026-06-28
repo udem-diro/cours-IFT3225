@@ -42,6 +42,7 @@ import Aside from '../../components/Aside.astro';
     <nav class="toc" aria-label="Sections">
       <a href="#contexte">Contexte</a>
       <a href="#travail">Travail</a>
+      <a href="#gestion">Gestion</a>
       <a href="#bonus">Bonus</a>
       <a href="#livrables">Livrables</a>
       <a href="#evaluation">Évaluation</a>
@@ -144,11 +145,36 @@ import Aside from '../../components/Aside.astro';
         <h3>Tâche 4 : Visualiser l'ambiance</h3>
         <p>
           Rendre le portrait lisible d'un coup d'oeil : un badge de classification
-          (calme, modéré, animé), une courbe d'historique, les créneaux calmes. Les
-          réponses de l'API portent leur échelle (seuils, unités) : l'interface s'en
-          sert pour rester compréhensible sans documentation externe. Une carte des
-          lieux est une visualisation possible, en option.
+          (calme, modéré, animé), une courbe d'historique, les créneaux calmes. La
+          classification est fournie par votre API : le client l'affiche, il ne la
+          recalcule pas. Les réponses de l'API portent leur échelle (seuils, unités) :
+          l'interface s'en sert pour rester compréhensible sans documentation externe.
         </p>
+        <p>
+          La visualisation comprend au minimum deux représentations complémentaires :
+        </p>
+        <ul>
+          <li>
+            <strong>Une vue carte.</strong> Au minimum : les lieux positionnés sur une
+            carte à partir de leurs coordonnées, chaque marqueur portant la
+            classification d'ambiance courante renvoyée par l'API (rendue par la couleur
+            ou un libellé), et un clic sur un lieu qui mène à son portrait d'ambiance. La
+            carte reste lisible quand un lieu n'a pas de mesure récente ; le seuil de
+            fraîcheur (au-delà duquel une mesure n'est plus « récente ») est choisi par
+            l'équipe et justifié dans le rapport.
+          </li>
+          <li>
+            <strong>Une vue détaillée d'un lieu.</strong> Au minimum : le badge de
+            classification fourni par l'API, la courbe d'historique et les créneaux
+            calmes tels que votre API les expose, avec leurs échelles.
+          </li>
+        </ul>
+        <Aside type="note" title="Coordonnées des lieux">
+          La carte suppose que chaque lieu porte des coordonnées. Si la phase 1 ne les
+          stockait pas, étendez le modèle de lieu (latitude, longitude) et ajoutez-les
+          à vos lieux ; à défaut, prévoyez une position de repli documentée dans le
+          rapport.
+        </Aside>
 
         <h3>Tâche 5 : Soumettre des observations</h3>
         <p>
@@ -158,7 +184,7 @@ import Aside from '../../components/Aside.astro';
           referme la boucle : l'usager ne fait pas que consulter, il contribue.
         </p>
 
-        <h3>Tâche 6 : Authentifier les actions protégées</h3>
+        <h3>Tâche 6 : Authentifier les actions protégées et l'espace compte</h3>
         <p>
           L'application permet à un usager de s'authentifier. Les écritures
           (soumettre une observation, gérer un lieu) exigent cette authentification ;
@@ -166,6 +192,20 @@ import Aside from '../../components/Aside.astro';
           déconnecté : elle affiche ou masque les actions selon ce qui est permis, et
           conserve le justificatif (clé ou jeton) de façon appropriée.
         </p>
+        <p>
+          Une fois connecté, l'usager dispose d'un <strong>espace compte</strong>. Au
+          minimum, cet espace : indique l'identité connectée et offre la déconnexion ;
+          réunit les actions protégées en un endroit (soumettre une observation, gérer
+          ses lieux, c'est-à-dire les lieux où il a effectué des écoutes) ; et récapitule
+          les contributions de l'usager (ses observations soumises). Hors connexion, cet
+          espace n'est pas accessible et invite à se connecter.
+        </p>
+        <Aside type="note" title="Lier les observations à leur auteur">
+          Le récapitulatif des contributions et la notion de « ses lieux » supposent que
+          chaque observation est associée à l'usager qui l'a soumise. Si la phase 1 ne le
+          prévoyait pas, étendez le modèle (un auteur sur l'observation), comme pour les
+          coordonnées des lieux.
+        </Aside>
         <Aside type="note" title="Où l'authentification se place">
           L'authentification est une exigence du côté client : envoyer le
           justificatif sur les requêtes d'écriture, gérer la connexion et la
@@ -183,10 +223,49 @@ import Aside from '../../components/Aside.astro';
 
       </section>
 
-      <!-- ── 03 Bonus ──────────────────────────────────────────── -->
+      <!-- ── 03 Gestion de projet ──────────────────────────────── -->
+
+      <section id="gestion">
+        <h2><span class="h2-num">03</span> Gestion de projet</h2>
+        <p>
+          Le travail se fait en équipe et doit se piloter comme un projet, pas
+          seulement se coder. Les contraintes suivantes sont exigées.
+        </p>
+        <ul>
+          <li>
+            <strong>Tickets avec attributions.</strong> Le travail est découpé en
+            tickets sur GitHub Issues, chacun attribué à un membre. L'avancement se suit
+            par ces tickets : ce qui est à faire, en cours, terminé. Chaque membre porte
+            des tickets identifiables.
+          </li>
+          <li>
+            <strong>Au moins trois commits par semaine et par membre</strong>, avec un
+            message de commit pertinent qui mentionne le type d'action (ajout,
+            modification, correction, refactoring...), les éléments visés et l'intention.
+            Par exemple « ajout : vue carte, marqueurs colorés selon la classification »,
+            pas « maj ». Le rythme témoigne d'un travail réparti dans le temps plutôt que
+            concentré à la fin.
+          </li>
+          <li>
+            <strong>Vérification de la compréhension</strong>, en labo, en semaine 2 ou
+            3. Une courte rencontre avec l'enseignant où chaque membre explique sa partie
+            et la place dans l'ensemble : les endpoints consommés, le rôle de sa portion
+            d'interface, les choix faits. L'objectif est de confirmer que le projet est
+            compris par toute l'équipe, pas par une seule personne.
+          </li>
+        </ul>
+        <Aside type="note" title="Pourquoi ces contraintes">
+          Elles rendent le travail d'équipe visible et vérifiable : les tickets
+          montrent qui fait quoi, l'historique des commits montre quand, et la
+          vérification montre que chacun comprend l'ensemble. Elles comptent dans
+          l'évaluation du travail d'équipe.
+        </Aside>
+      </section>
+
+      <!-- ── 04 Bonus ──────────────────────────────────────────── -->
 
       <section id="bonus">
-        <h2><span class="h2-num">03</span> Bonus</h2>
+        <h2><span class="h2-num">04</span> Bonus</h2>
         <p>
           Deux extensions sont valorisées au-delà du socle et peuvent ajouter jusqu'à
           5 % à la note du livrable. Elles sont indépendantes : l'une, l'autre, ou les
@@ -206,18 +285,18 @@ import Aside from '../../components/Aside.astro';
         </div>
       </section>
 
-      <!-- ── 04 Livrables ──────────────────────────────────────── -->
+      <!-- ── 05 Livrables ──────────────────────────────────────── -->
 
       <section id="livrables">
-        <h2><span class="h2-num">04</span> Livrables</h2>
+        <h2><span class="h2-num">05</span> Livrables</h2>
 
         <h3>Implémentation <span class="tag">Dépôt Git</span></h3>
         <p>L'application cliente (React) doit satisfaire les exigences suivantes :</p>
         <ul>
           <li><strong>Consommation de l'API</strong> : une couche client (module <code>api</code>) qui isole les appels HTTP vers l'API de la phase 1</li>
-          <li><strong>Visualisation de l'ambiance</strong> : classification, historique et créneaux calmes, lisibles et fondés sur les réponses de l'API</li>
+          <li><strong>Visualisation de l'ambiance</strong> : une vue carte (lieux situés, classification par marqueur, accès au portrait) et une vue détaillée (classification, historique, créneaux calmes), lisibles et fondées sur les réponses de l'API</li>
           <li><strong>Soumission d'observations</strong> : un formulaire qui envoie une observation, en respectant les valeurs attendues</li>
-          <li><strong>Authentification des actions protégées</strong> : connexion, envoi du justificatif sur les écritures, état connecté reflété dans l'interface, lectures publiques</li>
+          <li><strong>Authentification et espace compte</strong> : connexion, envoi du justificatif sur les écritures, état connecté reflété dans l'interface, lectures publiques, et un espace compte (identité, déconnexion, actions protégées, récapitulatif des contributions)</li>
           <li><strong>Gestion des états</strong> : chargement, erreur et vide traités explicitement</li>
           <li><strong>Organisation facilitant l'évolution</strong> : composants distincts, couche client séparée de l'interface</li>
         </ul>
@@ -245,36 +324,37 @@ import Aside from '../../components/Aside.astro';
         <ol class="design-list">
           <li><strong>Conception de l'interface</strong> : les blocs, les vues, la méthodologie suivie, du layout à l'assemblage.</li>
           <li><strong>Consommation de l'API</strong> : la couche client, les endpoints utilisés, la gestion des erreurs et des cas limites.</li>
-          <li><strong>Visualisation</strong> : les représentations choisies, comment les seuils et les unités rendent le portrait lisible, ce qui a été écarté.</li>
-          <li><strong>Authentification</strong> : le flux côté client, les actions protégées, la conservation du justificatif, la façon dont l'état se reflète dans l'interface.</li>
+          <li><strong>Visualisation</strong> : les représentations choisies, comment les seuils et les unités rendent le portrait lisible, la justification du seuil de fraîcheur de la carte (au-delà duquel une mesure n'est plus récente), ce qui a été écarté.</li>
+          <li><strong>Authentification et espace compte</strong> : le flux côté client, les actions protégées, la conservation du justificatif, la façon dont l'état se reflète dans l'interface, et l'extension du modèle qui lie une observation à son auteur (pour le récapitulatif des contributions et la notion de « ses lieux »).</li>
           <li><strong>Réactivité et utilisabilité</strong> : les états gérés, la transparence, les heuristiques retenues.</li>
           <li><strong>Limites et évolution</strong> : compromis assumés, ce qui changerait avec plus de temps, et le cas échéant les bonus réalisés.</li>
         </ol>
       </section>
 
-      <!-- ── 05 Évaluation ─────────────────────────────────────── -->
+      <!-- ── 06 Évaluation ─────────────────────────────────────── -->
 
       <section id="evaluation">
-        <h2><span class="h2-num">05</span> Évaluation</h2>
+        <h2><span class="h2-num">06</span> Évaluation</h2>
         <table class="eval-table"><thead><tr><th>Critère</th><th>Poids</th><th>Ce qu'on évalue</th></tr></thead><tbody>
-          <tr><td>Interface et expérience</td><td>25 %</td><td>Réactivité, gestion des états, utilisabilité de l'ensemble</td></tr>
-          <tr><td>Consommation de l'API</td><td>20 %</td><td>Couche client isolée, endpoints bien utilisés, erreurs gérées</td></tr>
-          <tr><td>Visualisation</td><td>25 %</td><td>Classification, historique, créneaux calmes, lisibilité</td></tr>
-          <tr><td>Authentification</td><td>15 %</td><td>Flux côté client, actions protégées, état connecté, lectures publiques</td></tr>
+          <tr><td>Interface et expérience</td><td>20 %</td><td>Réactivité, gestion des états, utilisabilité de l'ensemble</td></tr>
+          <tr><td>Consommation de l'API</td><td>15 %</td><td>Couche client isolée, endpoints bien utilisés, erreurs gérées</td></tr>
+          <tr><td>Visualisation</td><td>25 %</td><td>Vue carte, vue détaillée (classification, historique, créneaux calmes), lisibilité</td></tr>
+          <tr><td>Authentification</td><td>15 %</td><td>Flux côté client, actions protégées, espace compte, état connecté, lectures publiques</td></tr>
+          <tr><td>Travail d'équipe et suivi</td><td>10 %</td><td>Tickets attribués et suivis, rythme de commits (au moins trois par semaine et par membre, messages pertinents), vérification de la compréhension</td></tr>
           <tr><td>README</td><td>5 %</td><td>Reproductible, configuration de l'API documentée</td></tr>
           <tr><td>Rapport</td><td>10 %</td><td>Analyse des choix, identification des limites</td></tr>
         </tbody></table>
       </section>
 
-      <!-- ── 06 Échéancier ─────────────────────────────────────── -->
+      <!-- ── 07 Échéancier ─────────────────────────────────────── -->
 
       <section id="echeancier">
-        <h2><span class="h2-num">06</span> Échéancier</h2>
+        <h2><span class="h2-num">07</span> Échéancier</h2>
         <div class="timeline">
-          <div class="tl-item"><div class="tl-date">Semaine 1</div><div class="tl-desc">Nouvelles données collectées (10 mesures, 3 lieux) ; interface esquissée ; couche client qui liste les lieux et affiche un portrait d'ambiance</div></div>
-          <div class="tl-item"><div class="tl-date">Semaine 2</div><div class="tl-desc">Visualisations (historique, créneaux calmes) ; états de chargement et d'erreur ; présentation intermédiaire de l'interface publique (3 à 5 min)</div></div>
-          <div class="tl-item"><div class="tl-date">Semaine 3</div><div class="tl-desc">Soumission d'observations ; authentification des actions protégées</div></div>
-          <div class="tl-item tl-item--final"><div class="tl-date">Remise</div><div class="tl-desc">Dépôt Git + rapport PDF sur Studium (date à fixer)</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine 1 · dès le 23 juin</div><div class="tl-desc">Nouvelles données collectées (10 mesures, 3 lieux) ; interface esquissée ; couche client qui liste les lieux et affiche un portrait d'ambiance</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine 2 · dès le 30 juin</div><div class="tl-desc">Visualisations (vue carte, historique, créneaux calmes) ; états de chargement et d'erreur ; présentation intermédiaire de l'interface publique (3 à 5 min) ; vérification de la compréhension par l'équipe (semaine 2 ou 3)</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine 3 · dès le 7 juillet</div><div class="tl-desc">Soumission d'observations ; authentification des actions protégées et espace compte</div></div>
+          <div class="tl-item tl-item--final"><div class="tl-date">Remise · 21 juillet</div><div class="tl-desc">Dépôt Git + rapport PDF sur Studium</div></div>
         </div>
       </section>
     </main>
