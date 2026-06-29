@@ -32,9 +32,8 @@ import Aside from '../../components/Aside.astro';
         <p class="hero__question">Comment rendre une donnée d'ambiance lisible et actionnable pour un usager?</p>
         <p class="hero__desc">
           La phase 1 a produit une API qui expose l'ambiance d'un lieu. La phase 2
-          construit l'application qui la consomme : une interface réactive qui rend
-          l'ambiance lisible, qui laisse soumettre des observations, et qui
-          authentifie les actions protégées.
+          construit l'application qui la consomme et offre une interface réactive 
+          permettant de dialoguer et interroger le système.
         </p>
       </div>
     </header>
@@ -55,30 +54,17 @@ import Aside from '../../components/Aside.astro';
       <section id="contexte">
         <h2><span class="h2-num">01</span> Contexte</h2>
         <p>
-          Au terme de la phase 1, chaque équipe dispose d'une API qui collecte,
-          persiste et expose l'ambiance d'un lieu. Cette API est maintenant
-          l'entrée : la phase 2 construit l'application cliente qui la consomme et
-          la rend compréhensible pour une personne, pas seulement pour un outil
-          comme Postman.
+          Au terme de la phase 1, vous disposez d'une API qui collecte,
+          persiste et expose l'ambiance (interprétée) d'un lieu.
+          La phase 2 vise à construire l'application cliente qui consomme votre API 
+          et la rend compréhensible pour une personne ou entité publique.
         </p>
 
-        <div class="cards">
-          <div class="card">
-            <div class="card__icon">&#x1F4E1;</div>
-            <h4>Ce que vous consommez</h4>
-            <p>L'API de votre phase 1 : la liste des lieux, le portrait d'ambiance (résumé, détail, historique, créneaux calmes), et la soumission d'observations, protégée par authentification.</p>
-          </div>
-          <div class="card">
-            <div class="card__icon">&#x1F4F1;</div>
-            <h4>Ce que vous construisez</h4>
-            <p>Une interface réactive de consommation et de visualisation, qui authentifie les actions protégées et qui reste lisible dans tous ses états (chargement, erreur, vide).</p>
-          </div>
-        </div>
-
         <p>
-          L'application consomme l'API de votre propre équipe. Les lectures
-          (consulter l'ambiance) sont publiques ; les écritures (soumettre une
-          observation) demandent une authentification.
+          Vous devez construire une interface réactive de consommation et de visualisation, qui authentifie
+          les actions protégées et qui reste lisible dans tous ses états (chargement, erreur, vide).
+          Les lectures (consulter l'ambiance) sont publiques ; les écritures (soumettre une observation)
+          demandent une authentification.
         </p>
       </section>
 
@@ -86,141 +72,109 @@ import Aside from '../../components/Aside.astro';
 
       <section id="travail">
         <h2><span class="h2-num">02</span> Travail à réaliser</h2>
-        <p>Le travail se décompose en sept tâches, qui peuvent se chevaucher.</p>
 
         <h3>Tâche 1 : Collecter de nouvelles données</h3>
         <p>
           À l'aide du mécanisme de collecte de la phase 1, recueillir de nouvelles
-          données : au moins <strong>10 nouvelles mesures</strong>, réparties sur
+          données : au moins <strong>12 nouvelles mesures</strong>, réparties sur
           <strong>3 lieux différents</strong>. La reprise du lieu de la phase 1 est
           permise comme l'un des trois. Ces données alimentent les visualisations et
           rendent l'application réaliste.
         </p>
 
-        <h3>Tâche 2 : Concevoir l'interface</h3>
+        <h3>Tâche 2 : Application cliente, accès public</h3>
         <p>
-          Partir du résultat visé, puis identifier les blocs : sélection d'un lieu,
-          portrait d'ambiance, historique, créneaux calmes, soumission d'une
-          observation. Poser le layout, repérer les actions et leurs écouteurs,
-          puis assembler. C'est la méthodologie vue en cours : le layout, les
-          morceaux réutilisables, les actions, l'assemblage.
+          Construire la partie publique de l'application cliente.
+          L'interface doit rendre le portrait lisible d'un coup d'oeil en utilisant
+          un badge de classification (calme, modéré, animé), un graphe d'historique
+          et les créneaux calmes. 
         </p>
-
-        <h3>Tâche 3 : Consommer l'API</h3>
-        <p>
-          Construire une couche client (un module <code>api</code>) qui isole les
-          appels HTTP : lister les lieux, obtenir le portrait d'ambiance et son
-          historique, soumettre une observation. Le reste de l'application appelle
-          cette couche sans toucher à <code>fetch</code>, et reçoit des données
-          déjà mises en forme.
+         <p>
+          Il faut construire une couche client qui isole les appels à votre API.
+          Tout le travail de classification et d'interprétation doit être fait coté serveur. 
+          L'espace publique du client est responsable de l'affichage et de l'interrogation des données. 
+          Touttefois, les réponses de l'API doivent être descriptive pour rester compréhensible 
+          sans documentation externe.
         </p>
-
-        <div class="arch-diagram">
-          <svg viewBox="0 0 640 170" role="img" aria-label="L'application (interface et couche client) consomme l'API de la phase 1 par HTTP ; la réponse JSON remonte vers l'interface.">
-            <text x="177" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" opacity="0.55">Votre application</text>
-            <text x="528" y="26" text-anchor="middle" fill="currentColor" font-size="12" font-weight="700" opacity="0.55">Phase 1</text>
-            <line x1="388" y1="36" x2="388" y2="150" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.6"/>
-            <text x="388" y="32" text-anchor="middle" fill="#0d9488" font-size="11" font-weight="600">réseau</text>
-            <rect x="14" y="54" width="150" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-            <text x="89" y="84" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Interface</text>
-            <text x="89" y="101" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">vues, états</text>
-            <rect x="190" y="54" width="150" height="68" rx="10" fill="none" stroke="#0d9488" stroke-width="2"/>
-            <text x="265" y="84" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">Couche client</text>
-            <text x="265" y="101" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">le module api</text>
-            <rect x="430" y="54" width="196" height="68" rx="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-            <text x="528" y="84" text-anchor="middle" fill="currentColor" font-size="13" font-weight="600">API phase 1</text>
-            <text x="528" y="101" text-anchor="middle" fill="currentColor" font-size="10" opacity="0.6">Express + base de données</text>
-            <line x1="164" y1="88" x2="186" y2="88" stroke="#0d9488" stroke-width="2"/>
-            <polygon points="186,84 186,92 194,88" fill="#0d9488"/>
-            <line x1="340" y1="88" x2="426" y2="88" stroke="#0d9488" stroke-width="2"/>
-            <polygon points="426,84 426,92 434,88" fill="#0d9488"/>
-            <text x="388" y="78" text-anchor="middle" fill="#0d9488" font-size="10" font-weight="600">HTTP</text>
-            <path d="M 528 122 L 528 150 L 89 150 L 89 126" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.55"/>
-            <polygon points="83,134 95,134 89,124" fill="currentColor" opacity="0.55"/>
-            <text x="300" y="145" text-anchor="middle" fill="currentColor" font-size="10.5" opacity="0.6">réponse (JSON), puis réaffichage</text>
-          </svg>
-          <p class="arch-caption">L'interface ne parle qu'à la couche client ; la couche client est la seule à connaître l'API de la phase 1.</p>
-        </div>
-
-        <h3>Tâche 4 : Visualiser l'ambiance</h3>
-        <p>
-          Rendre le portrait lisible d'un coup d'oeil : un badge de classification
-          (calme, modéré, animé), une courbe d'historique, les créneaux calmes. La
-          classification est fournie par votre API : le client l'affiche, il ne la
-          recalcule pas. Les réponses de l'API portent leur échelle (seuils, unités) :
-          l'interface s'en sert pour rester compréhensible sans documentation externe.
-        </p>
+       
         <p>
           La visualisation comprend au minimum deux représentations complémentaires :
         </p>
         <ul>
           <li>
-            <strong>Une vue carte.</strong> Au minimum : les lieux positionnés sur une
-            carte à partir de leurs coordonnées, chaque marqueur portant la
-            classification d'ambiance courante renvoyée par l'API (rendue par la couleur
-            ou un libellé), et un clic sur un lieu qui mène à son portrait d'ambiance. La
-            carte reste lisible quand un lieu n'a pas de mesure récente ; le seuil de
-            fraîcheur (au-delà duquel une mesure n'est plus « récente ») est choisi par
-            l'équipe et justifié dans le rapport.
+            <strong>Une vue carte</strong> respectant les spécifications minimales suivantes : 
+            <ul>
+              <li>les lieux positionnés sur une carte à partir de leurs coordonnées</li>
+              <li>chaque marqueur portant la classification d'ambiance courante renvoyée par l'API</li>
+              <li>un clic sur un lieu qui mène à son portrait d'ambiance</li>
+              <li>La carte reste lisible quand un lieu n'a pas de mesure récente</li>
+            </ul>
+            Le seuil de fraîcheur (au-delà duquel une mesure n'est plus « récente ») 
+            est <strong>choisi par l'équipe et justifié dans le rapport</strong>.
           </li>
           <li>
-            <strong>Une vue détaillée d'un lieu.</strong> Au minimum : le badge de
-            classification fourni par l'API, la courbe d'historique et les créneaux
-            calmes tels que votre API les expose, avec leurs échelles.
+            <strong>Une vue détaillée d'un lieu</strong> respectant les spécifications minimales suivantes : 
+            <ul>
+              <li>le badge de classification fourni par l'API</li>
+              <li>le graphe d'historique et les créneaux calmes tels que votre API les expose, avec leurs échelles</li>
+            </ul>
           </li>
         </ul>
         <Aside type="note" title="Coordonnées des lieux">
           La carte suppose que chaque lieu porte des coordonnées. Si la phase 1 ne les
           stockait pas, étendez le modèle de lieu (latitude, longitude) et ajoutez-les
-          à vos lieux ; à défaut, prévoyez une position de repli documentée dans le
-          rapport.
+          à vos lieux.
         </Aside>
 
-        <h3>Tâche 5 : Soumettre des observations</h3>
-        <p>
-          Offrir un formulaire qui envoie une observation environnementale à l'API
-          (une action d'écriture). Respecter les valeurs attendues : la vibe et la
-          proximité par tranches, l'évènement éventuel, la date. C'est ici que se
-          referme la boucle : l'usager ne fait pas que consulter, il contribue.
-        </p>
 
-        <h3>Tâche 6 : Authentifier les actions protégées et l'espace compte</h3>
+        <h3>Tâche 3 : Actions protégées et espace compte</h3>
         <p>
-          L'application permet à un usager de s'authentifier. Les écritures
-          (soumettre une observation, gérer un lieu) exigent cette authentification ;
-          les lectures restent publiques. L'interface reflète l'état connecté ou
-          déconnecté : elle affiche ou masque les actions selon ce qui est permis, et
-          conserve le justificatif (clé ou jeton) de façon appropriée.
+          L'application permet à un usager de se créer un compte et s'authentifier. 
+          L'interface reflète l'état connecté ou déconnecté : elle affiche ou masque 
+          les actions selon ce qui est permis.
+          <br>
+          Elle présente un moyen de soumettre une observation une fois authentifié 
+          (présentée dans le rapport) et permet de gérer ses lieux, c'est-à-dire les
+          lieux où il a effectué des écoutes, et ses lieux favoris.
         </p>
-        <p>
-          Une fois connecté, l'usager dispose d'un <strong>espace compte</strong>. Au
-          minimum, cet espace : indique l'identité connectée et offre la déconnexion ;
-          réunit les actions protégées en un endroit (soumettre une observation, gérer
-          ses lieux, c'est-à-dire les lieux où il a effectué des écoutes) ; et récapitule
-          les contributions de l'usager (ses observations soumises). Hors connexion, cet
-          espace n'est pas accessible et invite à se connecter.
-        </p>
+      
         <Aside type="note" title="Lier les observations à leur auteur">
           Le récapitulatif des contributions et la notion de « ses lieux » supposent que
           chaque observation est associée à l'usager qui l'a soumise. Si la phase 1 ne le
           prévoyait pas, étendez le modèle (un auteur sur l'observation), comme pour les
           coordonnées des lieux.
         </Aside>
-        <Aside type="note" title="Où l'authentification se place">
-          L'authentification est une exigence du côté client : envoyer le
-          justificatif sur les requêtes d'écriture, gérer la connexion et la
-          déconnexion, et adapter l'interface à l'état. Le mécanisme côté serveur
-          vient de la phase 1 (clé API sur les routes d'écriture).
-        </Aside>
+    
 
-        <h3>Tâche 7 : Soigner la réactivité et la transparence</h3>
+        <h3>Tâche 4 : Infrastructure, mise à jour</h3>
         <p>
-          Une interface réactive reflète l'état du système et garde l'usager en
-          contrôle. Gérer les états de chargement, d'erreur et vide ; donner un
-          retour à chaque action ; adapter l'affichage à l'état. Une requête qui
-          échoue doit le dire, pas laisser l'usager dans le doute.
+          La phase 2 fait apparaître des besoins que l'infrastructure de la phase 1 ne
+          couvrait pas forcément. Mettre l'API à jour pour les satisfaire, sans casser
+          ce qui existait :
         </p>
-
+        <ul>
+          <li>
+            <strong>Coordonnées des lieux.</strong> Le modèle de lieu porte une
+            latitude et une longitude, exposées par l'API, pour situer les marqueurs
+            sur la carte.
+          </li>
+          <li>
+            <strong>Auteur des observations.</strong> Chaque observation est associée à
+            l'usager qui l'a soumise, pour le récapitulatif des contributions et la
+            notion de « ses lieux ». L'API permet de retrouver les observations d'un
+            usager.
+          </li>
+          <li>
+            <strong>Classification exposée.</strong> Le portrait d'ambiance renvoyé par
+            l'API porte sa classification (calme, modéré, animé) et ses échelles, pour
+            que le client l'affiche sans la recalculer.
+          </li>
+        </ul>
+        <Aside type="note" title="Faire évoluer sans rompre">
+          Ces changements touchent le modèle et les endpoints de la phase 1. Les
+          documenter dans le rapport (ce qui a été ajouté, ce qui a changé), et veiller
+          à ce que la collecte et les lectures existantes continuent de fonctionner.
+        </Aside>
       </section>
 
       <!-- ── 03 Gestion de projet ──────────────────────────────── -->
@@ -229,7 +183,7 @@ import Aside from '../../components/Aside.astro';
         <h2><span class="h2-num">03</span> Gestion de projet</h2>
         <p>
           Le travail se fait en équipe et doit se piloter comme un projet, pas
-          seulement se coder. Les contraintes suivantes sont exigées.
+          seulement se coder.
         </p>
         <ul>
           <li>
@@ -239,27 +193,19 @@ import Aside from '../../components/Aside.astro';
             des tickets identifiables.
           </li>
           <li>
-            <strong>Au moins trois commits par semaine et par membre</strong>, avec un
+            <strong>Au moins trois commits par semaine pour chaque membre</strong>, avec un
             message de commit pertinent qui mentionne le type d'action (ajout,
             modification, correction, refactoring...), les éléments visés et l'intention.
-            Par exemple « ajout : vue carte, marqueurs colorés selon la classification »,
-            pas « maj ». Le rythme témoigne d'un travail réparti dans le temps plutôt que
-            concentré à la fin.
+            Par exemple « ajout : vue carte, marqueurs colorés selon la classification ».
           </li>
           <li>
             <strong>Vérification de la compréhension</strong>, en labo, en semaine 2 ou
-            3. Une courte rencontre avec l'enseignant où chaque membre explique sa partie
+            3. Une courte rencontre où chaque membre explique sa partie
             et la place dans l'ensemble : les endpoints consommés, le rôle de sa portion
             d'interface, les choix faits. L'objectif est de confirmer que le projet est
-            compris par toute l'équipe, pas par une seule personne.
+            compris par toute l'équipe.
           </li>
         </ul>
-        <Aside type="note" title="Pourquoi ces contraintes">
-          Elles rendent le travail d'équipe visible et vérifiable : les tickets
-          montrent qui fait quoi, l'historique des commits montre quand, et la
-          vérification montre que chacun comprend l'ensemble. Elles comptent dans
-          l'évaluation du travail d'équipe.
-        </Aside>
       </section>
 
       <!-- ── 04 Bonus ──────────────────────────────────────────── -->
@@ -267,22 +213,14 @@ import Aside from '../../components/Aside.astro';
       <section id="bonus">
         <h2><span class="h2-num">04</span> Bonus</h2>
         <p>
-          Deux extensions sont valorisées au-delà du socle et peuvent ajouter jusqu'à
-          5 % à la note du livrable. Elles sont indépendantes : l'une, l'autre, ou les
-          deux.
+          Deux extensions sont valorisées au-delà du socle et peuvent ajouter chacunes 
+          jusqu'à 5 % à la note du livrable.
         </p>
-        <div class="cards">
-          <div class="card">
-            <div class="card__icon">&#x1F537;</div>
-            <h4>Backend en TypeScript</h4>
-            <p>Porter le serveur de la phase 1 en TypeScript : typer le modèle, la couche d'accès aux données et les routes, pour que le contrat entre le client et le serveur soit vérifié à la compilation.</p>
-          </div>
-          <div class="card">
-            <div class="card__icon">&#x26A1;</div>
-            <h4>Temps réel</h4>
-            <p>Pousser les mises à jour d'ambiance vers le client (SSE ou WebSocket) plutôt que de les faire interroger, pour que l'affichage suive l'état sans rechargement.</p>
-          </div>
-        </div>
+
+        <ol>
+          <li><strong>Backend en TypeScript</strong>: Porter le serveur de la phase 1 en TypeScript. Typer le modèle, la couche d'accès aux données et les routes, pour que le contrat entre le client et le serveur soit vérifié à la compilation.</li>
+          <li><strong>Temps réel</strong>: Pousser les mises à jour d'ambiance vers le client (SSE ou WebSocket) plutôt que de les faire interroger, pour que l'affichage suive l'état sans rechargement.</li>
+        </ol>
       </section>
 
       <!-- ── 05 Livrables ──────────────────────────────────────── -->
@@ -292,22 +230,14 @@ import Aside from '../../components/Aside.astro';
 
         <h3>Implémentation <span class="tag">Dépôt Git</span></h3>
         <p>L'application cliente (React) doit satisfaire les exigences suivantes :</p>
-        <ul>
-          <li><strong>Consommation de l'API</strong> : une couche client (module <code>api</code>) qui isole les appels HTTP vers l'API de la phase 1</li>
+       <ul>
+          <li><strong>Consommation de l'API</strong> : une couche client qui isole les appels vers l'API</li>
           <li><strong>Visualisation de l'ambiance</strong> : une vue carte (lieux situés, classification par marqueur, accès au portrait) et une vue détaillée (classification, historique, créneaux calmes), lisibles et fondées sur les réponses de l'API</li>
           <li><strong>Soumission d'observations</strong> : un formulaire qui envoie une observation, en respectant les valeurs attendues</li>
           <li><strong>Authentification et espace compte</strong> : connexion, envoi du justificatif sur les écritures, état connecté reflété dans l'interface, lectures publiques, et un espace compte (identité, déconnexion, actions protégées, récapitulatif des contributions)</li>
           <li><strong>Gestion des états</strong> : chargement, erreur et vide traités explicitement</li>
           <li><strong>Organisation facilitant l'évolution</strong> : composants distincts, couche client séparée de l'interface</li>
         </ul>
-
-        <h3>Présentation intermédiaire <span class="tag">en labo, semaine 2</span></h3>
-        <p>
-          Présenter l'interface publique (consultation et visualisation, sans
-          l'authentification) devant l'enseignant, 3 à 5 minutes par équipe. Montrer
-          que l'application consomme l'API et rend l'ambiance lisible ; chaque membre
-          doit pouvoir expliquer sa partie.
-        </p>
 
         <h3>README.md <span class="tag">dans le dépôt</span></h3>
         <p>Document technique pour un développeur qui veut relancer le projet :</p>
@@ -326,6 +256,7 @@ import Aside from '../../components/Aside.astro';
           <li><strong>Consommation de l'API</strong> : la couche client, les endpoints utilisés, la gestion des erreurs et des cas limites.</li>
           <li><strong>Visualisation</strong> : les représentations choisies, comment les seuils et les unités rendent le portrait lisible, la justification du seuil de fraîcheur de la carte (au-delà duquel une mesure n'est plus récente), ce qui a été écarté.</li>
           <li><strong>Authentification et espace compte</strong> : le flux côté client, les actions protégées, la conservation du justificatif, la façon dont l'état se reflète dans l'interface, et l'extension du modèle qui lie une observation à son auteur (pour le récapitulatif des contributions et la notion de « ses lieux »).</li>
+          <li><strong>Mise à jour de l'infrastructure</strong> : ce qui a été ajouté ou changé dans le modèle et les endpoints de la phase 1 (coordonnées, auteur des observations, classification exposée), et comment la collecte et les lectures existantes ont été préservées.</li>
           <li><strong>Réactivité et utilisabilité</strong> : les états gérés, la transparence, les heuristiques retenues.</li>
           <li><strong>Limites et évolution</strong> : compromis assumés, ce qui changerait avec plus de temps, et le cas échéant les bonus réalisés.</li>
         </ol>
@@ -335,14 +266,15 @@ import Aside from '../../components/Aside.astro';
 
       <section id="evaluation">
         <h2><span class="h2-num">06</span> Évaluation</h2>
-        <table class="eval-table"><thead><tr><th>Critère</th><th>Poids</th><th>Ce qu'on évalue</th></tr></thead><tbody>
-          <tr><td>Interface et expérience</td><td>20 %</td><td>Réactivité, gestion des états, utilisabilité de l'ensemble</td></tr>
-          <tr><td>Consommation de l'API</td><td>15 %</td><td>Couche client isolée, endpoints bien utilisés, erreurs gérées</td></tr>
+         <table class="eval-table"><thead><tr><th>Critère</th><th>Poids</th><th>Ce qu'on évalue</th></tr></thead><tbody>
+          <tr><td>Interface et décomposition</td><td>10 %</td><td>Découpage en composants, layout, méthodologie d'assemblage</td></tr>
+          <tr><td>Qualité du code de l'application</td><td>15 %</td><td>Couche client isolée, organisation claire, états gérés, lisibilité</td></tr>
+          <tr><td>Infrastructure (mise à jour)</td><td>10 %</td><td>Coordonnées, auteur des observations, classification exposée, sans rompre la phase 1</td></tr>
           <tr><td>Visualisation</td><td>25 %</td><td>Vue carte, vue détaillée (classification, historique, créneaux calmes), lisibilité</td></tr>
           <tr><td>Authentification</td><td>15 %</td><td>Flux côté client, actions protégées, espace compte, état connecté, lectures publiques</td></tr>
           <tr><td>Travail d'équipe et suivi</td><td>10 %</td><td>Tickets attribués et suivis, rythme de commits (au moins trois par semaine et par membre, messages pertinents), vérification de la compréhension</td></tr>
-          <tr><td>README</td><td>5 %</td><td>Reproductible, configuration de l'API documentée</td></tr>
-          <tr><td>Rapport</td><td>10 %</td><td>Analyse des choix, identification des limites</td></tr>
+          <tr><td>Documentation</td><td>5 %</td><td>README reproductible, configuration de l'API documentée</td></tr>
+          <tr><td>Rapport</td><td>10 %</td><td>Analyse des choix, mise à jour de l'infrastructure, identification des limites</td></tr>
         </tbody></table>
       </section>
 
@@ -351,10 +283,11 @@ import Aside from '../../components/Aside.astro';
       <section id="echeancier">
         <h2><span class="h2-num">07</span> Échéancier</h2>
         <div class="timeline">
-          <div class="tl-item"><div class="tl-date">Semaine 1 · dès le 23 juin</div><div class="tl-desc">Nouvelles données collectées (10 mesures, 3 lieux) ; interface esquissée ; couche client qui liste les lieux et affiche un portrait d'ambiance</div></div>
-          <div class="tl-item"><div class="tl-date">Semaine 2 · dès le 30 juin</div><div class="tl-desc">Visualisations (vue carte, historique, créneaux calmes) ; états de chargement et d'erreur ; présentation intermédiaire de l'interface publique (3 à 5 min) ; vérification de la compréhension par l'équipe (semaine 2 ou 3)</div></div>
-          <div class="tl-item"><div class="tl-date">Semaine 3 · dès le 7 juillet</div><div class="tl-desc">Soumission d'observations ; authentification des actions protégées et espace compte</div></div>
-          <div class="tl-item tl-item--final"><div class="tl-date">Remise · 21 juillet</div><div class="tl-desc">Dépôt Git + rapport PDF sur Studium</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine du 22 juin</div><div class="tl-desc">Interface esquissée ; mise à jour de l'infrastructure (coordonnées, auteur, classification) ;</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine du 29 juin</div><div class="tl-desc">Nouvelles données collectées (10 mesures, 3 lieux) ; couche client qui liste les lieux et affiche un portrait d'ambiance; </div></div>
+          <div class="tl-item"><div class="tl-date">Semaine du 6 juillet</div><div class="tl-desc">Visualisations (vue carte, historique, créneaux calmes) ; états de chargement et d'erreur; Présentation intermédiaire de l'interface publique (3 à 5 min) ;</div></div>
+          <div class="tl-item"><div class="tl-date">Semaine du 13 juillet</div><div class="tl-desc">Soumission d'observations ; authentification des actions protégées et espace compte</div></div>
+          <div class="tl-item tl-item--final"><div class="tl-date">Remise · 19 juillet</div><div class="tl-desc">Dépôt Git (release) + rapport PDF sur Studium</div></div>
         </div>
       </section>
     </main>

@@ -67,8 +67,8 @@ export const navigation: NavGroup[] = [
     titre: "Projet",
     items: [
       { label: "Phase 1 : Collecte", href: "/projets/phase-01" },
-      { label: "Phase 1 : Collecte (Retour)", href: "/projets/phase-01-re" },
-      // { label: "Phase 2 : Visualisation", href: "/projets/phase-02" },
+      // { label: "Phase 1 : Collecte (Retour)", href: "/projets/phase-01-re" },
+      { label: "Phase 2 : Visualisation", href: "/projets/phase-02" },
     ],
   },
 ];
