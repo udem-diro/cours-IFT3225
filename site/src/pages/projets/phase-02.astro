@@ -85,15 +85,15 @@ import Aside from '../../components/Aside.astro';
         <h3>Tâche 2 : Application cliente, accès public</h3>
         <p>
           Construire la partie publique de l'application cliente.
-          L'interface doit rendre le portrait lisible d'un coup d'oeil en utilisant
+          L'interface doit rendre le portrait lisible d'un coup d'œil en utilisant
           un badge de classification (calme, modéré, animé), un graphe d'historique
           et les créneaux calmes. 
         </p>
          <p>
           Il faut construire une couche client qui isole les appels à votre API.
-          Tout le travail de classification et d'interprétation doit être fait coté serveur. 
-          L'espace publique du client est responsable de l'affichage et de l'interrogation des données. 
-          Touttefois, les réponses de l'API doivent être descriptive pour rester compréhensible 
+          Tout le travail de classification et d'interprétation doit être fait côté serveur. 
+          L'espace public du client est responsable de l'affichage et de l'interrogation des données. 
+          Toutefois, les réponses de l'API doivent être descriptives pour rester compréhensible 
           sans documentation externe.
         </p>
        
@@ -116,7 +116,7 @@ import Aside from '../../components/Aside.astro';
             <strong>Une vue détaillée d'un lieu</strong> respectant les spécifications minimales suivantes : 
             <ul>
               <li>le badge de classification fourni par l'API</li>
-              <li>le graphe d'historique et les créneaux calmes tels que votre API les expose, avec leurs échelles</li>
+              <li>le graphe d'historique et les créneaux calmes tels que votre API les exposent, avec leurs échelles</li>
             </ul>
           </li>
         </ul>
@@ -130,11 +130,11 @@ import Aside from '../../components/Aside.astro';
         <h3>Tâche 3 : Actions protégées et espace compte</h3>
         <p>
           L'application permet à un usager de se créer un compte et s'authentifier. 
-          L'interface reflète l'état connecté ou déconnecté : elle affiche ou masque 
+          L'interface reflète l'état connecté ou déconnecté et affiche ou masque 
           les actions selon ce qui est permis.
           <br>
-          Elle présente un moyen de soumettre une observation une fois authentifié 
-          (présentée dans le rapport) et permet de gérer ses lieux, c'est-à-dire les
+          Elle présente un moyen de soumettre une observation (une fois authentifié) 
+          et permet de gérer ses lieux, c'est-à-dire les
           lieux où il a effectué des écoutes, et ses lieux favoris.
         </p>
       
@@ -213,7 +213,7 @@ import Aside from '../../components/Aside.astro';
       <section id="bonus">
         <h2><span class="h2-num">04</span> Bonus</h2>
         <p>
-          Deux extensions sont valorisées au-delà du socle et peuvent ajouter chacunes 
+          Deux extensions sont valorisées au-delà du socle et peuvent ajouter chacune 
           jusqu'à 5 % à la note du livrable.
         </p>
 
@@ -232,7 +232,7 @@ import Aside from '../../components/Aside.astro';
         <p>L'application cliente (React) doit satisfaire les exigences suivantes :</p>
        <ul>
           <li><strong>Consommation de l'API</strong> : une couche client qui isole les appels vers l'API</li>
-          <li><strong>Visualisation de l'ambiance</strong> : une vue carte (lieux situés, classification par marqueur, accès au portrait) et une vue détaillée (classification, historique, créneaux calmes), lisibles et fondées sur les réponses de l'API</li>
+          <li><strong>Visualisation de l'ambiance</strong> : une vue carte (lieux situés, classification par marqueur, accès au portrait) et une vue détaillée (classification, historique, créneaux calmes), lisible et fondée sur les réponses de l'API</li>
           <li><strong>Soumission d'observations</strong> : un formulaire qui envoie une observation, en respectant les valeurs attendues</li>
           <li><strong>Authentification et espace compte</strong> : connexion, envoi du justificatif sur les écritures, état connecté reflété dans l'interface, lectures publiques, et un espace compte (identité, déconnexion, actions protégées, récapitulatif des contributions)</li>
           <li><strong>Gestion des états</strong> : chargement, erreur et vide traités explicitement</li>
