@@ -1,0 +1,50 @@
+---
+// Schéma du parcours « du poste de dev au navigateur » : les étapes de la mise en
+// ligne et l'enjeu introduit à chacune.
+const teal = "#0d9488";
+const gris = "#6b6b80";
+const etapes = [
+  { x: 16, titre: "Poste de dev", sous: "localhost" },
+  { x: 196, titre: "Pipeline", sous: "build · test" },
+  { x: 376, titre: "Hébergement", sous: "serveur, redondance" },
+  { x: 556, titre: "Navigateur", sous: "l'utilisateur" },
+];
+const w = 148, h = 58, y = 50, cy = y + h / 2;
+const fleches = [
+  { d: "publie", x: (16 + w + 196) / 2 + w / 2 - 4 },
+  { d: "sert", x: (196 + w + 376) / 2 + w / 2 - 4 },
+  { d: "DNS · TLS · cache", x: (376 + w + 556) / 2 + w / 2 - 4 },
+];
+---
+<figure class="schema">
+  <svg viewBox="0 0 720 150" role="img" aria-label="Du poste de développement au navigateur">
+    {etapes.slice(0, -1).map((e, i) => (
+      <line x1={e.x + w + 6} y1={cy} x2={etapes[i + 1].x - 6} y2={cy} stroke="#c9c7c1" stroke-width="2" marker-end="url(#fl)" />
+    ))}
+    {fleches.map((f) => (
+      <text x={f.x} y={38} text-anchor="middle" font-size="11" fill={gris}>{f.d}</text>
+    ))}
+    {etapes.map((e) => (
+      <g>
+        <rect x={e.x} y={y} width={w} height={h} rx="10" fill="#fff" stroke={teal} stroke-width="1.5" />
+        <text x={e.x + w / 2} y={y + 24} text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a2e">{e.titre}</text>
+        <text x={e.x + w / 2} y={y + 42} text-anchor="middle" font-size="11" fill={gris}>{e.sous}</text>
+      </g>
+    ))}
+    <text x={196 + w / 2} y={128} text-anchor="middle" font-size="10.5" fill={teal}>reproductible</text>
+    <text x={376 + w / 2} y={128} text-anchor="middle" font-size="10.5" fill={teal}>disponible</text>
+    <text x={556 + w / 2} y={128} text-anchor="middle" font-size="10.5" fill={teal}>rapide, sûr</text>
+    <defs>
+      <marker id="fl" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+        <path d="M0,0 L6,3 L0,6 Z" fill="#c9c7c1" />
+      </marker>
+    </defs>
+  </svg>
+  <figcaption>Du poste de développement au navigateur : chaque étape ajoute un enjeu.</figcaption>
+</figure>
+
+<style>
+  .schema { margin: 14px 0; }
+  .schema svg { width: 100%; height: auto; background: #f7f6f3; border: 1px solid #ebe9e4; border-radius: 12px; padding: 10px; }
+  .schema figcaption { margin-top: 6px; font-size: 0.78rem; color: #9aa1ad; }
+</style>

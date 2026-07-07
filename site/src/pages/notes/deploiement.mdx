@@ -1,0 +1,384 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Déploiement et disponibilité"
+description: "Du poste de développement aux utilisateurs réels : enjeux du déploiement, pipeline, certificat (TLS), adressage IP et DNS, serveurs de courriel (SMTP, IMAP, POP3), évènements poussés (SSE et WebSocket) et disponibilité."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import ParcoursMiseEnLigne from "../../components/ParcoursMiseEnLigne.astro";
+import PipelineDeploiement from "../../components/react/deploie/PipelineDeploiement.jsx";
+import ChaineConfiance from "../../components/react/deploie/ChaineConfiance.jsx";
+import ResolutionDNS from "../../components/react/deploie/ResolutionDNS.jsx";
+import TrajetRequete from "../../components/react/deploie/TrajetRequete.jsx";
+import FluxCourriel from "../../components/react/deploie/FluxCourriel.jsx";
+import PollingVsPush from "../../components/react/deploie/PollingVsPush.jsx";
+import CalculateurDisponibilite from "../../components/react/deploie/CalculateurDisponibilite.jsx";
+
+Le déploiement d'un système communiquant par internet présente des enjeux qui commencent
+dès la mise en production de notre système, mais également durant l'évolution de ce
+système et la communication avec celui-ci.
+
+## 1. Enjeux
+
+La finalité du développement d'application est de la publiée sur une infrastructure
+accessible aux utilisateurs cibles, que ce soit sur un réseau public ou privé.
+
+<ParcoursMiseEnLigne />
+
+<MarginNote type="rappel" titre="Déploiement: Petit rappel">
+Le déploiement consiste à produire une version d'un programme ou système (application)
+destinée à l'environnement d'exploitation (production), à transférer les fichiers vers une 
+infrastructure d'hébergement, et généralement à rendre l'application accessible par une adresse URL.
+</MarginNote>
+Cette mise en disponibilité soulève plusieurs enjeux.
+
+**Construction.** De nombreux projets requierent des transformations avant leur publication (*artefact de déploiement*): 
+transpilation, regroupement, minification, découpage, etc.
+
+**Hébergement.** Il faut décider où et comment sont servis l'interface, l'API et les données.
+
+**Configuration.** Une fois hébergée, l'application doit être reliée au monde extérieur et l'environnement 
+doit être configuré pour cadrer avec les besoins de la plateforme.
+
+**Sécurité.** Une application accessible par le réseau reçoit et produit des données et des requêtes provenant d'utilisateurs ou de systèmes externes. 
+
+**Évolution.** Une application en ligne peut évoluer régulièrement, pour introduire des correctifs et nouvelles fonctionnalités. Il faut idéalement publier sans interrompre le service ni introduire de régression.
+
+**Observabilité et disponibilité.** Un service finit par rencontrer des défaillances : réseau, matériel, service externe, pic de charge. 
+Il doit être capable de détecter et diagnotiscer les problèmes.
+
+**Communication en temps réel.** Dans certains cas, le serveur doit transmettre rapidement de nouvelles données sans attendre une nouvelle requête.
+
+En réponse à ces enjeux, nous visiterons les sujets suivants :
+
+* le **pipeline de déploiement** : construire les fichiers, choisir l'hébergement, publier ;
+* l'**adressage et le DNS** : joindre un serveur par une adresse, puis par un nom ;
+* le **certificat** : chiffrer et authentifier les échanges en HTTPS ;
+* la **sécurité et la configuration** : variables d'environnement, secrets, accès et exposition au réseau ;
+* les **serveurs de courriel** : SMTP, IMAP et POP3 ;
+* les **évènements poussés** : SSE et WebSocket, pour la communication en temps réel ;
+* la **disponibilité** : surveillance, redondance et tolérance aux pannes.
+
+<Checkpoint question="Pourquoi une application qui fonctionne sur localhost n'est-elle pas nécessairement prête à être utilisée en production ?">
+Sur `localhost`, le navigateur et l'application se trouvent généralement sur la même machine, dans un environnement contrôlé et utilisé par peu de personnes. Les problèmes de latence, d'accès concurrent, d'exposition au réseau, de configuration et de panne y sont donc limités ou moins visibles.
+
+En production, il faut construire explicitement plusieurs propriétés : rendre le service joignable par le réseau, établir son identité avec un nom de domaine et un certificat TLS, protéger les communications et les données, supporter plusieurs utilisateurs, observer son fonctionnement et prévoir les défaillances.
+
+Le déploiement ne consiste donc pas seulement à déplacer une application. Il la fait passer d'un environnement contrôlé à un environnement distribué, exposé et soumis à des contraintes réelles.
+</Checkpoint>
+
+## 2. Pipeline de déploiement
+
+Un **pipeline de déploiement** vise à automatiser et rendre reproductible les tâches de déploiement: 
+récupérer les sources d'une version précise, construire l'artefact, exécuter les tests, publier l'artefact, 
+le déployer sur l'infrastructure, puis basculer le trafic. 
+
+Deux pratiques prolongent cette automatisation : l'**intégration continue** fusionne fréquemment les 
+changements en les faisant valider par une construction et des tests, et le **déploiement continu** 
+publie les versions qui passent le pipeline, même si l'on s'arrête souvent à une **livraison continue**, 
+où la mise en service reste déclenchée par une personne. 
+
+Enfin, comme chaque version est un **artefact** figé et versionné, revenir en arrière
+se réduit à redéployer l'artefact précédent, ce qui rend le retour en arrière efficace et prévisible.
+
+
+{/* <PipelineDeploiement client:visible />
+
+### 2.1 Des sources à la mise en service
+
+Un pipeline enchaîne le plus souvent : récupérer les sources d'une version précise, construire l'artefact, exécuter les tests, publier l'artefact, le déployer sur l'infrastructure, puis basculer le trafic vers la nouvelle version. Placer les tests avant la mise en service est ce qui donne au pipeline sa valeur : une régression détectée à cette étape n'atteint jamais les utilisateurs.
+
+### 2.2 Des environnements distincts
+
+On sépare fréquemment plusieurs environnements. Le développement sert à écrire et essayer le code. La **préproduction** (aussi appelée *staging*) reproduit autant que possible la production, pour tester dans des conditions réalistes. La **production** est l'environnement réel, exposé aux utilisateurs. Chaque environnement a sa propre configuration ; c'est là que les variables d'environnement prennent tout leur sens, en fournissant à un même artefact des adresses et des clés différentes selon l'endroit où il tourne.
+
+### 2.3 Intégration et déploiement continus
+
+Deux pratiques reviennent souvent. L'**intégration continue** (CI, *continuous integration*) consiste à fusionner fréquemment les changements dans une base commune, en les faisant valider automatiquement par une construction et des tests. Le **déploiement continu** (CD, *continuous deployment*) prolonge cette idée en publiant automatiquement les versions qui passent le pipeline. Selon le contexte, on s'arrête souvent à une **livraison continue**, où la version est prête à être publiée mais où la mise en service reste déclenchée par une personne.
+
+### 2.4 Publier sans interrompre le service
+
+Quand la continuité du service compte, on évite de remplacer brutalement l'ancienne version. Deux approches sont répandues. Le déploiement **bleu-vert** maintient deux environnements identiques et bascule le trafic de l'un à l'autre une fois la nouvelle version prête, ce qui rend le retour en arrière quasi immédiat. Le déploiement **progressif** (ou *canari*) expose d'abord la nouvelle version à une petite fraction des utilisateurs, puis l'étend si tout va bien. La pertinence de ces techniques dépend de la criticité du service : un site personnel n'en a pas le même besoin qu'une plateforme de paiement.
+
+### 2.5 Revenir en arrière
+
+Malgré les tests, une version peut se révéler défaillante en production. Le **retour en arrière** (*rollback*) consiste à remettre en service la dernière version connue comme fonctionnelle. Il est d'autant plus simple que chaque version est un artefact figé et versionné : revenir en arrière se réduit alors à redéployer l'artefact précédent, plutôt qu'à réparer un état modifié en place. */}
+
+{/* <Highlight couleur="menthe">
+Un bon pipeline transforme le déploiement en opération routinière et réversible : construire un artefact déterminé, le valider, le publier, et pouvoir revenir en arrière sans reconstruire.
+</Highlight> */}
+
+{/* <Checkpoint question="Pourquoi un artefact de déploiement immuable simplifie-t-il le retour en arrière ?">
+Si chaque version est un artefact figé et versionné, plutôt qu'un état modifié directement sur le serveur, revenir en arrière revient à redéployer l'artefact précédent, déjà construit et testé. Le retour en arrière devient une opération déterministe et rapide, au lieu d'une réparation manuelle dont on ne sait pas si elle restaure exactement l'état antérieur. C'est aussi ce qui rend possibles des stratégies comme le bleu-vert, où l'ancienne version reste prête à reprendre le service.
+</Checkpoint> */}
+
+## 3. Certificat
+
+En HTTP simple, les échanges circulent en clair : un intermédiaire sur le réseau
+peut les lire et parfois les modifier. HTTPS ajoute une couche de sécurité, **TLS** 
+(*Transport Layer Security*), qui apporte trois garanties : la **confidentialité** 
+(les échanges sont chiffrés), l'**intégrité** (une modification en transit est détectée)
+et l'**authentification** (le navigateur peut vérifier qu'il parle bien au serveur attendu). 
+
+> Cette dernière garantie repose sur un **certificat**.
+
+### 3.1 Ce qu'atteste un certificat
+
+Un **certificat** lie un nom de domaine à une clé publique, et il est signé par une 
+**autorité de certification** (*Certificate Authority*, CA), un tiers en qui le navigateur
+a déjà confiance. Le navigateur embarque une liste d'autorités racines de confiance, son
+*magasin de confiance*. 
+
+Un certificat sert donc à deux choses : 
+
+1. Établir une connexion chiffrée, 
+2. Attester une identité, pour distinguer un site vérifié d'un imposteur.
+
+### 3.2 La chaîne de confiance
+
+Un certificat de site n'est presque jamais signé directement par une autorité racine, 
+mais par une **autorité intermédiaire**, elle-même signée par la racine. 
+Le navigateur remonte cette chaîne, du certificat du site jusqu'à une racine présente dans son magasin. 
+
+Si la chaîne aboutit et que le nom et les dates concordent, la connexion est validée ; sinon, il avertit. L'explorateur ci-dessous montre les cas les plus courants.
+
+<ChaineConfiance client:visible />
+
+### 3.3 Obtenir et renouveler un certificat
+
+Obtenir un certificat a longtemps été une démarche payante et manuelle. 
+Aujourd'hui, des services comme **Let's Encrypt** en délivrent gratuitement 
+et de façon automatisée, via le protocole ACME. Un certificat a une durée de validité volontairement courte (par exemple quelques mois) ; on met donc en place un **renouvellement automatique**, faute de quoi le certificat finit par expirer et rendre le site injoignable. La gestion des certificats fait ainsi partie de l'exploitation, pas seulement de l'installation initiale.
+
+<MarginNote type="plusloin" titre="Protocole ACME">
+Le protocole ACME (Automatic Certificate Management Environment) sert à **automatiser l’obtention, 
+le renouvellement et la révocation de certificats TLS/HTTPS**. 
+Il est standardisé par l’IETF dans le RFC 8555.
+
+ACME ne chiffre pas directement les communications. Le chiffrement des échanges est assuré ensuite par TLS, qui utilise le certificat obtenu.
+</MarginNote>
+
+### 3.4 HTTPS comme prérequis
+
+HTTPS n'est pas qu'un cadenas décoratif rassurant dans le navigateur. 
+De nombreuses fonctionnalités modernes du navigateur ne sont disponibles que dans un **contexte sécurisé** : les *service workers* (et donc les PWA), la géolocalisation, les notifications, l'accès à la caméra. 
+
+> Servir une application en HTTPS est donc devenu aujourd'hui une base.
+
+<Checkpoint question="Un certificat autosigné chiffre-t-il moins bien qu'un certificat émis par une autorité ?">
+Non : le chiffrement peut être le même dans les deux cas ou même meilleur. 
+**Ce qui manque à un certificat autosigné, c'est l'authentification par un tiers de confiance.** 
+Le navigateur ne peut pas relier ce certificat à une autorité reconnue, donc il ne peut pas garantir que le serveur est bien celui qu'il prétend être, et il avertit. Confidentialité et authentification sont deux propriétés distinctes : on peut chiffrer sans prouver son identité.
+</Checkpoint>
+
+## 4. DNS
+
+Les machines se joignent par des adresses IP (comme 203.0.113.10), mais nous humains retenons plus facilement les noms (comme exemple.com). 
+Le **DNS** (*Domain Name System*) est l'annuaire distribué du Web : il traduit un nom de domaine en adresse IP. 
+Associer un nom à l'infrastructure d'hébergement est une des étapes de la mise en ligne.
+
+### 4.1 Adresses IP et rappel TCP/IP
+
+Avant de traduire des noms, rappelons comment les machines se joignent. Sur Internet, les échanges reposent sur la pile **TCP/IP**, un empilement de responsabilités : **IP** achemine des paquets d'une machine à une autre à travers le réseau, et **TCP** organise ces paquets en un flux fiable et ordonné entre deux points. Au-dessus, HTTP transporte les requêtes et les réponses du Web. Pour joindre une machine, il faut donc son **adresse IP**.
+
+Deux versions coexistent. L'**IPv4** utilise des adresses sur 32 bits, notées en quatre nombres (par exemple `203.0.113.10`) ; leur nombre, limité, est aujourd'hui presque épuisé. L'**IPv6** utilise des adresses sur 128 bits, notées en hexadécimal (par exemple `2001:db8::10`), un espace assez vaste pour lever cette limite. Les deux cohabitent : un même nom peut pointer à la fois vers une adresse IPv4 (enregistrement A) et une adresse IPv6 (enregistrement AAAA), et le client utilise celle qu'il sait joindre.
+
+### 4.2 La résolution, étape par étape
+
+Traduire un nom en adresse mobilise plusieurs acteurs. Le **résolveur** (souvent fourni par le fournisseur d'accès ou par un service public) fait le travail pour le navigateur. Il interroge un **serveur racine**, qui l'oriente vers les serveurs du domaine de premier niveau (**TLD**, *top-level domain*, comme `.com`), lesquels l'orientent enfin vers le **serveur faisant autorité**, qui détient l'adresse. Déroulez les échanges :
+
+<ResolutionDNS client:visible />
+
+### 4.3 Qui gère le DNS ?
+ 
+Le DNS n'est pas géré par une seule entité : il est distribué sur plusieurs niveaux, du sommet jusqu'à l'utilisateur, chacun avec un rôle distinct.
+ 
+**ICANN et IANA** coordonnent le système à l'échelle mondiale, notamment la racine du DNS et l'attribution des grandes extensions comme `.com`, `.org`, `.ca` ou `.fr`.
+ 
+**Les registres** gèrent chacun une extension et tiennent la liste officielle des domaines qui en dépendent :
+ 
+| Extension | Registre |
+| --- | --- |
+| .ca | CIRA |
+| .com | Verisign |
+| .fr | Afnic |
+| .org | Public Interest Registry |
+ 
+**Les registraires** (*registrars*) sont les entreprises auprès desquelles on enregistre un nom de domaine, comme GoDaddy, Namecheap, OVH ou Cloudflare Registrar.
+ 
+**Les serveurs DNS autoritaires** détiennent les informations réelles d'un domaine. Pour `exemple.com`, ils publient par exemple que `exemple.com` mène à l'adresse `93.184.216.34`, que `www.exemple.com` est un alias de `exemple.com`, et que `mail.exemple.com` désigne le serveur de courriel.
+ 
+**Les résolveurs DNS** répondent aux utilisateurs qui saisissent une adresse. Ils sont souvent fournis par le fournisseur d'accès, une université ou un service public :
+ 
+| Adresse | Service |
+| --- | --- |
+| 8.8.8.8 | Google DNS |
+| 1.1.1.1 | Cloudflare DNS |
+| 9.9.9.9 | Quad9 |
+ 
+En résumé, ICANN coordonne le système global, les registres gèrent les extensions, les registraires vendent les domaines, les serveurs autoritaires publient les enregistrements, et les résolveurs répondent aux utilisateurs. Pour un domaine précis, la gestion pratique se fait généralement chez le registraire ou chez l'hébergeur DNS choisi, comme Cloudflare, OVH, AWS Route 53 ou Namecheap.
+ 
+### 4.4 Le cache et le TTL
+
+Refaire tout le trajet DNS à chaque requête serait coûteux. Pour éviter cela, 
+les réponses DNS peuvent être conservées temporairement **en cache** par différents intermédiaires : 
+le résolveur récursif, le système d'exploitation, et parfois le navigateur ou certaines applications.
+
+Chaque enregistrement DNS possède un **TTL** (*time to live*), généralement exprimé en secondes. 
+Ce TTL indique pendant combien de temps l'information peut être réutilisée avant 
+qu'il soit nécessaire de la redemander à un serveur DNS faisant autorité.
+
+Par exemple, si l'enregistrement suivant possède un TTL de 3600 secondes :
+```sh
+www.exemple.ca.    3600    A    203.0.113.10
+```
+cela signifie qu'un résolveur peut conserver cette association en cache pendant environ une heure.
+
+Le cache améliore fortement les performances, mais il a aussi une contrepartie : 
+lorsqu'on modifie un enregistrement DNS, l'ancienne valeur peut continuer à être utilisée 
+jusqu'à l'expiration du TTL dans les caches existants. 
+C'est ce phénomène qu'on appelle souvent, de manière simplifiée, la propagation DNS.
+ 
+<MarginNote type="definition" titre="Propagation DNS">
+La propagation DNS correspond surtout à l'expiration progressive des caches. 
+Un changement peut donc être visible immédiatement pour certains utilisateurs, 
+mais seulement après plusieurs minutes ou heures pour d'autres.
+</MarginNote>
+
+Avant une migration importante, on diminue souvent le TTL à l'avance. Par exemple, 
+on peut passer un TTL de 24 heures à 5 minutes la veille d'un changement de serveur. 
+Ainsi, au moment de la migration, les caches expirent plus rapidement et les utilisateurs obtiennent plus vite la nouvelle adresse.
+
+### 4.5 Les principaux enregistrements
+
+Une **zone DNS** contient des enregistrements qui décrivent comment un domaine doit être résolu ou utilisé. Chaque type d'enregistrement joue un rôle particulier.
+
+Les plus courants sont les suivants.
+
+| Type      | Rôle                                                                                            | Exemple d'utilisation                                             |
+| --------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| **A**     | Associe un nom de domaine à une adresse IPv4.                                                   | `www.exemple.ca → 203.0.113.10`                                   |
+| **AAAA**  | Associe un nom de domaine à une adresse IPv6.                                                   | `www.exemple.ca → 2001:db8::10`                                   |
+| **CNAME** | Fait d'un nom un alias vers un autre nom.                                                       | `blog.exemple.ca → monsite.netlify.app`                           |
+| **MX**    | Indique les serveurs responsables de recevoir les courriels du domaine.                         | `exemple.ca → serveur de courriel`                                |
+| **TXT**   | Contient du texte associé au domaine.                                                           | Vérification de domaine, SPF, DKIM, DMARC                         |
+| **NS**    | Indique les serveurs DNS faisant autorité pour une zone.                                        | `exemple.ca → ns1.hebergeur-dns.com`                              |
+{/* | **SOA**   | Contient les informations administratives de la zone.                                           | Serveur principal, contact, numéros de série, paramètres de cache | */}
+{/* | **CAA**   | Indique quelles autorités de certification peuvent émettre des certificats TLS pour le domaine. | Autoriser seulement Let's Encrypt ou DigiCert                     | */}
+
+Pour publier un site sous un nom, on ajoute généralement un enregistrement 
+A ou AAAA vers l'adresse de l'hébergement, ou un CNAME vers un nom fourni par la plateforme. 
+
+<Checkpoint question="Vous changez l'adresse IP associée à votre domaine, mais certains utilisateurs voient encore l'ancien serveur. Pourquoi ?">
+Parce que la réponse DNS précédente est encore en cache. Les résolveurs et les systèmes conservent l'ancienne adresse jusqu'à l'expiration du TTL associé à l'enregistrement : pendant cette fenêtre, une partie des utilisateurs obtient l'ancienne valeur, une autre la nouvelle. Pour raccourcir cette période, on abaisse le TTL quelque temps avant la migration, puis on effectue le changement une fois que les anciens caches, à TTL réduit, expirent rapidement.
+</Checkpoint>
+
+{/* ### 4.7 Le trajet complet, du nom à la page
+ 
+Les pièces précédentes se combinent à chaque visite. De l'adresse saisie à la page affichée, le navigateur résout le nom, ouvre une connexion, valide le certificat, envoie la requête et suit d'éventuelles redirections. L'explorateur ci-dessous déroule ce trajet pour quelques cas d'utilisation courants.
+
+<TrajetRequete client:visible /> */}
+
+## 5. Les serveurs de courriel
+
+Le courriel ne passe pas par le Web, mais il s'appuie sur la même infrastructure de noms : ce sont les enregistrements MX du DNS qui désignent, pour un domaine, le serveur chargé de recevoir son courrier. Deux familles de protocoles se partagent ensuite le travail.
+
+L'envoi et l'acheminement entre serveurs reposent sur **SMTP** (*Simple Mail Transfer Protocol*) : l'application de l'expéditeur remet le message à un serveur d'envoi, qui le transmet, de serveur en serveur, jusqu'à celui du destinataire.
+
+La relève, c'est-à-dire lire son courrier depuis le serveur du destinataire, se fait par **IMAP** ou **POP3**.  
+Ces deux protocoles diffèrent surtout par l'endroit où vivent les messages.
+
+<FluxCourriel client:visible />
+
+## 6. Évènements poussés
+
+Le modèle classique requête-réponse (client demande et serveur répond) convient bien lorsque l'information est réclamée ponctuellement. 
+Il est moins adapté au cas où le serveur détient de nouvelles données et voudrait les transmettre sans attendre une nouvelle requête, comme une notification, une valeur en direct ou dans le contexte d'un tableau de bord.
+
+### 6.1 Interroger régulièrement (polling)
+
+La première approche reste dans le modèle requête-réponse : le client redemande à intervalle régulier s'il y a du nouveau. C'est le *polling*. Simple à mettre en place, il impose un compromis inconfortable : sonder souvent multiplie les requêtes, souvent inutiles ; sonder rarement ajoute de la latence, car une nouveauté attend le prochain sondage. La démo ci-dessous rend ce compromis visible.
+
+<PollingVsPush client:visible />
+
+### 6.2 Les évènements envoyés par le serveur (SSE)
+
+Les **SSE** (*Server-Sent Events*) renversent l'initiative : le client ouvre une connexion, que le serveur garde ouverte pour y **pousser** des messages au fil de l'eau. La communication est unidirectionnelle, du serveur vers le client. Les SSE s'appuient sur HTTP ordinaire, offrent une reconnexion automatique et se consomment côté navigateur avec l'objet `EventSource`. Ils conviennent bien aux flux de notifications ou de mises à jour où seul le serveur a de nouvelles données à envoyer.
+
+Côté client, on s'abonne au flux avec `EventSource`, qui se reconnecte tout seul en cas de coupure :
+
+```js
+const source = new EventSource("/flux");
+
+source.onmessage = (e) => {
+  console.log("message reçu :", e.data);
+};
+
+// un évènement nommé, envoyé par le serveur avec « event: alerte »
+source.addEventListener("alerte", (e) => {
+  afficherAlerte(e.data);
+});
+```
+
+Côté serveur, la réponse annonce le type `text/event-stream` et reste ouverte. Chaque message est une ou plusieurs lignes `data:` suivies d'une ligne vide. Un exemple minimal avec Express :
+
+```js
+app.get("/flux", (req, res) => {
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    Connection: "keep-alive",
+  });
+
+  const timer = setInterval(() => {
+    res.write(`data: ${new Date().toISOString()}\n\n`);
+  }, 1000);
+
+  req.on("close", () => clearInterval(timer));
+});
+```
+
+Le format prévoit aussi les champs `event:` (nommer l'évènement), `id:` (permettre de reprendre après une coupure) et `retry:` (ajuster le délai de reconnexion). C'est ce cadre simple, posé au-dessus de HTTP, qui rend les SSE faciles à mettre en place.
+
+### 6.3 Les WebSocket
+
+Les **WebSocket** établissent un canal **bidirectionnel** et persistant entre le client et le serveur. Après une poignée de main initiale au-dessus de HTTP, la connexion bascule vers un protocole dédié où les deux extrémités peuvent s'envoyer des messages à tout moment. Cette bidirectionnalité a un coût de complexité, mais elle est nécessaire dès que le client doit lui aussi émettre en continu : messagerie instantanée, édition collaborative, jeux, interfaces temps réel.
+
+> Aucune de ces techniques n'est meilleure dans l'absolu : le bon choix dépend du sens de la communication et de la fréquence des données. 
+> On privilégie souvent la solution la plus simple qui répond au besoin.
+
+{/* <Checkpoint question="Pour un fil de notifications où seul le serveur envoie des données, pourquoi les SSE suffisent-ils souvent, sans recourir aux WebSocket ?">
+Parce que le besoin est unidirectionnel : seul le serveur a de nouvelles données à transmettre. Les SSE couvrent exactement ce cas, tout en restant sur HTTP, avec une reconnexion automatique et une mise en œuvre simple. Les WebSocket ouvrent un canal bidirectionnel dont on ne se servirait pas ici, au prix d'une complexité supplémentaire. On réserve donc les WebSocket aux situations où le client doit lui aussi émettre en continu.
+</Checkpoint> */}
+
+## 7. Disponibilité
+
+Un service en ligne finit par rencontrer des défaillances : matériel, réseau, service externe, erreur humaine, pic de charge. Aucune infrastructure n'est disponible en permanence. La **disponibilité** mesure la fraction du temps pendant laquelle le service est joignable et fonctionnel. Plutôt que de promettre une perfection illusoire, on vise un niveau explicite et on conçoit le système pour l'atteindre.
+
+### 7.1 Mesurer : les « neuf »
+
+La disponibilité s'exprime souvent en pourcentage, et on parle du nombre de « neuf » : 99 % (deux neuf), 99,9 % (trois neuf), et ainsi de suite. L'écart entre ces niveaux est plus grand qu'il n'y paraît, car chaque neuf supplémentaire divise par dix le temps d'indisponibilité toléré. Le calculateur ci-dessous traduit un niveau en durée concrète.
+
+<CalculateurDisponibilite client:visible />
+
+### 7.2 Concevoir la disponibilité
+
+Un niveau élevé ne s'obtient pas par la seule qualité du code ; il se construit dans l'architecture. Plusieurs mécanismes s'y prêtent. La **redondance** duplique les composants pour supprimer les **points uniques de défaillance** (*single point of failure*), ces éléments dont la panne suffit à tout arrêter. La **bascule** (*failover*) redirige automatiquement le trafic vers une instance saine quand une autre tombe. La **répartition de charge** distribue les requêtes entre plusieurs instances et écarte celles qui ne répondent plus. Enfin, la **dégradation gracieuse** consiste à rendre un service réduit plutôt qu'à s'effondrer : servir une version en cache, désactiver une fonctionnalité secondaire, afficher un message clair au lieu d'une erreur brute.
+
+### 7.3 Observer pour tenir
+
+On ne maintient bien que ce que l'on observe. L'**observabilité** repose sur trois familles de signaux : les **journaux** (le récit des évènements), les **métriques** (des mesures agrégées comme le taux d'erreurs ou la latence) et les **traces** (le suivi d'une requête à travers les composants). Sur cette base, on définit des objectifs et des alertes. 
+{/* On distingue le **SLI** (l'indicateur mesuré), le **SLO** (l'objectif interne visé) et le **SLA** (l'engagement, parfois contractuel, envers les utilisateurs). La surveillance ne crée pas la disponibilité : elle permet de détecter, de comprendre et de réagir plus vite. */}
+
+
+{/* ## À retenir
+ 
+* **Déployer**, c'est produire une version de production, la transférer vers un hébergement et la rendre accessible par une adresse ; ce n'est pas qu'une dernière étape, mais l'entrée du logiciel dans une infrastructure, un réseau et un public réels.
+* **Un pipeline** rend le déploiement reproductible et réversible. Placer les tests avant la mise en service protège les utilisateurs, et un artefact figé rend le retour en arrière rapide et prévisible.
+* **Le certificat (TLS)** apporte confidentialité, intégrité et authentification. Chiffrer et prouver son identité sont deux choses distinctes : un certificat autosigné chiffre, mais n'authentifie pas.
+* **Adresses et DNS** : les machines se joignent par des adresses IP (IPv4 ou IPv6) ; le DNS traduit les noms en adresses. Il est distribué (ICANN, registres, registraires, serveurs autoritaires, résolveurs) et mis en cache selon un TTL, d'où la propagation lors d'un changement.
+* **Le courriel** s'appuie sur SMTP pour l'acheminement et sur IMAP ou POP3 pour la relève, les enregistrements MX désignant le serveur de réception.
+* **Communiquer en temps réel** : le polling est simple mais coûteux en latence, les SSE poussent du serveur vers le client sur HTTP, les WebSocket ouvrent un canal bidirectionnel. On choisit selon le sens et la fréquence des échanges.
+* **La disponibilité** se mesure (les « neuf ») et se conçoit (redondance, bascule, dégradation gracieuse). L'observabilité aide à détecter et à comprendre les pannes, sans les empêcher à elle seule. */}

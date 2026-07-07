@@ -1,0 +1,333 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Visualisation et communication de l'information"
+description: "Pourquoi et comment visualiser : besoins premiers, objectifs, canaux sensoriels, appareils, encodage des données, choix d'une représentation, processus itératif, et le cas riche des cartes."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import CompareValeurs from "../../components/react/viz/CompareValeurs.jsx";
+import Distribution from "../../components/react/viz/Distribution.jsx";
+import Relation from "../../components/react/viz/Relation.jsx";
+import Composition from "../../components/react/viz/Composition.jsx";
+import Evolution from "../../components/react/viz/Evolution.jsx";
+
+Ce chapitre aborde la visualisation comme un moyen de communication : pourquoi visualiser et à quels besoins cela répond, quels objectifs elle sert, par quels canaux sensoriels elle passe, comment choisir une représentation, et le cas particulièrement riche des cartes.
+
+## 1. Pourquoi visualiser?
+
+### 1.1 Des données à la compréhension
+
+Les systèmes informatiques produisent d'énormes quantités de données (journaux d'activité, capteurs, transactions, réseaux sociaux, interactions), rarement lisibles sous leur forme brute. Une visualisation les transforme en une représentation perceptible, afin de soutenir la compréhension humaine.
+
+<Highlight couleur="menthe">Données → représentation → perception → interprétation → décision. Une visualisation est une interface entre un système et un humain, pas seulement un dessin des données.</Highlight>
+
+Cette question, pourquoi visualiser, se déplie en deux temps : ce qu'on cherche vraiment à rendre visible (section 1.2), et à quels besoins humains la visualisation répond (section 1.3).
+
+### 1.2 Que cherche-t-on réellement à visualiser?
+
+On ne visualise pas des nombres pour eux-mêmes, mais des structures, des relations et des phénomènes. Ce qui se visualise se regroupe en cinq familles, qui recoupent les taxonomies classiques du domaine.
+
+#### Des objets (entités)
+
+Ce sont les choses dont on parle : utilisateurs, pages, villes, serveurs, produits, fichiers, événements. Dans une visualisation, un objet devient une **marque** : un point, une ligne, une surface, un symbole.
+
+#### Des propriétés (attributs)
+
+Chaque objet porte des attributs : taille, durée, coût, position, popularité, catégorie, état. La littérature distingue les attributs **catégoriels** (des classes sans ordre), **ordonnés** (un rang) et **quantitatifs** (des grandeurs mesurables). Cette distinction commande l'encodage visuel approprié : une couleur qualitative pour une catégorie, une position ou une longueur pour une quantité.
+
+#### Des relations
+
+Les données décrivent souvent des liens entre objets : hyperliens entre pages, communications entre serveurs, relations entre personnes, routes entre villes, dépendances entre logiciels. Ces structures forment des réseaux ou des arbres, qui appellent leurs représentations propres.
+
+#### Des transformations
+
+On veut parfois montrer comment un état évolue : changement d'une valeur, déplacement, progression d'une tâche, apparition ou disparition, évolution d'un réseau. Le temps et le changement deviennent alors le sujet.
+
+#### Des phénomènes
+
+Les données sont fréquemment les traces mesurables d'un phénomène plus abstrait : congestion d'un réseau, propagation d'une information, comportement collectif, croissance d'un service, concentration géographique, anomalie ou attaque. C'est souvent le phénomène, et non la donnée brute, que l'utilisateur doit percevoir.
+
+<MarginNote type="lien">
+Ces familles recoupent des cadres établis : les « marques » et « variables visuelles » de Bertin, la taxonomie de Shneiderman par type de donnée (1D, 2D, 3D, temporel, multidimensionnel, arbre, réseau), et le triptyque de Munzner (jeux de données : tables, réseaux et arbres, champs, géométrie ; attributs : catégoriels, ordonnés, quantitatifs).
+</MarginNote>
+
+La représentation se choisit donc selon le phénomène à comprendre et la nature des attributs, pas seulement selon le format technique des données.
+
+### 1.3 À quels besoins répond la visualisation?
+
+Avant d'être un outil d'analyse, la visualisation répond à des besoins humains plus anciens, qu'on peut lire comme une progression. Chacun est tendu entre deux pôles, et cette tension le rend intéressant. Ces besoins donnent le « pourquoi profond » ; les objectifs de la section 2 en seront les moyens.
+
+Tout commence par la **survie et les repères**. Le besoin le plus ancien est de voir pour s'orienter et se protéger. La perception s'est développée pour détecter vite un mouvement, un contraste, une rupture. La question est immédiate, presque prérationnelle : suis-je en sécurité, où suis-je, qu'est-ce qui a changé ?
+
+Une fois repéré, on veut **dépasser le connu** : explorer ou simuler. Explorer, c'est parcourir des données encore inconnues pour y repérer l'inattendu ; simuler, c'est rendre visible ce qui n'existe pas encore, un scénario, une projection, un modèle. La question devient : qu'y a-t-il là-dedans, que se passerait-il si...? 
+
+Ce qu'on a découvert, on veut le **partager** : informer ou sensibiliser. Informer vise la tête, transmettre un fait clairement ; sensibiliser vise le cœur, faire ressentir et susciter une réaction. La question se dédouble : que dois-je comprendre, que dois-je ressentir ? La visualisation devient alors rhétorique et affective, ce qui rejoint la perception et le ressenti (section 3.5). Sur le Web : journalisme de données, infographie, campagne de santé publique, visualisation climatique.
+
+Enfin, on cherche à **condenser ou à prouver** : synthétiser ou démontrer. Synthétiser réduit une masse de données à une forme saisissable d'un coup d'œil, un graphique qui remplace mille nombres ; démontrer établit visuellement un argument, rend une preuve évidente, une tendance qui existe, un seuil franchi, une corrélation qui tient. La question devient : quelle est la vue d'ensemble, qu'est-ce que cela prouve ? La visualisation est alors un raisonnement rendu visible.
+
+<MarginNote type="attention">
+Ce pouvoir de prouver est aussi un pouvoir de tromper : démontrer et manipuler partagent les mêmes outils (axe tronqué, échelle trompeuse, sélection des données).
+</MarginNote>
+
+<Highlight couleur="ambre">Le besoin donne le sens, l'objectif donne le moyen.</Highlight>
+
+Le reste du chapitre détaille les moyens.
+
+<Checkpoint question="Quelle différence entre un besoin premier et un objectif de visualisation ?">
+Un besoin premier (se repérer, explorer, communiquer, argumenter) dit *pourquoi* on visualise, à un niveau presque anthropologique. Un objectif (explorer, expliquer, comparer, localiser, montrer une évolution, aider à décider) est le *moyen* analytique qui sert ce besoin. Le besoin oriente le choix, l'objectif le concrétise.
+</Checkpoint>
+
+## 2. La visualisation comme communication sensorielle
+
+La communication d'une information passe par les capacités perceptives de l'utilisateur.
+
+La vision est le canal le plus fréquemment utilisé, mais elle n'est pas le seul.
+
+### 2.1 Le canal visuel
+
+Le canal visuel permet de communiquer de l'information par :
+
+* la position;
+* la longueur;
+* la taille;
+* la forme;
+* la couleur;
+* l'orientation;
+* la texture;
+* la profondeur;
+* le mouvement.
+
+Il permet de présenter plusieurs informations simultanément et de faire apparaître rapidement certaines structures.
+
+Exemples :
+
+* un graphique;
+* une icône;
+* une animation;
+* une carte;
+* un tableau de bord;
+* une interface en réalité virtuelle.
+
+### 2.2 Le canal auditif
+
+Le son peut transmettre :
+
+* une alerte;
+* une variation;
+* une direction;
+* une proximité;
+* un état;
+* un rythme.
+
+Exemples :
+
+* notification sonore;
+* lecteur d'écran;
+* augmentation de la fréquence d'un son selon une valeur;
+* guidage vocal;
+* signal indiquant la réussite ou l'échec d'une action.
+
+La représentation de données par le son est parfois appelée **sonification**.
+
+Le canal auditif est particulièrement utile lorsque :
+
+* l'utilisateur ne regarde pas l'écran;
+* l'information est urgente;
+* l'interface doit être accessible sans vision;
+* un phénomène évolue dans le temps.
+
+### 2.3 Le canal tactile ou haptique
+
+Le canal tactile transmet de l'information par :
+
+* une vibration;
+* une pression;
+* une résistance;
+* une texture;
+* un mouvement physique.
+
+Exemples :
+
+* vibration d'un téléphone;
+* retour haptique d'une montre;
+* résistance d'un contrôleur;
+* plage braille;
+* signal tactile de navigation.
+
+Une vibration peut indiquer qu'un événement s'est produit, mais elle communique généralement moins de détails qu'un graphique.
+
+### 2.4 Les autres sensations
+
+Certaines interfaces expérimentales peuvent faire appel à :
+
+* la température;
+* l'équilibre;
+* la perception du mouvement;
+* l'odorat;
+* la perception de l'espace.
+
+Ces canaux sont moins courants dans les interfaces Web traditionnelles, mais ils deviennent pertinents dans les environnements immersifs, les objets connectés et les dispositifs spécialisés.
+
+### 2.5 Perception et ressenti
+
+Une représentation produit également un effet subjectif.
+
+Elle peut communiquer :
+
+* une impression d'urgence;
+* une sensation de calme;
+* une idée de danger;
+* une impression de densité;
+* une perception de vitesse;
+* un sentiment de contrôle ou de confusion.
+
+Par exemple, une animation rapide, des contrastes élevés et des alertes sonores répétées peuvent créer une impression d'urgence.
+
+La conception doit donc tenir compte non seulement de ce que l'utilisateur perçoit, mais également de la manière dont il le ressent.
+
+## 3. Choisir une représentation visuelle
+
+Le choix d'une représentation ne commence pas par la question « Quel graphique utiliser? ».
+
+Il commence par les questions suivantes :
+
+1. Que doit comprendre l'utilisateur?
+2. Quelle tâche doit-il accomplir?
+3. Quelles sont les données nécessaires?
+4. Quelle comparaison doit être facilitée?
+5. Quel canal perceptif convient à cette information?
+6. Sur quel appareil la représentation sera-t-elle présentée?
+
+### 3.1 Comparer des valeurs
+
+Représentations courantes :
+
+* diagramme à barres;
+* diagramme de points;
+* tableau;
+* valeur accompagnée d'une référence.
+
+Les objets devraient partager une échelle commune lorsque la comparaison précise est importante.
+
+<CompareValeurs client:visible />
+
+### 3.2 Montrer une distribution
+
+Représentations courantes :
+
+* histogramme;
+* boîte à moustaches;
+* graphique de densité;
+* nuage de points.
+
+On cherche à observer :
+
+* la valeur centrale;
+* la dispersion;
+* les regroupements;
+* les valeurs extrêmes;
+* la forme de la distribution.
+
+<Distribution client:visible />
+
+### 3.3 Montrer une relation
+
+Représentations courantes :
+
+* nuage de points;
+* diagramme de réseau;
+* matrice;
+* graphe de dépendances.
+
+Le choix dépend de la nature de la relation.
+
+Un nuage de points montre une relation entre des mesures. Un diagramme de réseau montre des connexions entre des entités.
+
+<Relation client:visible />
+
+### 3.4 Montrer une composition
+
+Représentations courantes :
+
+* barres empilées;
+* barres empilées à 100 %;
+* carte arborescente;
+* diagramme circulaire simple.
+
+Les parties doivent appartenir à un même ensemble significatif.
+
+<Composition client:visible />
+
+### 3.5 Montrer une évolution temporelle
+
+Représentations courantes :
+
+* graphique linéaire;
+* chronologie;
+* diagramme en aires;
+* séquence d'états;
+* animation;
+* petits multiples.
+
+Le temps peut représenter :
+
+* un instant;
+* une durée;
+* une période;
+* un ordre;
+* une fréquence.
+
+Une animation ne constitue pas toujours la meilleure manière de montrer le temps. Un graphique statique permet souvent de comparer simultanément plusieurs moments.
+
+<Evolution client:visible />
+
+<Checkpoint question="Par quoi commence le choix d'une représentation ?">
+Pas par « quel graphique ? », mais par la tâche : que doit comprendre ou faire l'utilisateur, sur quelles données, quelle comparaison faciliter, quel canal et quel appareil. La forme découle de la question, pas l'inverse.
+</Checkpoint>
+
+## 4. Les cartes comme exemple de conception visuelle
+
+Les cartes constituent un exemple particulièrement riche, car elles combinent :
+
+* données;
+* espace;
+* objets visuels;
+* conventions;
+* couleurs;
+* échelles;
+* interactions;
+* interprétation.
+
+### 4.1 Que représente une carte?
+
+Une carte ne représente pas directement le territoire. Elle en fournit une abstraction.
+
+Elle peut montrer :
+
+* des positions;
+* des régions;
+* des distances;
+* des trajets;
+* des densités;
+* des relations;
+* des phénomènes localisés.
+
+Elle sélectionne certaines informations et en ignore d'autres.
+
+Une carte routière, une carte météorologique et un plan de métro peuvent représenter le même territoire, tout en poursuivant des objectifs complètement différents.
+
+### 4.2 Un exemple travaillé
+
+Plutôt que de rester abstrait, ce chapitre se prolonge par un exemple complet, [Une carte, cinq niveaux](visualisation-carte), qui reprend une même carte et l'enrichit étape par étape. Chaque étape rejoue une idée vue ici :
+
+* **Niveau 1, repère statique** : une carte de points (5.5) avec regroupement en clusters quand ils sont nombreux, une icône par type et une couleur par niveau. On répond d'abord au besoin de se repérer.
+* **Niveau 2, filtres et recherche** : on interroge la carte et on ne garde que ce qui compte. C'est l'objectif d'explorer, et le rappel que filtrer, c'est cacher.
+* **Niveau 3, symboles paramétrables** : des symboles proportionnels (5.4) dont l'utilisateur choisit la pondération, avec le soin de rendre l'aire, et non le rayon, proportionnelle à la quantité.
+* **Niveau 4, évolution dans le temps** : une lecture jour par jour sur la carte et une vue graphique en alternative, qui illustrent le choix entre animation et vue statique (section 4.5).
+* **Niveau 5, exploration** : sélection, comparaison, zones à surveiller et fond de carte, qui incarnent l'équilibre entre richesse des interactions et lisibilité (5.8).
+
+<MarginNote type="plusloin">
+L'exemple est interactif et cumulatif : [Une carte, cinq niveaux](visualisation-carte).
+</MarginNote>

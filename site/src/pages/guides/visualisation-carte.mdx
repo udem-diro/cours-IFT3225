@@ -1,0 +1,96 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Une carte, cinq niveaux"
+description: "Exemple de clôture du chapitre sur la visualisation : une même carte (React + react-leaflet) enrichie en cinq niveaux, du repère statique à l'exploration multi-niveaux, chacun illustrant une idée du chapitre."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import CarteStatique from "../../components/react/carte/CarteStatique.jsx";
+import CarteFiltres from "../../components/react/carte/CarteFiltres.jsx";
+import CarteParametrable from "../../components/react/carte/CarteParametrable.jsx";
+import CarteDynamique from "../../components/react/carte/CarteDynamique.jsx";
+import CarteExploration from "../../components/react/carte/CarteExploration.jsx";
+
+Pour refermer le chapitre, une seule carte, enrichie en cinq niveaux **cumulatifs** : chaque niveau garde les capacités du précédent et en ajoute une, jusqu'à une petite application complète. Le jeu de données est neutre : 48 **stations de mesure** de trois types (air, eau, bruit), chacune portant une valeur, un niveau de gravité (dont le libellé suit la sémantique du type : un bruit élevé est « bruyant », une eau élevée est « dégradée »), une tendance, une fiabilité et un historique.
+
+La progression suit celle du chapitre, du plus perceptif au plus exploratoire :
+
+1. **Statique** : un repère lisible (localiser, informer).
+2. **Filtrée** : l'utilisateur sélectionne ce qu'il voit (explorer).
+3. **Paramétrable** : l'utilisateur choisit l'encodage (synthétiser, comparer).
+4. **Dynamique** : le temps et la simulation (montrer une évolution, simuler).
+5. **Exploratoire** : plusieurs niveaux d'abstraction (explorer en profondeur).
+
+<MarginNote type="astuce">
+Ces cartes utilisent **react-leaflet** et **react-leaflet-cluster** (`npm install leaflet react-leaflet react-leaflet-cluster leaflet.markercluster recharts`), avec les tuiles OpenStreetMap (sans clé). Le point de montage à retenir : Leaflet et markercluster accèdent à `window` dès leur import ; il ne faut donc pas les importer au niveau du module (sinon « window is not defined » au rendu serveur, même pour une île `client:only`, dont le module est tout de même évalué par MDX). On les charge dans un effet, côté client, via un hook `useLeaflet` qui renvoie aussi l'objet `L` (pour construire les icônes) et le CSS de Leaflet et de markercluster. Les marqueurs sont des `divIcon` : le glyphe donne le type, la couleur donne la catégorie.
+</MarginNote>
+
+## Niveau 1 : carte statique, icône et légende
+
+Le point de départ est volontairement immobile, mais déjà riche. Les 48 stations sont marquées par une **icône** dont le glyphe indique le **type** (air, eau, bruit...) et la couleur la **catégorie** ; leur **position** indique le lieu. Quand des stations se chevauchent, elles se regroupent en **clusters** portant leur nombre, qu'on déplie en zoomant. Un survol donne le nom, un clic ouvre un portrait. Une **légende** donne la double clé de lecture (couleur et icône).
+
+<CarteStatique client:only="react" />
+
+C'est la forme la plus proche des **besoins premiers** : se repérer, puis recevoir une information déjà mise en forme. Deux encodages coexistent déjà (couleur pour la catégorie, glyphe pour le type), et le regroupement en clusters répond à un problème réel des cartes de points : quand ils sont nombreux, il faut les agréger pour rester lisible. Le seul geste offert reste la lecture et le zoom, donc rien ne peut désorienter.
+
+<Highlight couleur="ambre">
+Une carte statique n'est pas une carte pauvre. En fixant la vue et l'encodage, on garantit que tout le monde lit la même chose, de la même façon. C'est exactement ce qu'on attend d'un repère : une réponse immédiate, sans manipulation.
+</Highlight>
+
+<MarginNote type="rappel">
+Deux canaux, deux rôles : la **couleur** encode la catégorie (trois teintes distinctes, pas un dégradé continu, plus faciles à distinguer), le **glyphe** encode le type. Combiner deux encodages sur une même marque n'est lisible que si chacun reste simple et si la légende les explicite.
+</MarginNote>
+
+## Niveau 2 : filtres et recherche
+
+Le repère statique répond à « où » et « quoi ». Pour aller plus loin, il faut pouvoir interroger la carte. Ce niveau garde tout le niveau 1 (icônes typées, clusters, portraits) et ajoute des moyens d'interroger. Le filtre principal rend la **légende cliquable** : chaque mesure affiche ses niveaux nommés selon sa sémantique (Air : Bon / Modéré / Mauvais ; Bruit : Calme / Modéré / Bruyant ; Eau : Bonne / Moyenne / Dégradée), et chaque puce active ou masque directement le couple (mesure, niveau) correspondant. S'y ajoutent un filtre par quartier, une valeur minimale, et une **recherche avec auto-complétion** dont les suggestions se limitent aux stations qui passent déjà les filtres.
+
+<CarteFiltres client:only="react" />
+
+C'est l'objectif **explorer** : filtres et recherche restreignent ce que la carte montre, et les clusters se recomposent en conséquence. Faire de la légende un filtre relie directement la clé de lecture à l'action : on ne consulte pas les niveaux d'un côté et on ne filtre pas de l'autre, c'est le même objet. La recherche localise, l'auto-complétion réduit l'effort de saisie, le recentrage relie la liste à l'espace, et le compteur donne un retour permanent. Tout est bâti sur des widgets réutilisables (`FiltreNiveaux`, `RechercheAuto`, `Curseur`) que les niveaux suivants reprennent.
+
+<MarginNote type="attention">
+Filtrer, c'est cacher. Un contrôle qui retire des données doit rester lisible : indiquer combien d'éléments sont écartés, garder l'état des filtres visible, et éviter qu'un réglage vide la carte sans explication. L'interaction sert l'exploration ; elle ne doit pas désorienter.
+</MarginNote>
+
+## Niveau 3 : pondérations et paliers
+
+Le niveau 2 sait restreindre. Pour comparer des quantités, on ajoute un canal : la **taille** des icônes, en gardant tous les filtres et la recherche. Deux réglages nouveaux : la **pondération** (ce que la taille encode : valeur, fraîcheur ou nombre d'observations) et le nombre de **paliers** (la taille est quantifiée en 3, 4 ou 5 crans plutôt qu'en continu). La même carte sert alors plusieurs questions, et l'utilisateur choisit laquelle.
+
+<CarteParametrable client:only="react" />
+
+C'est l'objectif **synthétiser et comparer** : un symbole proportionnel rend les écarts de grandeur visibles d'un coup d'oeil. En rendant la pondération paramétrable, on montre que l'encodage est un choix, pas une donnée : changer ce que la taille signifie change ce que la carte raconte. Et découper en paliers assume ce compromis : quelques tailles nettes se comparent mieux qu'un dégradé continu, au prix de la précision fine.
+
+<MarginNote type="attention">
+La taille est un encodage approximatif : l'oeil compare mal des aires proches, et deux icônes voisines en taille se distinguent difficilement. Les **paliers** répondent à ce problème en n'offrant qu'un petit nombre de tailles franches. Pour une lecture précise des valeurs, la position ou la longueur (un graphique) restent plus fiables, ce qui motivera la vue graphique du niveau 4.
+</MarginNote>
+
+## Niveau 4 : carte dynamique et simulation
+
+Jusqu'ici, la carte montrait un instant. Mais chaque station porte l'historique des **30 derniers jours** (un pas par jour). En vue carte, une barre de **lecture posée en bas de la carte** rejoue les jours : couleur et taille suivent la valeur du jour affiché, et le curseur reste réglable à la main. En vue **graphique** (bascule Carte / Graphique, avec un choix Lignes / Aires / Barres), toute l'évolution des 30 jours est visible d'un coup, donc la lecture n'y a pas lieu d'être.
+
+<CarteDynamique client:only="react" />
+
+C'est l'objectif **montrer une évolution**. L'échelle de taille reste **fixe** sur toute la lecture : sans cela, chaque jour serait renormalisé et l'oeil verrait un changement qui n'existe pas. Surtout, la carte et le graphique montrent la même donnée de deux façons : la carte situe et anime un jour à la fois, le graphique aligne les 30 jours côte à côte. C'est le choix que le chapitre soulève entre animation et vue statique, et placer la lecture sur la carte rend explicite qu'elle ne concerne qu'elle.
+
+<MarginNote type="attention">
+Une animation n'est pas toujours préférable à une vue statique. Le mouvement attire l'oeil mais oblige à mémoriser : pour comparer plusieurs moments, la vue graphique les montre tous en même temps. D'où l'intérêt d'offrir les deux et de laisser l'utilisateur basculer : l'animation donne une impression d'évolution, le graphique permet le scrutin précis.
+</MarginNote>
+
+## Niveau 5 : exploration à plusieurs niveaux
+
+Le dernier niveau réunit tout ce qui précède en un véritable instrument d'exploration. Il ajoute quatre capacités. La **sélection multiple** : cliquer un capteur le sélectionne ; un seul ouvre un **panneau de détail enrichi** (type, gravité nommée, tendance, fiabilité, historique 30 jours), plusieurs ouvrent un **panneau de comparaison** (tableau et courbes superposées). L'**ajout de zones à surveiller** : on active le mode, on choisit un niveau, et chaque clic sur la carte pose une zone. Le **choix du fond de carte** (clair, standard, sombre), pour adapter le contraste. Et tout le niveau 4 reste là (filtres, recherche, pondération, lecture des 30 jours, vue graphique).
+
+<CarteExploration client:only="react" />
+
+C'est l'objectif **explorer** porté à son terme, et l'illustration directe de la dernière idée du chapitre. Une carte capable de tout montrer ne montre, au départ, presque rien : ici, on ouvre sobre (un fond clair, des clusters), on filtre pour réduire, on révèle le détail d'un capteur à la demande, on compare seulement ceux qu'on a choisis, et on annote l'espace avec des zones. La richesse des interactions ne vaut que si, à chaque instant, l'utilisateur sait où il est et ce qu'il regarde.
+
+<Highlight couleur="menthe">
+Cinq niveaux, un seul jeu de données. La carte n'a pas changé de nature à chaque étape : c'est le besoin servi qui a changé, et avec lui l'encodage et l'interaction. Localiser, explorer, comparer, montrer une évolution, explorer en profondeur : la même donnée répond à des questions différentes selon ce qu'on en fait voir.
+</Highlight>
+
+<Checkpoint question="Sur une carte interactive, pourquoi ne pas tout afficher d'emblée ?">
+Parce que la lisibilité prime sur l'exhaustivité. Une carte saturée de marques, de couches et de filtres ne répond à aucune question en particulier : l'utilisateur s'y perd. On choisit donc un niveau de détail initial pertinent (ici, des clusters sur un fond sobre), puis on révèle le reste progressivement, à la demande, en gardant à chaque instant un repère sur ce qui est montré et ce qui est caché.
+</Checkpoint>
