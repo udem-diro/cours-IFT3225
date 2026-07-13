@@ -29,7 +29,7 @@ export const navigation: NavGroup[] = [
     ],
   },
   {
-    titre: "Guide",
+    titre: "Guides",
     items: [
       { label: "Intro à Node.js et npm", href: "/guides/tuto-nodejs" },
       { label: "Intro à JavaScript (partie 1)", href: "/guides/tuto-javascript-1" },
@@ -48,6 +48,12 @@ export const navigation: NavGroup[] = [
       // { label: "Création d'une TodoList avec React ⭐", href: "/guides/tuto-todolist-react" },
       // { label: "Visualisation avec carte ⭐", href: "/guides/visualisation-carte" },
     ],
+  },
+  {
+    titre: "Tutos & Demos",
+    items: [
+      { label: "Démo 8 : Réusinage React 1 ⭐", href: "/tutos/refactor-react-01" },
+    ]
   },
   // {
   //   titre: "Réflexions",

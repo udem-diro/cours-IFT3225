@@ -1,0 +1,406 @@
+---
+layout: ../../layouts/DemoLayout.astro
+title: "Refactoring 1 : du composant fourre-tout aux responsabilités séparées"
+description: "Résolution progressive de l'exercice 1. Cinq faiblesses d'un composant React analysées selon les principes de génie logiciel, puis résolu dans l'univers React."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import Etape from "../../components/Etape.astro";
+import PanneauFichiers from "../../components/react/PanneauFichiers.jsx";
+import { projet, etapes } from "../../components/react/Etapes-01.js";
+
+<PanneauFichiers client:visible projet={projet} etapes={etapes} titre="Exercice 1 : structure" />
+
+# Démo 8 : Exercice 1
+
+Le but de cet exercice n'est pas d'apprendre des recettes React, mais de savoir 
+évaluer la maintenabilité et réutilisabilité des modules qui composent une application. 
+
+**Code de l'exercice**: [`GitHub udem-diro/demos-IFT3225 : Démo 8 - Exercice 01`](https://github.com/udem-diro/demos-IFT3225/tree/22ecef636bc8bc178716b941d99060e5f450d015/demo-8/exercice-01)
+
+<MarginNote type="astuce" titre="Suivi dans le panneau flottant">
+Le panneau flottant, à droite, suit votre lecture. Il montre l'arborescence complète du projet, 
+l'état de chaque fichier à l'étape courante, et, sur l'icône de code, le contenu du fichier à ce
+moment précis du refactoring.
+</MarginNote>
+
+<Etape id="depart">
+
+## Point de départ
+
+Voici le composant sur lequel on travaillera. 
+Il récupère et affiche la liste des lignes de bus stockée dans le fichier `"lignes.json"`. 
+Grâce à un champ texte, il permet à l'utilisateur de filtrer la liste.
+
+```jsx
+import { useEffect, useState } from "react";
+
+export default function LignesList() {
+  const [lignes, setLignes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [filtre, setFiltre] = useState("");
+
+  useEffect(() => {
+    let annule = false;
+    setLoading(true);
+
+    fetch("/lignes.json")
+      .then((result) => {
+        if (!result.ok) throw new Error(`HTTP ${result.status}`);
+        return result.json();
+      })
+      .then((data) => {
+        if (!annule) {
+          setLignes(data);
+          setError(null);
+        }
+      })
+      .catch((err) => {
+        if (!annule) setError(err.message);
+      })
+      .finally(() => {
+        if (!annule) setLoading(false);
+      });
+
+    return () => {
+      annule = true;
+    };
+  }, []);
+
+  if (loading) return <p>Chargement…</p>;
+  if (error) return <p>Erreur : {error}</p>;
+
+  const visibles = lignes.filter((ligne) =>
+    ligne.nom.toLowerCase().includes(filtre.toLowerCase())
+  );
+
+  return (
+    <section>
+      <input placeholder="Filtrer une ligne" value={filtre} 
+             onChange={(event) => setFiltre(event.target.value)} />
+      <ul>
+        {visibles.map((ligne) => (
+          <li key={ligne.id}>
+            <strong>{ligne.numero}</strong> {ligne.nom} ({ligne.arrets} arrêts)
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+```
+
+<Highlight>Le problème n'est pas que le composant fonctionne mal, mais qu'il est difficilement réutilisable et délicat à modifier.</Highlight>
+
+</Etape>
+
+<Etape id="diagnostic">
+
+## Le diagnostic
+
+Voici des sources potentielles de changement:
+
+- L'URL des données (`"/lignes.json"`) peut changer. 
+- Le format d'erreur peut changer. 
+- La présentation peut changer. 
+- La façon de filtrer peut changer. 
+
+> Ce fichier a donc au moins **4 raisons de changer!**
+
+<MarginNote type="definition" titre="Principe de responsabilité unique">
+Un module ne devrait avoir qu'une seule raison de changer, c'est-à-dire ne répondre qu'à un seul groupe de personnes ou de préoccupations.
+</MarginNote>
+
+De ce constat général découlent les faiblesses suivantes :
+
+1. **Le composant est lié à la source de données.** L'URL est codé en dur et le composant appelle lui même `fetch`. Il dépend d'un détail concret plutôt que d'une abstraction.
+2. **Le cycle de vie du chargement est géré par le composant.** Les trois états (en cours, réussi, échoué) et leur enchainement sont gérés dans le composant, et devront l'être dans le suivant.
+3. **La vue s'occupe du chargement de données.** Impossible d'afficher une liste de lignes sans déclencher une requête, donc impossible de la tester ou de la réutiliser simplement.
+4. **Le composant est à la fois chef d'orchestre et exécutant.** Le filtre est enfermé dans le composant qui affiche les données. Il manque un ancêtre commun qui le détienne et qui orchestre.
+Le composant gère deux natures d'état, celui des données et celui de l'interface.
+{/* 5. **La ressource est mal libérée (bonus).** Le drapeau `annule` ignore la réponse, mais la requête continue de vivre. */}
+
+</Etape>
+
+<Etape id="p1">
+
+## 1. Lien entre composant et source de données
+
+### Problème
+
+L'appel `fetch("/lignes.json")` est enfoui dans le composant. 
+Changer de source, passer du fichier statique à une véritable API, oblige à ouvrir un fichier de rendu. 
+
+Le composant dépend d'un **détail d'implémentation concret** au lieu de dépendre d'une abstraction, 
+résultant sur un couplage fort et le rendant plus susceptible à changer.
+
+### Résolution 
+
+La solution ici est d'isoler l'accès à la ressource derrière un module dédié. 
+Son rôle est de traduire le langage du domaine (« récupérer les lignes de bus ») 
+en langage du transport (« faire une requête HTTP sur telle URL »).
+
+React ne propose rien de spécial ici, et c'est une bonne nouvelle : le module de service est du JavaScript ordinaire.
+
+#### Fichier `src/api/bus.js`
+
+```js
+export async function fetchLignes() {
+  const result = await fetch("/lignes.json");
+
+  if (!result.ok) {
+    throw new Error(`Impossible de charger les lignes (HTTP ${result.status}).`);
+  }
+
+  return result.json();
+}
+```
+
+La séparation est nette et la source devient facilement remplaçable. 
+{/* à l'exercice 3, l'URL passera de `/lignes.json` à `/api/lignes` sans qu'aucun composant ne bouge. */}
+
+</Etape>
+
+<Etape id="p2">
+
+## 2. Cycle de vie du chargement des données géré par le composant
+
+### Problème
+
+Le lien direct avec la source de données est brisé, mais le composant doit encore faire
+la gestion de l'état du cycle de chargement des données. 
+Trois variables (`lignes`, `loading`, `error`) sont rattachées au composant pour monter 
+une petite **machine à états** : inactif, en cours, réussi, échoué. 
+Le prochain composant qui charge ces données devra également implémenter cette machine à état,
+avec ses propres approximations.
+
+### Résolution
+
+La solution ici est d'encapsuler la gestion de l'état dans une **ressource** qui expose son état et prévient ceux qui l'écoutent (abonnés).
+Une telle résolution repose principalement sur une implémentation du patron de l'Observateur.
+
+<MarginNote type="definition" titre="Patron observateur">
+Le patron de l'Observateur (*Observer pattern*) est un patron comportemental. 
+Il définit une relation un-à-plusieurs où un objet (le sujet) notifie automatiquement une liste d'autres objets
+(les observateurs) lors d'un changement d'état, permettant ainsi un faible couplage entre les composants du système.
+</MarginNote>
+
+C'est exactement ce qu'on obtient sans trop d'effort en React, en définissant un **hook personnalisé**.
+
+```js
+// src/hooks/useLignes.js
+import { useEffect, useState } from "react";
+import { fetchLignes } from "../api/bus.js";
+
+export function useLignes() {
+  const [lignes, setLignes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    setLoading(true);
+
+    fetchLignes()
+      .then((data) => {
+        setLignes(data);
+        setError(null);
+      })
+      .catch((err) => setError(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  return { lignes, loading, error };
+}
+```
+
+Il encapsule la gestion d'état grâce au `useState` qui fourni gratuitement un moyen de notifier
+tout composant (abonné) utilisant le hook d'un changement et les redessiner automatiquement. 
+Le hook est réutilisable, et sa signature (`lignes`, `loading`, `error`) documente le contrat.
+
+Cependant, un hook ne peut être appelé que depuis un composant ou un autre hook, rendant la logique 
+inutilisable hors de React. 
+
+</Etape>
+
+<Etape id="p3">
+
+## 3. Le composant s'occupe de faire l'appel de données
+
+### Problème
+
+Même après avoir encapsulé la communication avec la couche de données et la gestion de l'état dans un hook (`useLignes`),
+le composant demeure responsable de récupérer les lignes. 
+Par conséquence, on ne peut pas non plus le réutiliser pour afficher une liste venue d'ailleurs, par exemple des favoris déjà en mémoire.
+
+### Résolution
+
+Le remède est de découpler pleinement le composant de la récupération des données et le transforme en une **vue simple**.
+Le composant déclare simplement ses besoins en données (via des paramètres) et s'occupe uniquement de les présenter.
+Il laisse ainsi le soin au parent de lui fournir les données. 
+
+Le composant se transforme ainsi en une fonction pure hautement réutilisable sans état inutilement complexe.
+À noter que le composant a même été déchargé de la fonctionnalité de filtre.
+
+```jsx
+export default function LignesList({ lignes }) {
+  if (lignes.length === 0) {
+    return <p>Aucune ligne ne correspond.</p>;
+  }
+
+  return (
+    <ul className="lignes">
+      {lignes.map((ligne) => (
+        <li key={ligne.id}>
+          <strong>{ligne.numero}</strong> {ligne.nom} ({ligne.arrets} arrêts)
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+</Etape>
+
+<Etape id="p4">
+
+## 4. Le composant est à la fois chef d'orchestre et exécutant
+
+### Problème
+
+À l'étape précédente, on a obtenu un composant hautement réutilisable, mais l'orchestration est retombée
+sur `App` qui ne devrait pas s'occuper du détail de l'agencement d'une vue de l'application et de ses composants. 
+
+Il manque une pièce dont le rôle est précisément d'assembler et initialiser les autres. 
+
+
+### Résolution 
+
+On peut définir pour cela un nouveau composant qu'on caractérisera comme un **Page** (`LignesPage`) qui agira comme un contrôleur.
+
+#### Fichier `src/pages/LignesPage.jsx`
+
+```jsx
+import { useState } from "react";
+import { useLignes } from "../hooks/useLignes.js";
+import LignesList from "../components/LignesList.jsx";
+
+export default function LignesPage() {
+  const { lignes, loading, error } = useLignes(); // état de données
+  const [filtre, setFiltre] = useState("");       // état d'interface
+
+  const visibles = lignes.filter((ligne) =>
+    ligne.nom.toLowerCase().includes(filtre.toLowerCase())
+  );
+
+  if (loading) return <p>Chargement des lignes…</p>;
+  if (error) return <p role="alert">Erreur : {error}</p>;
+
+  return (
+    <section>
+      <h1>Lignes de bus</h1>
+      <input
+        value={filtre}
+        onChange={(event) => setFiltre(event.target.value)}
+        placeholder="Filtrer une ligne"
+        aria-label="Filtrer une ligne"
+      />
+      <LignesList lignes={visibles} />
+    </section>
+  );
+}
+```
+
+{/* <Checkpoint question="Pourquoi le filtre reste-t-il dans la Page plutôt que dans le hook useLignes ?">
+Parce que le filtre est un état d'interface : il n'existe que dans cet écran, ne vient pas du serveur et ne peut pas échouer. Le mettre dans le hook de données mélangerait deux préoccupations, et empêcherait de réutiliser useLignes ailleurs sans trainer un filtre dont on n'aurait que faire.
+</Checkpoint> */}
+
+</Etape>
+
+{/*<Etape id="p5">
+
+## 5. La ressource est mal libérée
+
+### Le problème
+
+Regardez le nettoyage d'origine :
+
+```js
+let annule = false;
+// ...
+return () => {
+  annule = true;
+};
+```
+
+Ce drapeau empêche d'écrire dans un composant démonté, mais **la requête, elle, continue**. Le serveur travaille, la réponse arrive, et le résultat part à la poubelle. C'est une fuite : une ressource acquise n'a jamais été libérée, seulement ignorée.
+
+### Résolution native : toute acquisition a sa libération
+
+La règle générale, que l'on retrouve sous les noms de disposable, de RAII ou simplement de symétrie ouvrir/fermer, est qu'une ressource acquise doit être relâchée par celui qui l'a acquise. Pour une requête, l'outil est `AbortController`.
+
+```js
+const controleur = new AbortController();
+
+const promesse = fetch("/lignes.json", { signal: controleur.signal });
+
+// Plus tard, si le résultat n'intéresse plus personne :
+controleur.abort(); // la requête est réellement interrompue
+```
+
+L'annulation devient une **capacité de la ressource**, pas une astuce du consommateur. Cela suppose que la passerelle accepte et transmette le signal, ce qu'elle fait déjà : `lireLignes({ signal })`.
+
+### En React
+
+La fonction de nettoyage rendue par `useEffect` est l'endroit prévu pour cette libération.
+
+```js
+useEffect(() => {
+  const controleur = new AbortController();
+  setLoading(true);
+
+  fetchLignes({ signal: controleur.signal })
+    .then((data) => {
+      setLignes(data);
+      setError(null);
+    })
+    .catch((err) => {
+      // L'annulation n'est pas une erreur à afficher : c'est un départ volontaire.
+      if (err.name !== "AbortError") setError(err.message);
+    })
+    .finally(() => setLoading(false));
+
+  return () => controleur.abort();
+}, []);
+```
+
+**Avantages.** Le nettoyage est appelé automatiquement au démontage, et avant chaque réexécution de l'effet. La symétrie est imposée par la forme même de l'API : l'effet acquiert, la fonction rendue libère.
+
+**Désavantages.** Le piège se déplace vers le tableau de dépendances : un effet qui se réexécute trop souvent annule et relance la requête sans cesse. Et en mode strict, le double montage en développement provoque une annulation immédiate suivie d'une seconde requête, ce qui ressemble à un bogue alors que c'est un révélateur : si votre code y survit, le nettoyage est correct.
+
+</Etape> */}
+
+<Etape id="recap">
+
+## Récapitulatif
+
+Le composant initial est devenu quatre fichiers, chacun avec une responsabilité unique.
+
+```
+src/
+├── api/
+│   └── bus.js            récupération de données, et rien d'autre
+├── hooks/
+│   └── useLignes.js      gestion du cycle de vie du chargement de données
+├── pages/
+│   └── LignesPage.jsx    orchestration des petits composants et l'état d'interface
+└── components/
+    └── LignesList.jsx    affichage d'une liste de lignes
+```
+
+Passer du fichier statique à une véritable API ne touchera qu'`api/bus.js`. Ajouter une seconde page qui affiche les mêmes lignes ne touchera rien : elle appellera `useLignes` et réutilisera `LignesList`. Changer la présentation ne touchera que `LignesList`.
+
+
+</Etape>

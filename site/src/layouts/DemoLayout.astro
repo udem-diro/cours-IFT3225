@@ -1,0 +1,22 @@
+---
+import BaseLayout from "./BaseLayout.astro";
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+const { title, description } = Astro.props;
+---
+
+<BaseLayout title={title} description={description}>
+  <article class="prose sl-markdown-content">
+    <slot />
+  </article>
+  <slot name="footer" />
+</BaseLayout>
+
+<style>
+  .prose {
+    margin: 0 auto;
+  }
+</style>
