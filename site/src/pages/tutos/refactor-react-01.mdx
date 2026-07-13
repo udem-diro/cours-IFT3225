@@ -116,7 +116,7 @@ Un module ne devrait avoir qu'une seule raison de changer, c'est-à-dire ne rép
 
 De ce constat général découlent les faiblesses suivantes :
 
-1. **Le composant est lié à la source de données.** L'URL est codé en dur et le composant appelle lui même `fetch`. Il dépend d'un détail concret plutôt que d'une abstraction.
+1. **Le composant est couplé à la source de données.** L'URL est codée en dur et le composant appelle lui-même `fetch`. Il dépend d'un détail concret plutôt que d'une abstraction.
 2. **Le cycle de vie du chargement est géré par le composant.** Les trois états (en cours, réussi, échoué) et leur enchainement sont gérés dans le composant, et devront l'être dans le suivant.
 3. **La vue s'occupe du chargement de données.** Impossible d'afficher une liste de lignes sans déclencher une requête, donc impossible de la tester ou de la réutiliser simplement.
 4. **Le composant est à la fois chef d'orchestre et exécutant.** Le filtre est enfermé dans le composant qui affiche les données. Il manque un ancêtre commun qui le détienne et qui orchestre.
@@ -127,7 +127,7 @@ Le composant gère deux natures d'état, celui des données et celui de l'interf
 
 <Etape id="p1">
 
-## 1. Lien entre composant et source de données
+## 1. Couplage entre composant et source de données
 
 ### Problème
 
@@ -166,7 +166,7 @@ La séparation est nette et la source devient facilement remplaçable.
 
 <Etape id="p2">
 
-## 2. Cycle de vie du chargement des données géré par le composant
+## 2. État surchargé : Cycle de vie du chargement des données
 
 ### Problème
 
@@ -227,13 +227,13 @@ inutilisable hors de React.
 
 <Etape id="p3">
 
-## 3. Le composant s'occupe de faire l'appel de données
+## 3. Responsabilité multiple : Appel de données et présentation
 
 ### Problème
 
 Même après avoir encapsulé la communication avec la couche de données et la gestion de l'état dans un hook (`useLignes`),
 le composant demeure responsable de récupérer les lignes. 
-Par conséquence, on ne peut pas non plus le réutiliser pour afficher une liste venue d'ailleurs, par exemple des favoris déjà en mémoire.
+Par conséquent, on ne peut pas non plus le réutiliser pour afficher une liste venue d'ailleurs, par exemple des favoris déjà en mémoire.
 
 ### Résolution
 
@@ -262,11 +262,105 @@ export default function LignesList({ lignes }) {
 }
 ```
 
+### Où est passé le filtre ? 
+
+Faute d'une pièce prévue pour cela, il remonte dans `App` avec le chargement.  
+Cependant, sous sa forme actuelle, il se présente comme un simple champ de saisie, 
+plutôt qu'un véritable champ de filtre avec des options pour contrôler la saisie.  
+On l'extrait donc dans un composant `FiltreBarre`.
+
+#### Fichier `src/components/FiltreBarre.jsx`
+
+```jsx
+import { useEffect, useState } from "react";
+
+export default function FiltreBarre({ surChangement, valeur = "", minimum = 2, delai = 250 }) {
+  const [saisie, setSaisie] = useState(valeur);
+
+  // Règles internes : on n'applique le filtre qu'après une pause dans la frappe,
+  // et seulement au-delà d'un nombre minimal de caractères.
+  useEffect(() => {
+    const terme = saisie.trim();
+    const effectif = terme.length >= minimum ? terme : "";
+
+    const minuterie = setTimeout(() => surChangement(effectif), delai);
+    return () => clearTimeout(minuterie);
+  }, [saisie, minimum, delai, surChangement]);
+
+  return (
+    <input value={saisie} onChange={(event) => setSaisie(event.target.value)}
+           placeholder="Filtrer une ligne" aria-label="Filtrer une ligne" />
+  );
+}
+```
+
+Ici, le composant maintient la valeur saisie et l'application des règles reçues du (composant) parent:
+nombre minimal de caractères et délai entre frappes pour appliquer le filtre.
+Cependant, l'application du filtre lui-même est laissée au parent.
+
+<MarginNote type="astuce" titre="Critère du placement de l'état">
+- **Descendre** l'état le plus bas possible, chez le seul composant qu'il concerne.
+  Ici, la saisie, mais aussi tout ce qui viendrait avec : les suggestions
+  d'autocomplétion, l'index de la suggestion survolée, un message « deux caractères
+  minimum ».
+- **Remonter** uniquement ce qui est partagé, chez le plus proche ancêtre commun de
+  ceux qui en dépendent. Ici, le filtre appliqué, qui remonte jusqu'à la Page.
+</MarginNote>
+
+#### Version alternative: Saisie contrôlée par le parent
+
+Si l'on souhaite donner davantage de contrôle au parent, pour le permettre de réinitialiser
+le filtre par exemple, il faudrait faire remonter la gestion de la saisie, laissant uniquement 
+l'application des règles sous la responsabilité du filtre. 
+
+```js
+import { useEffect } from "react";
+
+export default function FiltreBarre({ saisie, surSaisie, surChangement, minimum = 2, delai = 250 }) {
+  // Règles internes : on n'applique le filtre qu'après une pause dans la frappe,
+  // et seulement au-delà d'un nombre minimal de caractères.
+  useEffect(() => {
+    const terme = saisie.trim();
+    const effectif = terme.length >= minimum ? terme : "";
+
+    const minuterie = setTimeout(() => surChangement(effectif), delai);
+    return () => clearTimeout(minuterie);
+  }, [saisie, minimum, delai, surChangement]);
+
+  return (
+    <input value={saisie} onChange={(event) => surSaisie(event.target.value)}
+           placeholder="Filtrer une ligne" aria-label="Filtrer une ligne" />
+  );
+}
+```
+
+```js
+function Parent() {
+  const [saisie, setSaisie] = useState("");       // le texte tapé
+  const [filtre, setFiltre] = useState("");       // le filtre appliqué
+
+  const reinitialiser = () => {
+    setSaisie("");
+    setFiltre("");
+  };
+
+  return (
+    <section>
+      ...
+      <FiltreBarre saisie={saisie} surSaisie={setSaisie} surChangement={setFiltre} />
+      ...
+    </section>
+  );
+}
+```
+
+> **Cette version est utilisée pour la suite.**
+
 </Etape>
 
 <Etape id="p4">
 
-## 4. Le composant est à la fois chef d'orchestre et exécutant
+## 4. Alléger la racine : Définir une Page
 
 ### Problème
 
@@ -289,7 +383,13 @@ import LignesList from "../components/LignesList.jsx";
 
 export default function LignesPage() {
   const { lignes, loading, error } = useLignes(); // état de données
-  const [filtre, setFiltre] = useState("");       // état d'interface
+  const [saisie, setSaisie] = useState("");       // le texte tapé
+  const [filtre, setFiltre] = useState("");       // le filtre appliqué
+
+  const reinitialiser = () => {
+    setSaisie("");
+    setFiltre("");
+  };
 
   const visibles = lignes.filter((ligne) =>
     ligne.nom.toLowerCase().includes(filtre.toLowerCase())
@@ -301,12 +401,8 @@ export default function LignesPage() {
   return (
     <section>
       <h1>Lignes de bus</h1>
-      <input
-        value={filtre}
-        onChange={(event) => setFiltre(event.target.value)}
-        placeholder="Filtrer une ligne"
-        aria-label="Filtrer une ligne"
-      />
+      <FiltreBarre saisie={saisie} surSaisie={setSaisie} surChangement={setFiltre} />
+      <button onClick={reinitialiser} disabled={!saisie}>Effacer</button>
       <LignesList lignes={visibles} />
     </section>
   );
@@ -319,74 +415,11 @@ Parce que le filtre est un état d'interface : il n'existe que dans cet écran, 
 
 </Etape>
 
-{/*<Etape id="p5">
-
-## 5. La ressource est mal libérée
-
-### Le problème
-
-Regardez le nettoyage d'origine :
-
-```js
-let annule = false;
-// ...
-return () => {
-  annule = true;
-};
-```
-
-Ce drapeau empêche d'écrire dans un composant démonté, mais **la requête, elle, continue**. Le serveur travaille, la réponse arrive, et le résultat part à la poubelle. C'est une fuite : une ressource acquise n'a jamais été libérée, seulement ignorée.
-
-### Résolution native : toute acquisition a sa libération
-
-La règle générale, que l'on retrouve sous les noms de disposable, de RAII ou simplement de symétrie ouvrir/fermer, est qu'une ressource acquise doit être relâchée par celui qui l'a acquise. Pour une requête, l'outil est `AbortController`.
-
-```js
-const controleur = new AbortController();
-
-const promesse = fetch("/lignes.json", { signal: controleur.signal });
-
-// Plus tard, si le résultat n'intéresse plus personne :
-controleur.abort(); // la requête est réellement interrompue
-```
-
-L'annulation devient une **capacité de la ressource**, pas une astuce du consommateur. Cela suppose que la passerelle accepte et transmette le signal, ce qu'elle fait déjà : `lireLignes({ signal })`.
-
-### En React
-
-La fonction de nettoyage rendue par `useEffect` est l'endroit prévu pour cette libération.
-
-```js
-useEffect(() => {
-  const controleur = new AbortController();
-  setLoading(true);
-
-  fetchLignes({ signal: controleur.signal })
-    .then((data) => {
-      setLignes(data);
-      setError(null);
-    })
-    .catch((err) => {
-      // L'annulation n'est pas une erreur à afficher : c'est un départ volontaire.
-      if (err.name !== "AbortError") setError(err.message);
-    })
-    .finally(() => setLoading(false));
-
-  return () => controleur.abort();
-}, []);
-```
-
-**Avantages.** Le nettoyage est appelé automatiquement au démontage, et avant chaque réexécution de l'effet. La symétrie est imposée par la forme même de l'API : l'effet acquiert, la fonction rendue libère.
-
-**Désavantages.** Le piège se déplace vers le tableau de dépendances : un effet qui se réexécute trop souvent annule et relance la requête sans cesse. Et en mode strict, le double montage en développement provoque une annulation immédiate suivie d'une seconde requête, ce qui ressemble à un bogue alors que c'est un révélateur : si votre code y survit, le nettoyage est correct.
-
-</Etape> */}
-
 <Etape id="recap">
 
 ## Récapitulatif
 
-Le composant initial est devenu quatre fichiers, chacun avec une responsabilité unique.
+Après réusinage du composant initial, nous obtenons cinq fichiers, chacun avec une responsabilité unique.
 
 ```
 src/
@@ -395,12 +428,16 @@ src/
 ├── hooks/
 │   └── useLignes.js      gestion du cycle de vie du chargement de données
 ├── pages/
-│   └── LignesPage.jsx    orchestration des petits composants et l'état d'interface
+│   └── LignesPage.jsx    orchestration des petits composants et état partagé
 └── components/
+    ├── FiltreBarre.jsx   saisie du filtre, avec ses règles internes
     └── LignesList.jsx    affichage d'une liste de lignes
 ```
 
-Passer du fichier statique à une véritable API ne touchera qu'`api/bus.js`. Ajouter une seconde page qui affiche les mêmes lignes ne touchera rien : elle appellera `useLignes` et réutilisera `LignesList`. Changer la présentation ne touchera que `LignesList`.
+Passer du fichier statique à une véritable API ne touchera qu'`api/bus.js`. 
+Ajouter une seconde page qui affiche les mêmes lignes ne touchera rien : elle appellera `useLignes` et réutilisera `LignesList`. 
+Modifier le mécanisme de filtre ne touche que `FiltreBarre`.
+Changer la présentation des lignes ne touchera que `LignesList`.
 
 
 </Etape>

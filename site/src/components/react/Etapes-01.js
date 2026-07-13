@@ -1,6 +1,4 @@
 /**
- * etapes-01.js
- *
  * Données du panneau flottant pour l'exercice 1 (service, hook, Page).
  *
  * Deux exports :
@@ -28,13 +26,14 @@
  */
 
 export const projet = [
-  { chemin: "public/lignes.json", role: "La source de données, statique pour l'instant." },
-  { chemin: "src/main.jsx", role: "Le point d'entrée. Il ne change pas dans cet exercice." },
+  { chemin: "public/lignes.json", role: "La source de données." },
+  { chemin: "src/main.jsx", role: "Le point d'entrée de l'application." },
   { chemin: "src/App.jsx", role: "La racine de l'application : elle choisit ce qui est affiché." },
   { chemin: "src/api/bus.js", role: "Passerelle vers les données : le seul module qui connait l'URL et fetch." },
   { chemin: "src/hooks/useLignes.js", role: "Le cycle de vie du chargement, réutilisable par n'importe quelle Page." },
   { chemin: "src/pages/LignesPage.jsx", role: "L'orchestration : déclenche le chargement et tient l'état d'interface." },
-  { chemin: "src/components/LignesList.jsx", role: "L'affichage, et rien d'autre." }
+  { chemin: "src/components/FiltreBarre.jsx", role: "La politique du filtre : minimum de caractères et temporisation. Sans état propre." },
+  { chemin: "src/components/LignesList.jsx", role: "L'affichage des lignes, et rien d'autre." }
 ];
 
 // ---------------------------------------------------------------------------
@@ -130,7 +129,7 @@ export default function LignesList() {
 }`;
 
 const COMMENTAIRE_LIGNESLIST_DEPART =
-  "Quatre responsabilités dans un seul fichier : le réseau, les états de chargement et d'erreur, le filtre, et l'affichage. Quatre raisons de changer, donc quatre raisons de casser.";
+  "Quatre responsabilités dans un seul fichier : la communication réseau, les états de chargement et d'erreur, le filtre, et l'affichage. Quatre raisons de changer, donc quatre raisons de casser.";
 
 const CODE_LIGNESLIST_FINAL = `export default function LignesList({ lignes }) {
   if (lignes.length === 0) {
@@ -148,8 +147,6 @@ const CODE_LIGNESLIST_FINAL = `export default function LignesList({ lignes }) {
   );
 }`;
 
-const COMMENTAIRE_LIGNESLIST_FINAL =
-  "Composant présentiel : il ignore d'où viennent les données. On peut désormais l'afficher dans un test ou une galerie en lui passant un simple tableau, sans qu'aucune requête ne parte.";
 
 // ---------------------------------------------------------------------------
 
@@ -163,13 +160,13 @@ export const etapes = [
         chemin: "public/lignes.json",
         etat: "inchange",
         langage: "json",
-        commentaire: "La source de données. Elle deviendra une véritable API à l'exercice 3, sans que les composants changent.",
+        commentaire: "La source de données. Normalement, elle viendrait d'une véritable API.",
         code: CODE_LIGNES_JSON
       },
       {
         chemin: "src/main.jsx",
         etat: "inchange",
-        commentaire: "Le point d'entrée. Il ne bougera pas de tout l'exercice.",
+        commentaire: "Le point d'entrée de l'application.",
         code: CODE_MAIN
       },
       {
@@ -196,7 +193,7 @@ export const etapes = [
       {
         chemin: "src/components/LignesList.jsx",
         etat: "probleme",
-        role: "Couplage à la source, cycle de vie codé à la main, vue non réutilisable, aucune orchestration, ressource mal libérée."
+        role: "Couplé à la source, gère le cycle de vie, s'occupe du chargement, et orchestre en plus d'exécuter."
       }
     ]
   },
@@ -288,7 +285,7 @@ export default function LignesList() {
 
   {
     id: "p2",
-    titre: "2. Extraire le cycle de vie",
+    titre: "2. Extraire le cycle de vie du chargement de données",
     note: "Le chargement devient réutilisable.",
     fichiers: [
       { chemin: "src/api/bus.js", etat: "inchange" },
@@ -382,8 +379,32 @@ export default function LignesList() {
         chemin: "src/components/LignesList.jsx",
         etat: "allege",
         role: "Composant présentiel : il reçoit lignes en props et affiche.",
-        commentaire: COMMENTAIRE_LIGNESLIST_FINAL,
+        commentaire: "Le composant déclare ses besoins en données par ses paramètres et laisse au parent le soin de les fournir. Fonction pure, hautement réutilisable, et même déchargée du filtre",
         code: CODE_LIGNESLIST_FINAL
+      },
+       {
+        chemin: "src/components/FiltreBarre.jsx",
+        etat: "nouveau",
+        role: "La politique du filtre : minimum de caractères et temporisation.",
+        commentaire: "Le composant ne détient plus d'état, mais il détient une politique : le minimum de caractères et la pause dans la frappe. Puisque le parent doit pouvoir réinitialiser le champ, la saisie est écrite par les deux, donc partagée, donc remontée. Deux états distincts subsistent chez le parent : la saisie (le texte tapé) et le filtre (le terme appliqué, dérivé du premier par la règle).",
+        code: `import { useEffect } from "react";
+ 
+export default function FiltreBarre({ saisie, surSaisie, surChangement, minimum = 2, delai = 250 }) {
+  // Règles internes : on n'applique le filtre qu'après une pause dans la frappe,
+  // et seulement au-dela d'un nombre minimal de caractères.
+  useEffect(() => {
+    const terme = saisie.trim();
+    const effectif = terme.length >= minimum ? terme : "";
+ 
+    const minuterie = setTimeout(() => surChangement(effectif), delai);
+    return () => clearTimeout(minuterie);
+  }, [saisie, minimum, delai, surChangement]);
+ 
+  return (
+    <input value={saisie} onChange={(event) => surSaisie(event.target.value)}
+           placeholder="Filtrer une ligne" aria-label="Filtrer une ligne" />
+  );
+}`
       },
       {
         chemin: "src/App.jsx",
@@ -396,6 +417,7 @@ import LignesList from "./components/LignesList.jsx";
 
 export default function App() {
   const { lignes, loading, error } = useLignes();
+  const [saisie, setSaisie] = useState("");
   const [filtre, setFiltre] = useState("");
 
   if (loading) return <p>Chargement…</p>;
@@ -408,11 +430,7 @@ export default function App() {
   return (
     <main className="app">
       <h1>Lignes de bus</h1>
-      <input
-        value={filtre}
-        onChange={(event) => setFiltre(event.target.value)}
-        placeholder="Filtrer une ligne"
-      />
+      <FiltreBarre saisie={saisie} surSaisie={setSaisie} surChangement={setFiltre} />
       <LignesList lignes={visibles} />
     </main>
   );
@@ -435,18 +453,21 @@ export default function App() {
         commentaire: "Le contrôleur de l'écran. Deux natures d'état, une ligne chacune : les données viennent du serveur et peuvent échouer, le filtre n'existe que dans cet écran et ne peut pas échouer.",
         code: `import { useMemo, useState } from "react";
 import { useLignes } from "../hooks/useLignes.js";
+import FiltreBarre from "../components/FiltreBarre.jsx";
 import LignesList from "../components/LignesList.jsx";
 
 export default function LignesPage() {
-  const { lignes, loading, error } = useLignes();
-  const [filtre, setFiltre] = useState("");
+  const { lignes, loading, error } = useLignes(); // état de données
+  const [saisie, setSaisie] = useState("");       // le texte tapé
+  const [filtre, setFiltre] = useState("");       // le filtre appliqué
 
-  const visibles = useMemo(
-    () =>
-      lignes.filter((ligne) =>
-        ligne.nom.toLowerCase().includes(filtre.toLowerCase())
-      ),
-    [lignes, filtre]
+  const reinitialiser = () => {
+    setSaisie("");
+    setFiltre("");
+  };
+ 
+  const visibles = lignes.filter((ligne) =>
+    ligne.nom.toLowerCase().includes(filtre.toLowerCase())
   );
 
   if (loading) return <p>Chargement des lignes…</p>;
@@ -455,12 +476,8 @@ export default function LignesPage() {
   return (
     <section>
       <h1>Lignes de bus</h1>
-      <input
-        value={filtre}
-        onChange={(event) => setFiltre(event.target.value)}
-        placeholder="Filtrer une ligne"
-        aria-label="Filtrer une ligne"
-      />
+      <FiltreBarre saisie={saisie} surSaisie={setSaisie} surChangement={setFiltre} />
+      <button onClick={reinitialiser} disabled={!saisie}>Effacer</button>
       <LignesList lignes={visibles} />
     </section>
   );
@@ -481,77 +498,20 @@ export default function App() {
   );
 }`
       },
+      { chemin: "src/components/FiltreBarre.jsx", etat: "inchange" },
       { chemin: "src/components/LignesList.jsx", etat: "inchange" }
     ]
   },
-
-//   {
-//     id: "p5",
-//     titre: "5. Libérer la ressource",
-//     note: "Toute acquisition a sa libération. Le drapeau disparait.",
-//     fichiers: [
-//       {
-//         chemin: "src/api/bus.js",
-//         etat: "modifie",
-//         role: "Accepte un signal d'annulation et le transmet à fetch.",
-//         commentaire: "Le signal traverse la passerelle : c'est elle qui sait le transmettre. L'annulation devient une capacité de la ressource, et non une astuce du consommateur.",
-//         code: `export async function fetchLignes({ signal } = {}) {
-//   const result = await fetch("/lignes.json", { signal });
-
-//   if (!result.ok) {
-//     throw new Error(\`Impossible de charger les lignes (HTTP \${result.status}).\`);
-//   }
-
-//   return result.json();
-// }`
-//       },
-//       {
-//         chemin: "src/hooks/useLignes.js",
-//         etat: "modifie",
-//         role: "Annule réellement la requête au démontage, au lieu d'ignorer sa réponse.",
-//         commentaire: "L'effet acquiert la ressource, la fonction rendue la libère : la symétrie est imposée par la forme même de l'API. L'erreur AbortError est ignorée, car une annulation n'est pas un échec à afficher, c'est un départ voulu.",
-//         code: `import { useEffect, useState } from "react";
-// import { fetchLignes } from "../api/bus.js";
-
-// export function useLignes() {
-//   const [lignes, setLignes] = useState([]);
-//   const [loading, setLoading] = useState(true);
-//   const [error, setError] = useState(null);
-
-//   useEffect(() => {
-//     const controleur = new AbortController();
-//     setLoading(true);
-
-//     fetchLignes({ signal: controleur.signal })
-//       .then((data) => {
-//         setLignes(data);
-//         setError(null);
-//       })
-//       .catch((err) => {
-//         if (err.name !== "AbortError") setError(err.message);
-//       })
-//       .finally(() => setLoading(false));
-
-//     return () => controleur.abort();
-//   }, []);
-
-//   return { lignes, loading, error };
-// }`
-//       },
-//       { chemin: "src/pages/LignesPage.jsx", etat: "inchange" },
-//       { chemin: "src/components/LignesList.jsx", etat: "inchange" }
-//     ]
-//   },
-
   {
     id: "recap",
     titre: "Récapitulatif",
-    note: "Quatre fichiers, quatre responsabilités, une seule raison de changer chacun.",
+    note: "Cinq fichiers, cinq responsabilités. Chaque fichier n'a plus qu'une seule raison de changer..",
     fichiers: [
-      { chemin: "src/api/bus.js", etat: "inchange", role: "Où l'on parle au réseau." },
-      { chemin: "src/hooks/useLignes.js", etat: "inchange", role: "Où l'on gère le cycle de vie du chargement." },
-      { chemin: "src/pages/LignesPage.jsx", etat: "inchange", role: "Où l'on orchestre et où vit l'état d'interface." },
-      { chemin: "src/components/LignesList.jsx", etat: "inchange", role: "Où l'on affiche, et rien d'autre." }
+      { chemin: "src/api/bus.js", etat: "inchange", role: "Récupération de données, et rien d'autre." },
+      { chemin: "src/hooks/useLignes.js", etat: "inchange", role: "Gestion du cycle de vie du chargement de données." },
+      { chemin: "src/pages/LignesPage.jsx", etat: "inchange", role: "Orchestration des petits composants et état partagé." },
+      { chemin: "src/components/FiltreBarre.jsx", etat: "inchange", role: "Politique du filtre : minimum et temporisation." },
+      { chemin: "src/components/LignesList.jsx", etat: "inchange", role: "Affichage d'une liste de lignes." }
     ]
   }
 ];
