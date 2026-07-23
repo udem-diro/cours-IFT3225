@@ -1,0 +1,712 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Performance d'une application web"
+description: "Mesurer le chargement et l'exécution d'une application web, suivre le parcours des ressources, puis choisir une stratégie d'optimisation adaptée au problème observé."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import CascadeChargement from "../../components/react/deploie/CascadeChargement.jsx";
+
+
+Une application peut être fonctionnelle et bien structurée, mais tout de même rester pénible à utiliser dûs à des problèmes de performance.
+Certains problèmes peuvent être corrigés tardivement, mais les corrections deviennent plus coûteuses lorsque l'application 
+a été construite autour de dépendances lourdes ou d'une succession d'échanges réseau.
+
+## 1. Mesurer et diagnostiquer avec DevTools
+
+Une page peut sembler lente à cause d'une police demandée tardivement, d'une image surdimensionnée, 
+d'un appel d'API en série ou d'une tâche JavaScript qui bloque le fil principal.
+**Les instruments de DevTools montrent des dimensions différentes du même chargement**. 
+- Le panneau Réseau (*Network*) explique ce qui voyage. 
+- Lighthouse fournit un bilan automatisé. 
+- Le panneau Performance montre ce que le navigateur fait avec les ressources reçues. 
+{/* - Coverage aide à repérer ce qui a été chargé sans être utilisé. */}
+
+### Le panneau Réseau : suivre les requêtes
+
+Le panneau **Network** enregistre les requêtes effectuées par la page. Chaque ligne correspond à une ressource ou à un échange : document, feuille de style, script, image, police ou appel d'API. La cascade placée à droite montre quand la requête commence, combien de temps elle attend et à quel moment elle se termine.
+
+{/* <figure>
+  <img src="/images/deploiement/devtools-reseau-cascade.png" alt="Panneau Réseau de Chrome DevTools montrant la cascade, les types de ressources, leur taille et leur initiateur" />
+  <figcaption>
+    Capture recommandée : un chargement complet avec les colonnes <em>Type</em>, <em>Initiator</em>, <em>Size</em>, <em>Time</em> et <em>Priority</em>, ainsi que le résumé des tailles au bas du panneau.
+  </figcaption>
+</figure> */}
+
+**Mesures à observer**
+
+- **Status** : la réponse a-t-elle réussi, été redirigée ou échoué ?
+- **Type** : s'agit-il du document, de CSS, de JavaScript, d'une image, d'une police ou d'un appel `fetch` ?
+- **Initiator** : quelle ressource ou quelle ligne de code a provoqué la requête ?
+- **Size** : combien d'octets ont réellement traversé le réseau et quelle est la taille de la ressource après décompression ?
+- **Time** : combien de temps la requête a-t-elle pris au total ?
+- **Timing** : où le temps a-t-il été dépensé — connexion, attente de la réponse ou téléchargement ?
+- **Priority** : quelle importance le navigateur a-t-il accordée à la ressource ?
+
+{/* **Manipulations courantes**
+
+1. Activer **Disable cache**, puis recharger la page afin d'observer un premier chargement.
+2. Choisir un profil de limitation du réseau pour simuler une connexion plus lente.
+3. Filtrer successivement les documents, le CSS, le JavaScript, les images, les polices et les appels `Fetch/XHR`.
+4. Ouvrir les onglets **Initiator** et **Timing** d'une requête problématique.
+5. Recharger avec le cache activé et comparer les tailles, les durées et le nombre de requêtes.
+6. Bloquer temporairement une ressource pour vérifier si elle est réellement nécessaire à la page. */}
+
+<MarginNote type="attention" titre="Chargement à froid et chargement à chaud">
+Un chargement avec le cache désactivé représente une première visite. Un chargement avec le cache activé représente plutôt une visite suivante. Les deux scénarios sont utiles, mais ils ne répondent pas à la même question. Une application peut être lente au premier chargement et très rapide ensuite, ou refaire inutilement les mêmes échanges à chaque visite.
+</MarginNote>
+
+### Lighthouse : obtenir un bilan automatisé
+
+**Lighthouse** exécute une série d'audits dans des conditions contrôlées. Il fournit des métriques, détecte des problèmes fréquents et associe certaines recommandations aux ressources concernées. Il constitue un bon point de départ, mais il ne remplace pas l'analyse détaillée dans les panneaux Réseau et Performance.
+
+{/* <figure>
+  <img src="/images/deploiement/devtools-lighthouse-performance.png" alt="Rapport Lighthouse présentant les métriques de performance et les principaux diagnostics" />
+  <figcaption>
+    Capture recommandée : le rapport mobile avec les métriques LCP, CLS et TBT, puis une recommandation ouverte montrant les ressources concernées.
+  </figcaption>
+</figure> */}
+
+**Mesures à observer**
+
+- **Largest Contentful Paint (LCP)** : moment où le principal contenu visible est affiché ;
+- **Cumulative Layout Shift (CLS)** : importance des déplacements visuels inattendus ;
+- **Total Blocking Time (TBT)** : durée cumulée pendant laquelle de longues tâches empêchent le fil principal de répondre rapidement ;
+- **First Contentful Paint (FCP)** : moment où un premier contenu est affiché ;
+- les diagnostics portant sur les ressources bloquantes, le JavaScript inutilisé, les images, le travail du fil principal ou les ressources tierces.
+
+{/* **Manipulations courantes**
+
+1. Exécuter l'audit sur la version construite et déployée de l'application.
+2. Choisir le mode mobile lorsque les utilisateurs visés consultent principalement l'application sur téléphone.
+3. Exécuter l'audit plusieurs fois : les résultats varient légèrement d'une exécution à l'autre.
+4. Ouvrir les recommandations et repérer les ressources concrètes plutôt que de s'arrêter au score global.
+5. Modifier un seul facteur important, puis comparer les métriques avant et après. */}
+
+<MarginNote type="attention" titre="Le score n'est pas le diagnostic">
+Deux modifications différentes peuvent améliorer le même score, et une amélioration réelle peut ne produire qu'une petite variation du score global. L'information utile est la relation entre une métrique, le problème observé et les ressources ou tâches qui l'expliquent.
+</MarginNote>
+
+### Le panneau Performance : analyser le travail du navigateur
+
+Le panneau **Performance** enregistre l'activité du navigateur pendant le chargement ou pendant une interaction. Il montre les requêtes, l'exécution du JavaScript, les recalculs de style, les mises en page, la peinture et la composition des images à l'écran.
+
+{/* <figure>
+  <img src="/images/deploiement/devtools-performance-trace.png" alt="Trace du panneau Performance montrant le réseau, le fil principal, une longue tâche et des opérations de mise en page et de peinture" />
+  <figcaption>
+    Capture recommandée : une trace avec le film du chargement, le réseau, le fil principal, le marqueur LCP et une longue tâche JavaScript ouverte dans le résumé.
+  </figcaption>
+</figure> */}
+
+**Éléments à observer**
+
+- les marqueurs de chargement et le moment où l'élément LCP est affiché ;
+- les **longues tâches**, qui occupent le fil principal suffisamment longtemps pour retarder une interaction ;
+- la répartition entre **Scripting**, **Rendering** et **Painting** ;
+- les appels de fonctions dans le **Call tree** ou la vue **Bottom-up** ;
+- les séquences répétées `Recalculate Style → Layout → Paint` ;
+- les images par seconde et les interruptions lors d'une animation ou d'un défilement.
+
+{/* **Manipulations courantes**
+
+1. Enregistrer le chargement complet de la page.
+2. Enregistrer séparément une interaction lente : ouvrir une modale, filtrer une liste ou changer d'onglet.
+3. Simuler un processeur plus lent afin de rendre visibles les coûts masqués par la machine de développement.
+4. Sélectionner une longue tâche et remonter jusqu'aux fonctions qui l'ont déclenchée.
+5. Activer, au besoin, les outils de rendu comme **Paint flashing** pour visualiser les zones repeintes. */}
+
+{/* ### Coverage : trouver le code chargé mais inutilisé
+
+Le panneau **Coverage** mesure les portions de CSS et de JavaScript utilisées pendant un scénario. Il aide à repérer les fichiers volumineux dont une faible partie est exécutée ou appliquée.
+
+<figure>
+  <img src="/images/deploiement/devtools-coverage.png" alt="Panneau Coverage montrant la proportion de CSS et JavaScript utilisée et inutilisée" />
+  <figcaption>
+    Capture recommandée : plusieurs fichiers triés par quantité d'octets inutilisés, dont un bundle JavaScript largement inutilisé au premier écran.
+  </figcaption>
+</figure>
+
+**Manipulations courantes**
+
+1. Démarrer l'enregistrement de Coverage et recharger la page.
+2. Utiliser les fonctionnalités qui appartiennent au scénario étudié.
+3. Trier les fichiers par quantité d'octets inutilisés.
+4. Ouvrir un fichier pour repérer les lignes utilisées et inutilisées.
+5. Déterminer si le code doit être supprimé, séparé ou chargé plus tard.
+
+Coverage ne prouve pas qu'un code est inutile à toute l'application. Il indique seulement qu'il n'a pas été utilisé pendant le scénario enregistré. Il faut donc répéter l'analyse pour les principaux parcours avant de supprimer une fonctionnalité. */}
+
+{/* ### Mesures de laboratoire et mesures sur le terrain
+
+Les mesures prises dans DevTools sont des **mesures de laboratoire** : les conditions sont contrôlées et l'expérience peut être répétée. Elles sont indispensables pour comprendre un problème et vérifier une correction.
+
+Les **mesures sur le terrain** proviennent de véritables utilisateurs. Elles tiennent compte de la diversité des appareils, des réseaux, des emplacements et des habitudes. Une application peut être rapide sur l'ordinateur du développeur, mais lente sur un téléphone plus ancien ou sur un réseau mobile instable.
+
+<MarginNote type="attention" titre="Mesurer au bon endroit">
+Mesurez principalement la version construite et déployée. Le serveur de développement utilise des modules, des transformations et des mécanismes de rechargement qui diffèrent de la production. Utilisez aussi un scénario précis : « ouvrir la page d'accueil », « afficher un projet » ou « filtrer une liste » est plus utile que « mesurer l'application » en général.
+</MarginNote>
+
+<Checkpoint question="Quel instrument utiliseriez-vous pour chacune de ces questions : quelle requête arrive trop tard, quelle fonction bloque l'interface, et quel fichier contient beaucoup de code inutilisé ?">
+Le panneau Réseau permet de suivre la requête et sa chaîne d'initiateurs. Le panneau Performance permet de retrouver la tâche et les fonctions qui occupent le fil principal. Coverage indique les portions de CSS et de JavaScript chargées mais non utilisées pendant le scénario.
+</Checkpoint> */}
+
+{/* ## 2. Suivre le chargement d'une page
+
+Une page ne se charge pas comme un fichier unique. La navigation déclenche une succession d'opérations réseau, d'analyses et de calculs. Certaines peuvent se dérouler en parallèle, tandis que d'autres dépendent d'un résultat précédent.
+
+<CascadeChargement client:visible />
+
+Le parcours peut être résumé ainsi :
+
+```text
+Navigation
+   ↓
+Résolution du domaine → connexion → négociation TLS
+   ↓
+Requête et réception progressive du document HTML
+   ↓
+Analyse du HTML et découverte des ressources
+   ├── feuilles de style
+   ├── scripts
+   ├── images et cadres intégrés
+   └── connexions vers d'autres origines
+   ↓
+Construction du DOM et du CSSOM
+   ↓
+Exécution du JavaScript
+   ├── importation de modules supplémentaires
+   └── appels d'API
+   ↓
+Style → mise en page → peinture → composition
+   ↓
+Affichage, interactions et mises à jour de l'interface
+```
+
+Ce dessin simplifie volontairement le comportement du navigateur. Plusieurs ressources peuvent être téléchargées simultanément et le document HTML est analysé progressivement pendant sa réception. Le chargement forme donc un **graphe de dépendances**, et non une chaîne entièrement séquentielle. Sa partie la plus lente et la plus dépendante forme le **chemin critique**.
+
+### 2.1 La navigation et le document HTML
+
+Le navigateur commence par localiser le serveur, ouvrir une connexion et établir une communication sécurisée. Une nouvelle origine peut exiger son propre travail de connexion. Multiplier les domaines pour les polices, les images, les scripts et les API peut donc ajouter des délais avant même le transfert des ressources.
+
+Le document HTML est ensuite demandé. Il est le point d'entrée du chargement : il contient le texte initial et permet de découvrir une grande partie des autres ressources. Un temps de réponse élevé du serveur retarde tout ce qui dépend du document.
+
+Le navigateur n'attend toutefois pas nécessairement de recevoir le fichier complet. Il analyse progressivement les octets reçus et peut commencer à demander une feuille de style ou une image dès qu'il rencontre sa référence.
+
+### 2.2 Le CSS et la construction des styles
+
+Lorsqu'une feuille de style est découverte, le navigateur la télécharge et construit le **CSSOM**, une représentation des règles applicables. Les styles nécessaires au rendu initial sont généralement bloquants : le navigateur doit connaitre la présentation avant d'afficher correctement les éléments.
+
+Le CSS peut également révéler des ressources tardives, notamment des images d'arrière-plan et des polices. Une police mentionnée dans une feuille externe ne peut être demandée qu'après la découverte, le téléchargement et l'analyse de cette feuille.
+
+### 2.3 Le JavaScript et la découverte de nouveaux travaux
+
+Un script classique placé dans le document sans attribut particulier peut interrompre l'analyse du HTML pendant son téléchargement et son exécution. Les attributs `defer`, `async` et les scripts modules permettent de modifier ce comportement; ils seront détaillés dans la stratégie **Différer**.
+
+Le JavaScript impose plusieurs coûts :
+
+1. transférer le fichier ;
+2. le décompresser ;
+3. l'analyser et le compiler ;
+4. l'exécuter ;
+5. modifier éventuellement le DOM ou les styles ;
+6. déclencher parfois d'autres imports ou appels d'API.
+
+Un fichier JavaScript compressé peut donc voyager rapidement tout en restant coûteux à analyser et à exécuter.
+
+### 2.4 Les images, les cadres et les médias
+
+Les images représentent souvent une grande partie des octets transférés. Leur effet dépend cependant de leur position. Une image visible au premier écran peut devenir le principal contenu attendu, tandis qu'une image située plusieurs écrans plus bas n'a aucune raison d'être prioritaire.
+
+Le navigateur doit également décoder les images reçues et leur réserver une place. Lorsque les dimensions ne sont pas indiquées, l'arrivée tardive d'une image peut déplacer le contenu déjà affiché.
+
+### 2.5 Les polices
+
+Une police exige généralement un fichier distinct pour chaque ensemble de caractères, style ou graisse. Elle peut retarder l'apparence finale du texte et modifier la largeur des lignes lorsqu'elle remplace la police de repli.
+
+Le choix ne porte donc pas seulement sur le poids du fichier : il faut aussi décider combien de variantes sont réellement nécessaires et comment le texte doit être affiché pendant leur chargement.
+
+### 2.6 Les données d'API
+
+Dans une application cliente, l'appel d'API est souvent déclenché après le chargement et l'exécution du JavaScript. Si un composant enfant attend le résultat du parent avant de lancer sa propre requête, une nouvelle chaîne séquentielle apparaît.
+
+Une réponse d'API coûte par sa latence, sa taille et le travail nécessaire pour transformer les données en interface. Une réponse volumineuse peut aussi entraîner la création de centaines d'éléments ou des calculs importants dans le navigateur.
+
+### 2.7 Le rendu : style, mise en page, peinture et composition
+
+Une fois les ressources et les données disponibles, le navigateur doit produire l'image affichée :
+
+- **calculer les styles** applicables aux éléments ;
+- **déterminer leur géométrie** pendant la mise en page ;
+- **peindre** le texte, les couleurs, les bordures et les images ;
+- **composer** les différentes couches à l'écran.
+
+Le même travail peut se reproduire après le chargement. Une modification du DOM, une classe CSS ajoutée ou une animation peut déclencher de nouveaux calculs. La performance d'une application concerne donc autant son fonctionnement après l'affichage que sa vitesse de chargement initiale.
+
+<MarginNote type="definition" titre="Trois tailles différentes">
+La **taille transférée** correspond aux octets qui traversent le réseau, souvent après compression. La **taille de la ressource** correspond aux données après décompression. Le **coût d'utilisation** désigne le travail restant : analyser et exécuter un script, décoder une image ou construire des éléments à partir d'une réponse JSON. Réduire une de ces dimensions ne réduit pas automatiquement les deux autres.
+</MarginNote>
+
+<MarginNote type="attention" titre="Existe-t-il une taille maximale par requête ?">
+Il n'existe pas de limite universelle garantissant une bonne performance. La bonne taille dépend du réseau, de l'appareil, de la priorité de la ressource et du moment où elle est nécessaire. On peut néanmoins fixer un **budget de performance** : une ressource qui dépasse le budget doit être justifiée, réduite ou chargée autrement.
+</MarginNote> */}
+
+{/* ### Un budget pédagogique pour les projets
+
+Pour un projet typique du cours, les valeurs suivantes peuvent servir de **seuils d'enquête**, et non de normes absolues :
+
+| Élément observé au premier chargement | Seuil invitant à examiner la ressource |
+| --- | ---: |
+| Document HTML transféré | plus de 100 ko |
+| CSS initial transféré | plus de 100 ko |
+| JavaScript initial transféré | plus de 300 ko |
+| Une image visible au premier écran | plus de 250 ko |
+| Total transféré avant l'affichage utile | plus de 1 Mo |
+| Nombre d'origines externes | plus de 3 |
+
+Dépasser un seuil n'est pas automatiquement une erreur. Une application cartographique, un éditeur ou une galerie n'a pas les mêmes besoins qu'un formulaire. Le budget sert à déclencher une question : **cette dépense est-elle nécessaire à ce moment précis ?**
+
+<Checkpoint question="Une image de 500 ko située au bas d'une longue page et un fichier JavaScript de 80 ko nécessaire au premier écran dépassent-ils le même type de budget ?">
+Non. L'image est lourde, mais elle peut être différée jusqu'à l'approche de la zone visible. Le JavaScript est plus léger, mais il peut se trouver sur le chemin critique et exiger un travail d'analyse et d'exécution. La priorité dépend du moment, des dépendances et du travail demandé, pas seulement du poids.
+</Checkpoint> */}
+
+## 2. Choisir une stratégie d'optimisation
+
+Les technologies changent rapidement, mais la plupart des interventions reposent sur quelques stratégies stables. Les reconnaitre permet de choisir une solution en fonction du problème observé plutôt que de collectionner des réglages.
+
+1. **Éliminer** ce qui n'apporte pas suffisamment de valeur.
+2. **Réduire** le poids ou la quantité de travail de ce qui demeure.
+3. **Différer** ce qui n'est pas encore nécessaire.
+4. **Devancer** ce qui sera bientôt nécessaire et découvert trop tard.
+5. **Réutiliser** une ressource, une donnée ou un résultat déjà obtenu.{/* 6. **Limiter le travail et isoler ses effets** lorsque l'interface est mise à jour. */}
+6. **Rapprocher** les ressources et les services de leurs utilisateurs.
+
+L'ordre est une heuristique, non une règle absolue. Supprimer une ressource produit généralement un gain plus complet que la compresser. Une ressource indispensable ne peut toutefois pas être éliminée, et une ressource secondaire peut être plus efficacement différée que minutieusement réduite.
+
+### 2.1 Éliminer
+
+La ressource la plus rapide est celle qui n'est jamais demandée, et le calcul le plus rapide est celui qui n'est jamais effectué.
+
+#### Éliminer par la conception
+
+- retirer une fonctionnalité dont la valeur ne justifie pas son coût ;
+- éviter une bibliothèque complète pour quelques opérations simples disponibles dans la plateforme ;
+- limiter les scripts de mesure, widgets et services tiers ;
+- réduire le nombre de polices, de variantes et d'images décoratives ;
+- ne pas inclure dans une page le code d'une fonctionnalité qui n'y existe pas.
+
+#### Éliminer manuellement dans le code
+
+- supprimer les imports, fonctions et dépendances inutilisés ;
+- importer une fonction précise plutôt qu'un ensemble complet lorsque la bibliothèque le permet ;
+- remplacer une dépendance redondante par une fonction déjà présente dans le projet ;
+- supprimer les polyfills destinés à des navigateurs qui ne sont plus pris en charge ;
+- utiliser Coverage pour repérer un bundle ou une feuille de style largement inutilisé dans un scénario.
+
+#### Le tree shaking
+
+Le **tree shaking**, ou élagage, est une forme d'élimination automatique du code mort pendant la construction. L'outil analyse les imports et exports des modules, marque les éléments nécessaires au programme et exclut les portions qui ne contribuent pas au résultat final.
+
+```js
+// math.js
+export function addition(a, b) {
+  return a + b;
+}
+
+export function multiplication(a, b) {
+  return a * b;
+}
+
+// main.js
+import { addition } from "./math.js";
+
+console.log(addition(2, 3));
+```
+
+Dans un cas simple, la fonction `multiplication` peut être absente du bundle de production puisqu'elle n'est jamais importée.
+
+Des outils de construction comme **Vite**, **Rollup**, **webpack** et **esbuild** appliquent ce type d'analyse pendant la production d'un bundle. Le résultat est généralement meilleur lorsque le code utilise des modules ES statiques et que les modules déclarent correctement leurs effets de bord.
+
+{/* <MarginNote type="attention" titre="Ce que le tree shaking ne sait pas faire">
+L'outil peut retirer un export jamais utilisé. Il ne peut pas décider qu'une bibliothèque réellement appelée est disproportionnée, qu'une fonctionnalité est inutile à l'utilisateur ou qu'un service tiers apporte trop peu de valeur. Ces décisions restent des décisions de conception.
+</MarginNote> */}
+
+### 2.2 Réduire
+
+Ce qui demeure nécessaire doit transporter moins d'octets et demander aussi peu de travail que possible. Les techniques diffèrent selon le type de ressource.
+
+#### Réduire le document HTML
+
+- minifier la version de production ;
+- activer la compression HTTP ;
+- éviter de générer une structure DOM inutilement profonde ou répétitive ;
+- ne pas intégrer de grandes données JSON dans le document lorsqu'elles peuvent être demandées ou calculées autrement ;
+- produire rapidement le document sur le serveur.
+
+#### Réduire le CSS
+
+- minifier et compresser les feuilles de style ;
+- supprimer les règles inutilisées ;
+- éviter de charger globalement le style d'une section rarement visitée ;
+- limiter les bibliothèques qui génèrent ou incluent de grandes quantités de CSS ;
+- simplifier les sélecteurs lorsque la structure devient inutilement complexe.
+
+#### Réduire le JavaScript
+
+- minifier et compresser les fichiers de production ;
+- appliquer le tree shaking ;
+- remplacer une dépendance lourde par une solution plus ciblée ;
+- limiter le JavaScript de tiers ;
+- éviter d'envoyer plusieurs bibliothèques qui remplissent le même rôle ;
+- construire pour les navigateurs réellement pris en charge afin de limiter les transformations et polyfills inutiles ;
+- réduire les grandes constantes ou données incorporées dans les bundles.
+
+{/* Pour une API Express, la compression des réponses textuelles peut être activée par un middleware :
+
+```js
+import compression from "compression";
+
+app.use(compression());
+```
+
+La compression réduit les octets transférés pour le HTML, le CSS, le JavaScript et le JSON. Elle ne réduit pas directement le temps d'analyse et d'exécution du JavaScript. */}
+
+#### Réduire les images
+
+- produire une image aux dimensions proches de sa taille d'affichage ;
+- choisir un format approprié, notamment WebP ou AVIF pour les photographies lorsque la compatibilité visée le permet ;
+- utiliser SVG pour les illustrations qui s'y prêtent ;
+- ajuster la qualité de compression ;
+- retirer les métadonnées inutiles ;
+- fournir plusieurs tailles avec `srcset` et laisser le navigateur choisir selon l'écran.
+
+```html
+<img
+  src="/images/projet-800.webp"
+  srcset="
+    /images/projet-480.webp 480w,
+    /images/projet-800.webp 800w,
+    /images/projet-1200.webp 1200w
+  "
+  sizes="(max-width: 640px) 100vw, 800px"
+  width="1200"
+  height="800"
+  alt="Présentation du projet"
+/>
+```
+
+Les attributs `width` et `height` ne réduisent pas le fichier, mais permettent au navigateur de réserver l'espace avant l'arrivée de l'image et limitent les déplacements visuels.
+
+#### Réduire les polices
+
+- préférer le format WOFF2 ;
+- limiter les familles, styles et graisses ;
+- produire des sous-ensembles de caractères lorsque le contexte le permet ;
+- évaluer si une police variable remplace avantageusement plusieurs fichiers ;
+- utiliser une police système ou de repli pour les usages qui ne justifient pas un téléchargement supplémentaire ;
+- éviter une police d'icônes lorsqu'un petit ensemble de SVG suffit.
+
+#### Réduire les réponses d'API
+
+- paginer les longues collections ;
+- retourner uniquement les champs nécessaires au scénario ;
+- fournir un résumé lorsque l'interface n'a pas besoin des détails ;
+- compresser les réponses JSON ;
+- éviter les structures excessivement répétitives ;
+- regrouper les informations qui sont toujours consommées ensemble, sans créer une réponse monolithique pour tous les écrans.
+
+{/* <Checkpoint question="Pourquoi activer la compression ne suffit-il pas à corriger un bundle JavaScript trop volumineux ?">
+Parce que la compression réduit principalement les octets transférés. Le navigateur doit encore décompresser, analyser, compiler et exécuter le code. Éliminer des dépendances ou différer une partie du bundle réduit à la fois le transfert et le travail dans le navigateur.
+</Checkpoint> */}
+
+### 2.3 Différer
+
+Différer consiste à reporter une ressource ou un traitement qui n'est pas nécessaire à l'affichage ou à l'interaction immédiate. Le chargement a lieu plus tard, lorsqu'un besoin devient probable ou réel.
+
+#### Images et cadres chargés paresseusement
+
+```html
+<img
+  src="/images/equipe.webp"
+  alt="L'équipe du projet"
+  width="1200"
+  height="800"
+  loading="lazy"
+/>
+
+<iframe
+  src="https://exemple.ca/carte"
+  title="Carte du secteur"
+  loading="lazy"
+></iframe>
+```
+
+L'attribut `loading="lazy"` permet au navigateur de reporter le chargement jusqu'à ce que la ressource approche de la zone visible. Il ne devrait pas être appliqué à l'image principale visible dès l'ouverture de la page, puisque cette image doit au contraire être découverte et chargée rapidement.
+
+#### Scripts classiques : chargement et exécution
+
+| Inclusion | Téléchargement | Exécution | Ordre entre plusieurs scripts |
+| --- | --- | --- | --- |
+| `<script src="app.js">` | l'analyse du document peut être interrompue | dès que le script est reçu | ordre du document |
+| `<script defer src="app.js">` | en parallèle de l'analyse | après l'analyse du document | ordre conservé |
+| `<script async src="mesure.js">` | en parallèle de l'analyse | dès que le script est prêt | ordre non garanti |
+| `<script type="module" src="app.js">` | en parallèle avec ses dépendances | différée par défaut | dépendances du graphe de modules |
+
+`defer` convient généralement à des scripts qui dépendent du document complet ou les uns des autres. `async` convient mieux à un script indépendant, comme certains outils de mesure. Un module JavaScript est différé par défaut, mais ses imports peuvent former leur propre graphe de dépendances.
+
+#### Découpage du code et imports dynamiques
+
+Le **code splitting** place des parties de l'application dans des fichiers séparés, chargés seulement lorsque leur fonctionnalité est demandée.
+
+```jsx
+import { lazy, Suspense } from "react";
+
+const VueAdmin = lazy(() => import("./pages/VueAdmin.jsx"));
+
+export function Administration() {
+  return (
+    <Suspense fallback={<p>Chargement…</p>}>
+      <VueAdmin />
+    </Suspense>
+  );
+}
+```
+
+{/* Une vue d'administration, un éditeur riche, une carte ou un module d'exportation n'ont pas nécessairement à faire partie du JavaScript initial de tous les utilisateurs.
+
+#### Stratégies programmées dans le JavaScript
+
+- charger les données d'un onglet à sa première ouverture ;
+- importer le code d'une boîte de dialogue lorsque l'utilisateur demande à l'ouvrir ;
+- utiliser `IntersectionObserver` pour déclencher le chargement d'une carte ou d'un graphique à l'approche de la zone visible ;
+- paginer ou charger progressivement une longue collection ;
+- repousser un traitement secondaire jusqu'après l'affichage initial ;
+- ne demander les détails d'un élément qu'au moment de sa sélection ;
+- déplacer un calcul lourd indépendant du DOM dans un Web Worker.
+
+<MarginNote type="attention" titre="Différer n'est pas toujours accélérer">
+Différer une ressource critique la rend simplement disponible plus tard. La feuille de style principale, l'image responsable du contenu principal ou les données indispensables au premier écran ne doivent pas être chargées paresseusement. La stratégie dépend du moment où la ressource devient utile.
+</MarginNote> */}
+
+### 2.4 Devancer
+
+Devancer consiste à commencer plus tôt une opération que le navigateur ou l'application découvrirait naturellement trop tard. Cette stratégie s'applique seulement lorsqu'on a de bonnes raisons de croire que la ressource sera nécessaire.
+
+#### Indications de chargement dans le document
+
+| Indication | Usage principal |
+| --- | --- |
+| `preload` | ressource importante pour la page courante, découverte trop tard |
+| `modulepreload` | module JavaScript et, selon le navigateur, préparation de ses dépendances |
+| `preconnect` | connexion anticipée vers une origine qui sera bientôt utilisée |
+| `prefetch` | ressource probablement utile lors d'une navigation future |
+{/* | `fetchpriority` | indication de priorité pour une ressource déjà demandée par la page | */}
+{/* | `dns-prefetch` | résolution anticipée d'un domaine avec un coût plus faible que `preconnect` | */}
+
+```html
+<link
+  rel="preload"
+  href="/fonts/inter-latin.woff2"
+  as="font"
+  type="font/woff2"
+  crossorigin
+/>
+
+<link rel="modulepreload" href="/assets/editeur.js" />
+<link rel="preconnect" href="https://api.exemple.ca" />
+<link rel="prefetch" href="/assets/vue-projet.js" />
+```
+
+Une image importante peut également recevoir un indice de priorité :
+
+```html
+<img
+  src="/images/accueil.webp"
+  width="1600"
+  height="900"
+  fetchpriority="high"
+  alt="Campus vu depuis l'entrée principale"
+/>
+```
+
+`fetchpriority="high"` ne garantit pas un ordre absolu. Il fournit une information supplémentaire au navigateur, qui conserve la décision finale en fonction des autres ressources.
+
+#### Devancer dans le code JavaScript
+
+Une cascade peut être créée par le code lui-même :
+
+```js
+const profil = await chargerProfil();
+const projets = await chargerProjets();
+```
+
+Si les deux opérations sont indépendantes, elles peuvent commencer ensemble :
+
+```js
+const [profil, projets] = await Promise.all([
+  chargerProfil(),
+  chargerProjets(),
+]);
+```
+
+#### Autres stratégies courantes :
+
+- précharger une route au survol, au focus ou lorsque le navigateur est momentanément disponible ;
+- commencer une requête avant une transition visuelle ;
+- faire remonter la récupération de données pour éviter qu'un composant parent puis ses enfants lancent des requêtes en série ;
+- précharger une image suivante dans une galerie ;
+- préparer une donnée probable sans bloquer l'affichage actuel.
+
+<MarginNote type="attention" titre="Tout précharger revient à ne rien prioriser">
+Une ressource devancée consomme immédiatement du réseau, de la mémoire et parfois du processeur. Des préchargements trop nombreux peuvent concurrencer le CSS, l'image principale ou les données réellement nécessaires. Devancer doit corriger une découverte tardive connue, non exprimer une préférence vague.
+</MarginNote>
+
+### 2.5 Réutiliser
+
+Réutiliser consiste à éviter un transfert, une lecture ou un calcul dont le résultat est déjà disponible et encore valide.
+
+Au niveau du réseau, cette stratégie mène aux caches HTTP, aux CDN, aux caches applicatifs et aux caches serveur. Ces mécanismes sont étudiés séparément dans la page consacrée au cache et aux applications web progressives.
+
+La réutilisation existe aussi dans le code :
+
+- conserver une donnée déjà chargée tant qu'elle reste valide ;
+- construire une table de correspondance une seule fois plutôt que rechercher répétitivement dans un tableau ;
+- mémoriser le résultat d'un calcul coûteux lorsque ses entrées n'ont pas changé ;
+- partager une même ressource ou un même module plutôt que produire des copies indépendantes ;
+- éviter de recalculer une transformation identique à chaque rendu.
+
+#### Mémoïsation dans React
+
+`useMemo` peut conserver le résultat d'un calcul entre les rendus :
+
+```jsx
+import { useMemo } from "react";
+
+function ListeProjets({ projets, filtre }) {
+  const projetsVisibles = useMemo(
+    () => projets.filter((projet) => correspond(projet, filtre)),
+    [projets, filtre],
+  );
+
+  return projetsVisibles.map((projet) => (
+    <CarteProjet key={projet.id} projet={projet} />
+  ));
+}
+```
+
+{/* D'autres outils poursuivent des objectifs voisins :
+
+- `memo` peut éviter le rerendu d'un composant lorsque ses propriétés n'ont pas changé ;
+- `useCallback` peut conserver l'identité d'une fonction transmise à un composant optimisé ;
+- une bibliothèque de données peut réutiliser une réponse déjà récupérée au lieu de refaire immédiatement la même requête. */}
+
+{/* <MarginNote type="attention" titre="La mémoïsation a aussi un coût">
+`useMemo`, `useCallback` et `memo` ne devraient pas être ajoutés systématiquement. Comparer les dépendances, conserver les valeurs et complexifier le code a un coût. Ils deviennent utiles lorsqu'une mesure révèle un calcul ou un rerendu réellement coûteux et répétitif.
+</MarginNote> */}
+
+{/* Réutiliser une fonction au sens de la factoriser améliore surtout la maintenance. Cela ne rend pas nécessairement l'exécution plus rapide, sauf si la factorisation élimine une duplication réelle dans le bundle ou évite un travail répété. */}
+
+{/* ### 2.6 Limiter le travail et isoler ses effets
+
+Certaines lenteurs ne viennent ni du réseau ni du poids des ressources. Elles apparaissent lorsque l'application demande trop de travail au navigateur ou lorsqu'une petite modification force un recalcul beaucoup plus large que nécessaire.
+
+#### Limiter le travail JavaScript
+
+- remplacer une recherche répétée dans un tableau par une `Map` construite une fois lorsque le scénario le justifie ;
+- éviter les calculs synchrones volumineux pendant une interaction ;
+- découper une longue tâche en unités qui laissent le navigateur répondre ;
+- transférer les calculs indépendants du DOM à un Web Worker ;
+- ne pas transformer à nouveau une grande collection lorsque les entrées n'ont pas changé.
+
+#### Limiter le travail sur le DOM
+
+Les lectures de géométrie, comme `getBoundingClientRect()`, peuvent obliger le navigateur à terminer une mise en page en attente. Alterner constamment une lecture et une écriture peut provoquer plusieurs mises en page successives.
+
+```js
+// Moins efficace : chaque modification peut influencer la lecture suivante.
+for (const element of elements) {
+  const largeur = element.getBoundingClientRect().width;
+  element.style.width = `${largeur + 10}px`;
+}
+
+// Préférable : regrouper les lectures, puis les écritures.
+const largeurs = elements.map(
+  (element) => element.getBoundingClientRect().width,
+);
+
+elements.forEach((element, index) => {
+  element.style.width = `${largeurs[index] + 10}px`;
+});
+```
+
+Autres interventions :
+
+- préparer un fragment ou une structure avant de l'ajouter au document ;
+- réduire la profondeur et la quantité de nœuds ;
+- virtualiser une liste qui contient des centaines ou milliers d'éléments ;
+- modifier une classe ou une variable CSS plutôt qu'une multitude de propriétés dispersées ;
+- réserver l'espace des éléments chargés plus tard.
+
+#### Isoler les mises à jour visuelles
+
+- animer de préférence `transform` et `opacity`, qui peuvent souvent être composés sans recalculer toute la mise en page ;
+- éviter d'animer continuellement des dimensions ou des positions qui déplacent les éléments voisins ;
+- limiter la zone affectée par les styles ;
+- utiliser les propriétés CSS de confinement comme `contain` ou `content-visibility` lorsque la structure de la page s'y prête ;
+- découper une grande interface en composants dont les mises à jour peuvent rester locales.
+
+#### Limiter les rerendus React
+
+- placer l'état au niveau le plus local qui en a besoin ;
+- éviter qu'une modification locale recrée inutilement une grande sous-arborescence ;
+- transmettre des propriétés stables aux composants mémoïsés ;
+- découper les composants lorsque certaines parties changent à des fréquences très différentes ;
+- utiliser le profileur React ou la trace Performance avant d'ajouter des optimisations.
+
+<Highlight>
+Une modification locale ne devrait pas forcer l'application à recalculer, reconstruire ou repeindre toute l'interface. Le bon objectif n'est pas seulement de faire moins de travail, mais de limiter la zone et le moment où ce travail se produit.
+</Highlight> */}
+
+### 2.6 Rapprocher
+
+À défaut d'éliminer un échange, on peut réduire la distance et le nombre d'intermédiaires entre l'utilisateur et la ressource.
+
+Un **réseau de distribution de contenu**, ou CDN, conserve des copies des fichiers statiques dans plusieurs points de présence. L'utilisateur reçoit alors le HTML, le CSS, le JavaScript ou les images depuis une infrastructure plus proche.
+
+Pour les API et les bases de données, rapprocher peut signifier :
+
+- choisir une région de déploiement proche des utilisateurs principaux ;
+- placer l'API et sa base de données dans des régions compatibles ;
+- éviter qu'une requête traverse inutilement plusieurs services ;
+- utiliser un cache serveur pour les lectures répétitives ;
+- limiter les origines externes et les connexions supplémentaires ;
+- produire certaines données à l'étape de construction lorsqu'elles changent rarement.
+
+La proximité ne corrige toutefois pas une longue cascade ni un traitement inefficace. Un serveur proche qui attend successivement trois autres services peut rester plus lent qu'un serveur légèrement plus éloigné qui répond directement.
+
+## 3. Une méthode d'optimisation
+
+Une démarche reproductible évite de modifier plusieurs facteurs sans savoir lequel a produit le gain.
+
+1. **Définir un scénario.** Par exemple : ouvrir la page d'accueil sur un téléphone simulé, afficher un projet ou filtrer une liste.
+2. **Mesurer une référence.** Conserver la cascade, les métriques et, au besoin, une trace Performance.
+3. **Localiser le coût dominant.** Réseau, poids, découverte tardive, JavaScript, rendu ou infrastructure.
+4. **Choisir une stratégie.** Éliminer, réduire, différer, devancer, réutiliser, limiter ou rapprocher.
+5. **Modifier un facteur important.** Éviter une série de microchangements impossibles à attribuer.
+6. **Mesurer de nouveau dans les mêmes conditions.** Vérifier le gain et les effets secondaires.
+7. **Tester un autre scénario.** Une optimisation de la première visite ne doit pas détériorer une interaction ou une navigation suivante.
+
+{/* <Checkpoint question="Une équipe remarque un mauvais score Lighthouse et décide de précharger toutes les images. Quelle étape de la méthode a-t-elle sautée ?">
+Elle n'a pas localisé le coût dominant. Le score ne prouve pas que les images sont découvertes trop tard, et le préchargement de toutes les images peut concurrencer les ressources critiques. Il faut d'abord ouvrir le diagnostic, identifier l'élément ou la requête responsable, puis choisir une stratégie ciblée.
+</Checkpoint> */}
+
+{/* ## À retenir
+
+- La performance se diagnostique à partir d'un scénario concret. Le panneau Réseau montre les échanges, Lighthouse fournit un bilan, Performance révèle le travail du navigateur et Coverage repère le code chargé mais inutilisé.
+- Le chargement d'une page forme un graphe de dépendances. Le document permet de découvrir le CSS, le JavaScript, les images et les autres origines; les scripts peuvent ensuite révéler des modules et des appels d'API.
+- Le poids transféré n'est qu'une partie du coût. Un script doit aussi être analysé et exécuté, une image décodée, une réponse JSON transformée et une modification du DOM rendue à l'écran.
+- Un budget de performance n'est pas une limite universelle. Il sert à repérer une dépense qui doit être justifiée en fonction de la ressource, de sa priorité et du moment où elle devient utile.
+- La plupart des interventions reposent sur sept stratégies : **éliminer**, **réduire**, **différer**, **devancer**, **réutiliser**, **limiter le travail et isoler ses effets**, puis **rapprocher**.
+- Le tree shaking, la compression, le lazy loading, les indications de chargement, la mémoïsation ou le CDN ne sont pas des objectifs en soi. Ce sont des moyens de répondre à un coût observé.
+- Une optimisation n'est validée qu'après une nouvelle mesure effectuée dans les mêmes conditions. Elle doit améliorer le scénario visé sans dégrader les autres usages importants de l'application. */}

@@ -1,0 +1,337 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Révision de l'examen final : vérifier ses acquis"
+description: "Auto-vérification avant l'examen final : cinq thèmes accompagnés de rappels, d'exemples et d'une liste d'autoévaluation."
+---
+
+Cette page permet de **vérifier vos acquis** avant l'examen final, qui est **cumulatif**.
+
+Le premier thème reprend les principales notions évaluées à l'intra. Les thèmes 2 à 5 portent sur la seconde moitié du trimestre et devraient recevoir l'essentiel de votre temps de révision.
+
+## 1. Protocole HTTP et conception d'API
+
+### Requête, réponse et absence d'état
+
+HTTP organise la communication sous la forme d'un dialogue entre client et serveur où le **client envoie une requête** au **serveur qui produit une réponse**.
+
+On dit que le protocole est **sans état** parce qu'une requête ne dépend pas automatiquement des requêtes précédentes. Chaque requête doit donc fournir le contexte nécessaire à son traitement : la ressource visée, les paramètres, les données transmises et, lorsque nécessaire, la preuve d'authentification.
+
+Cela ne signifie pas que le serveur ne conserve aucune donnée. Il peut enregistrer des utilisateurs, des commandes ou des mesures dans une base de données. Ce qu'HTTP ne fournit pas, c'est une conversation implicite dans laquelle le serveur se souviendrait automatiquement de ce que le client a demandé auparavant.
+
+### Méthodes sûres et idempotentes
+
+La méthode HTTP (`GET`, `POST`, `PUT`, `PATCH`, `DELETE`) traduit l'intention de la requête formulée par l'utilisateur.
+
+- Une méthode est **sûre** lorsqu'elle ne demande pas de modifier l'état de l'application. `GET` est sûre : consulter une ressource ne devrait pas la transformer.
+- Une méthode est **idempotente** lorsque répéter plusieurs fois une même requête produit le même état final que l'exécuter une seule fois. Supprimer trois fois une ressource mène au même état final que la supprimer une fois : la ressource n'existe plus. Les réponses peuvent néanmoins être différentes, par exemple `204` lors de la première suppression, puis `404` lors des suivantes.
+
+Cette propriété devient importante lorsqu'un client ne reçoit pas de réponse. Il peut généralement reprendre automatiquement une opération idempotente.
+
+### Codes de statut
+
+Le code de statut décrit le résultat de la requête. Il ne sert pas seulement à indiquer que « quelque chose s'est passé » : il permet au client de décider comment réagir.
+
+- Les codes `2xx` indiquent un succès : `200 OK`, `201 Created`, `204 No Content`.
+- Les codes `3xx` concernent notamment les redirections et les requêtes conditionnelles : `301 Moved Permanently`, `304 Not Modified`.
+- Les codes `4xx` indiquent que la requête ne peut pas être acceptée telle quelle : données invalides, absence d'authentification, droits insuffisants ou ressource inexistante.
+- Les codes `5xx` indiquent que le serveur n'a pas pu accomplir une requête pourtant recevable.
+
+Le code doit refléter la situation réelle. Une collection vide n'est pas nécessairement une erreur. Par exemple, `GET /mesures?lieu=inconnu` peut retourner `200 OK` avec un tableau vide si la requête est valide, mais qu'aucune mesure ne correspond au filtre.
+
+### Chemin et paramètres de requête
+
+Le **chemin** identifie généralement la ressource consultée :
+
+```text
+/lieux/bibliotheque-udem
+```
+
+Les **paramètres de requête**, placés après `?`, modifient plutôt la vue demandée. Ils servent couramment à filtrer, trier, paginer ou borner une période :
+
+```text
+/mesures?lieu=cafe&depuis=2026-07-20T12:00:00Z
+```
+
+Ces paramètres apparaissent fréquemment dans l'historique du navigateur, les journaux du serveur et les outils d'observation. On ne doit donc jamais y placer de mot de passe, de clé privée ou de jeton d'accès.
+
+### REST et conception de l'API
+
+REST désigne un ensemble de contraintes de conception, notamment :
+
+- la séparation entre le client et le serveur ;
+- l'absence d'état conversationnel entre les requêtes ;
+- une interface uniforme ;
+- la possibilité de placer des intermédiaires entre le client et le serveur ;
+- des réponses qui indiquent comment elles peuvent être mises en cache.
+
+Dans une API REST, l'URI identifie généralement une **ressource**, tandis que la méthode HTTP exprime l'opération.
+
+```text
+DELETE /lieux/12
+```
+
+est donc préférable à :
+
+```text
+GET /lieux/12/supprimer
+```
+
+Une API ne devrait pas simplement reproduire les tables ou les collections de la base de données. Elle doit être conçue à partir des **intentions du client** et des informations dont celui-ci a réellement besoin. Elle doit rester suffisamment flexible pour s'adapter à plusieurs contextes, sans devenir générique.
+
+### Utilisation habituelle des méthodes
+
+| Méthode  | Cible habituelle         | Corps de requête                        | Paramètres de requête             | Sûre |                  Idempotente                 |
+| -------- | ------------------------ | --------------------------------------- | --------------------------------- | :--: | :------------------------------------------: |
+| `GET`    | Collection ou élément    | À éviter : aucune sémantique générale   | Filtres, tri, pagination, période |  Oui |                      Oui                     |
+| `POST`   | Collection ou traitement | Données à créer ou à traiter            | Peu courants                      |  Non | Non, sauf garantie ajoutée par l'application |
+| `PUT`    | Élément précis           | Représentation complète de remplacement | Peu courants                      |  Non |                      Oui                     |
+| `PATCH`  | Élément précis           | Modifications partielles                | Peu courants                      |  Non |              Pas nécessairement              |
+| `DELETE` | Élément précis           | Généralement absent                     | Peu courants                      |  Non |                      Oui                     |
+
+
+## 2. Identité et sécurité
+
+### Identification, authentification et autorisation
+
+Ces trois notions répondent à des questions différentes.
+
+L'**identification** consiste à annoncer une identité : « je suis cette personne ».
+L'**authentification** consiste à en fournir une preuve reconnue par le système.
+L'**autorisation** détermine ensuite ce que cette identité a le droit de faire.
+
+Cette distinction permet de comprendre les statuts `401` et `403`.
+
+- `401 Unauthorized` signifie que le serveur ne dispose pas d'une preuve d'identité valide. Le jeton peut être absent, invalide ou expiré.
+- `403 Forbidden` signifie que l'utilisateur est reconnu, mais qu'il ne possède pas les permissions nécessaires.
+
+Un utilisateur authentifié comme étudiant peut donc recevoir `403` en tentant d'accéder à une fonction réservée à l'administration.
+
+### Mécanismes d'authentification courants
+
+Une **clé API** identifie généralement une application, un projet ou un service appelant. Elle ne représente pas nécessairement un utilisateur final. Elle peut être révoquée et parfois expirer, mais elle est souvent conçue pour une utilisation relativement longue.
+
+L'**authentification de base** transmet les identifiants avec chaque requête. Ceux-ci sont encodés, mais ne sont pas chiffrés par le mécanisme lui-même. Cette méthode dépend donc entièrement de HTTPS pour protéger les échanges.
+
+La **session avec témoin** conserve l'état d'authentification du côté du serveur. Après une connexion réussie, le serveur crée une session et transmet au client un identifiant de session dans un témoin (*cookie*), que le navigateur renvoie automatiquement aux requêtes suivantes adressées au même domaine.
+
+Comme la session appartient au serveur, celui-ci peut la révoquer immédiatement. En contrepartie, cet état doit être accessible à toutes les instances susceptibles de traiter une requête, ce qui demande un stockage partagé lorsque l'application est répartie.
+
+### Fonctionnement d'un JWT
+
+Après une authentification réussie, le serveur produit un jeton. Le client le transmet ensuite dans l'en-tête :
+
+```http
+Authorization: Bearer <jeton>
+```
+
+À la réception du jeton, le serveur doit notamment vérifier :
+
+- que l'algorithme utilisé est celui qu'il attend ;
+- que la signature est valide ;
+- que le jeton n'est pas expiré ;
+- que son émetteur et son destinataire correspondent au contexte attendu, lorsque ces informations sont utilisées.
+
+Un JWT signé est généralement **lisible**. La signature ne cache pas son contenu : elle permet de détecter une modification. Il ne faut donc jamais y placer un mot de passe, une clé ou une information confidentielle.
+
+La signature permet au serveur de vérifier le jeton sans nécessairement consulter une session conservée en mémoire ou dans une base de données. Cette absence de session facilite la distribution de l'application, mais rend la révocation immédiate plus difficile. Un jeton volé peut demeurer utilisable jusqu'à son expiration. On limite donc généralement sa durée de vie.
+
+### Certificats et HTTPS
+
+Un certificat associe un nom de domaine à une clé publique. Une autorité de certification atteste cette association en signant le certificat.
+
+Lorsqu'il établit une connexion TLS, le navigateur vérifie notamment :
+
+- que le certificat correspond au domaine visité ;
+- qu'il se trouve dans sa période de validité ;
+- que sa chaîne de signatures remonte à une autorité reconnue.
+
+Cette validation confirme que le navigateur communique avec le domaine annoncé et permet d'établir un canal chiffré. Elle ne garantit pas que le propriétaire du site est honnête ou que son contenu est digne de confiance.
+
+## 3. Interfaces réactives et React
+
+### L'interface comme lien avec le système
+
+Une interface traduit l'intention de l'utilisateur en actions que le système peut traiter. Elle traduit ensuite le résultat du système en informations que l'utilisateur peut comprendre.
+
+Une interface ne doit donc pas seulement permettre de cliquer ou de saisir une valeur. Elle doit également rendre visibles :
+
+- l'état courant du système ;
+- les actions disponibles ;
+- les conséquences d'une action ;
+- les problèmes rencontrés ;
+- les prochaines actions possibles.
+
+Une interface est **réactive** lorsqu'elle continue de refléter l'état du système à mesure que celui-ci évolue.
+
+L'état ne change pas uniquement à la suite d'une action de l'utilisateur. Il peut aussi évoluer parce qu'une réponse réseau arrive, qu'une minuterie se termine, qu'un autre utilisateur agit ou que le serveur transmet une nouvelle donnée.
+
+Une interface réactive doit continuer de suivre ces changements sans obliger l'utilisateur à recharger manuellement la page.
+
+### React comme outil de construction
+
+React est une bibliothèque JavaScript qui facilite la construction d'interfaces réactives à partir de **composants réutilisables**.
+
+Un composant est généralement une fonction qui reçoit des **props** et retourne du JSX. Les props sont fournies par le parent et doivent être considérées comme des données en lecture seule.
+
+### JSX
+
+JSX est une extension de syntaxe qui permet d'écrire une structure proche du HTML dans le code JavaScript.
+
+```jsx
+function Message({ nom }) {
+  return <p>Bonjour {nom}</p>;
+}
+```
+
+Les accolades permettent d'insérer une expression JavaScript dans le balisage.
+
+### État avec `useState`
+
+Le hook `useState` permet à un composant de conserver une donnée entre deux rendus.
+
+```jsx
+function Compteur() {
+  const [compte, setCompte] = useState(0);
+
+  return (
+    <button onClick={() => setCompte((precedent) => precedent + 1)}>
+      {compte}
+    </button>
+  );
+}
+```
+
+`compte` représente la valeur utilisée pendant le rendu courant. `setCompte` demande à React d'effectuer un nouveau rendu avec une nouvelle valeur.
+
+`useState` est également utilisé pour les **champs contrôlés**, dont la valeur affichée provient de l'état :
+
+```jsx
+const [nom, setNom] = useState("");
+
+<input
+  value={nom}
+  onChange={(evenement) => setNom(evenement.target.value)}
+/>
+```
+
+### Synchronisation avec `useEffect`
+
+Le hook `useEffect` sert à synchroniser un composant avec quelque chose d'extérieur à son rendu, par exemple une requête réseau, une minuterie ou un abonnement.
+
+```jsx
+useEffect(() => {
+  const identifiant = setInterval(actualiser, 5000);
+
+  return () => clearInterval(identifiant);
+}, []);
+```
+
+Le tableau de dépendances indique quand l'effet doit être exécuté à nouveau.
+
+| Forme                              | Moment de l'exécution                          |
+| ---------------------------------- | ---------------------------------------------- |
+| `useEffect(() => { ... })`         | Après chaque rendu                             |
+| `useEffect(() => { ... }, [])`     | À l'apparition du composant                    |
+| `useEffect(() => { ... }, [x, y])` | À l'apparition, puis lorsque `x` ou `y` change |
+
+La fonction retournée par l'effet sert au **nettoyage**. Elle permet, par exemple, d'arrêter une minuterie ou de retirer un abonnement lorsque le composant disparaît ou avant que l'effet soit recréé.
+
+### Où placer l'état ?
+
+L'état doit être placé aussi près que possible des composants qui l'utilisent.
+
+Si un seul composant lit et modifie une valeur, celle-ci peut rester locale. Lorsque plusieurs composants doivent la partager, l'état remonte jusqu'à leur ancêtre commun, qui distribue ensuite la valeur et les fonctions de modification par les props.
+
+L'utilisation d'un **Contexte** permet de rendre une valeur accessible à tout un sous-arbre sans la transmettre manuellement à chaque niveau. Il convient surtout à des informations largement partagées, comme le thème, la langue ou l'identité courante.
+
+## 4. Déploiement, DNS et évènements poussés
+
+### Deux types d'artefacts
+
+Une application web produit souvent deux artefacts de natures différentes.
+
+Le **backend** contient du code qui doit être exécuté sur une infrastructure : il peut fonctionner comme un processus continu ou sous la forme de fonctions déclenchées à la demande.
+
+Le **frontend construit** est principalement un ensemble de fichiers statiques (HTML, CSS, JavaScript et images) qu'un serveur de fichiers ou un réseau de distribution peut transmettre au navigateur.
+
+Ces deux parties peuvent être hébergées séparément.
+
+### Configuration et secrets
+
+La configuration varie généralement entre les environnements (`.env`) de développement, de test et de production.
+
+Les secrets, comme les mots de passe de bases de données ou les clés privées, ne doivent pas être inscrits dans le dépôt. Ils sont fournis par la plateforme d'hébergement ou par un gestionnaire de secrets.
+
+### Même origine et CORS
+
+Pour comparer deux origines, le navigateur examine : le schéma (par exemple `http` ou `https`), l'hôte et le port.
+
+Une page chargée depuis `https://app.exemple.ca` et une API située à `https://api.exemple.ca` n'ont donc pas la même origine.
+
+La politique de même origine limite l'accès du JavaScript d'une page aux réponses provenant d'une autre origine. Avec **CORS**, le serveur indique quelles origines sont autorisées à lire ses réponses.
+
+### DNS et certificat
+
+Le DNS traduit un nom de domaine en différents enregistrements.
+
+Un résolveur récursif peut consulter successivement :
+
+1. un serveur racine ;
+2. les serveurs du domaine de premier niveau, comme `.ca` ;
+3. le serveur autoritaire du domaine, qui possède la réponse de référence.
+
+Le résolveur conserve ensuite cette réponse en cache.
+
+| Enregistrement | Rôle                                                              |
+| -------------- | ----------------------------------------------------------------- |
+| `A`            | Associer un nom à une adresse IPv4                                |
+| `AAAA`         | Associer un nom à une adresse IPv6                                |
+| `CNAME`        | Définir un alias vers un autre nom                                |
+| `MX`           | Indiquer les serveurs responsables du courrier                    |
+| `TXT`          | Publier du texte, notamment pour prouver le contrôle d'un domaine |
+
+Le **TTL** indique combien de temps une réponse peut rester en cache. Après une modification, certains résolveurs continuent donc d'utiliser l'ancienne valeur jusqu'à l'expiration du délai qui leur reste. La transition est progressive plutôt qu'instantanée.
+
+### Recevoir des changements du serveur
+
+Dans le fonctionnement habituel d'HTTP, le serveur répond à une requête initiée par le client. Plusieurs stratégies permettent néanmoins au client de recevoir les changements d'état au fil du temps.
+
+| Stratégie                         | Principe                                                                | Coût principal                                              |
+| --------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Interrogation périodique          | Le client redemande à intervalle fixe.                                  | Délai entre deux vérifications et requêtes parfois inutiles |
+| Interrogation longue              | Le serveur conserve la requête jusqu'à l'arrivée d'une nouvelle donnée. | Connexions durables et gestion des délais                   |
+| Évènements envoyés par le serveur | Le serveur transmet une suite d'évènements au client sur HTTP.          | Communication dans un seul sens                             |
+| WebSocket                         | Le client et le serveur conservent un canal bidirectionnel.             | Infrastructure et gestion des connexions plus complexes     |
+
+## 5. Stratégies d'optimisation
+
+Les optimisations peuvent être regroupées en quelques gestes.
+
+**Éliminer** consiste à retirer ce qui n'est pas nécessaire : code inutilisé, dépendance superflue ou ressource jamais affichée.
+
+**Réduire** consiste à diminuer le poids de ce qui reste, par exemple avec la compression, la minification ou un format d'image mieux adapté.
+
+**Différer** consiste à reporter le chargement ou l'exécution de ce qui n'est pas nécessaire au premier écran.
+
+**Devancer** consiste à charger plus tôt une ressource dont l'utilisation prochaine est très probable. Cette stratégie doit rester sélective : charger inutilement une ressource prioritaire peut ralentir ce qui est réellement nécessaire.
+
+**Réutiliser** consiste à éviter un nouveau travail grâce au cache ou à une valeur déjà calculée.
+
+**Rapprocher** consiste à servir les ressources depuis une infrastructure plus proche de l'utilisateur, notamment au moyen d'un CDN.
+
+## Autoévaluation rapide
+
+Vous devriez pouvoir, sans consulter vos notes :
+
+- expliquer le fonctionnement du protocole HTTP et ses principales composantes ;
+- choisir une méthode HTTP et un code de statut en justifiant leur sémantique ;
+- concevoir une API suivant les principes REST ;
+- distinguer identification, authentification et autorisation ;
+- expliquer le fonctionnement et les limites de JWT ;
+- concevoir et analyser une interface réactive ;
+- expliquer le fonctionnement des composants et hooks dans React ;
+- évaluer la maintenabilité d'une application React et la réutilisabilité de composants ;
+- expliquer le trajet d'une résolution DNS et le rôle du TTL ;
+- expliquer ce que CORS protège ;
+- expliquer et choisir entre interrogation périodique, évènements envoyés par le serveur et WebSocket ;
+- choisir une stratégie d'optimisation dans un contexte donné.

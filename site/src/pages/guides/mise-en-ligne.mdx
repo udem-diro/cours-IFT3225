@@ -1,0 +1,329 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Mettre Bus en vue en ligne"
+description: "Déploiement pas à pas de Bus en vue : l'API Express sur Render, le client React sur Netlify, la configuration par variables d'environnement, CORS, et la mise en place d'un journal côté backend."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import DeuxArtefacts from "../../components/DeuxArtefacts.astro";
+
+Le chapitre précédent a présenté les enjeux du déploiement en général. Celui-ci passe à l'acte : à la fin, votre Bus en vue tournera sur de vraies machines, avec une véritable adresse, et vous saurez lire ce qui s'y passe grâce à un journal.
+
+Ce guide suppose le Bus en vue de la fiche 6 : un backend Express (authentification JWT, route d'administration) et un client React construit avec Vite. Mais il y a un enjeu qu'il faut nommer d'emblée : **vous ne déployez pas « le » Bus en vue, vous déployez le vôtre**. Chacun l'a intégré, personnalisé et modifié au fil des fiches : des routes en plus, des composants en moins, des noms différents. Les étapes qui suivent sont donc écrites pour s'adapter à une variante, pas pour un dépôt figé : à chaque fois qu'un nom de fichier, de route ou de dossier apparait, remplacez-le par le vôtre. Ce qui ne change pas, c'est la logique.
+
+## 1. Ce qu'on déploie
+
+Bus en vue n'est pas une application, mais deux artefacts de natures différentes.
+
+<MarginNote type="definition" titre="Artefact">
+Un artefact est le produit concret d'une construction (build) : ce qu'on obtient à partir du code source, et qu'on livre. Un exécutable, une archive, un dossier de fichiers.
+</MarginNote>
+
+- **L'API Express est un processus.** Elle doit tourner en continu sur une machine, écouter un port, garder des connexions ouvertes. Son hébergeur doit savoir exécuter du Node.js.
+- **Le client React est un ensemble de fichiers.** Après `npm run build`, il ne reste que du HTML, du JavaScript et du CSS dans `dist/`. Aucun code ne s'exécute côté hébergeur : il suffit de servir des fichiers, ce qu'un réseau de distribution fait mieux et moins cher qu'un serveur applicatif.
+
+Deux natures, deux hébergeurs : le processus ira sur **Render**, les fichiers sur **Netlify**. Les deux moitiés ne se rejoignent que dans le navigateur de l'utilisateur, qui télécharge le client depuis Netlify puis appelle l'API sur Render.
+
+<DeuxArtefacts />
+
+<Checkpoint question="Pourquoi ne pas tout mettre sur Render, qui sait aussi servir des fichiers statiques ?">
+On le pourrait, et ce serait même plus simple à configurer (une seule origine, pas de CORS). La séparation se justifie par la nature des artefacts : les fichiers statiques gagnent à être servis par un réseau de distribution proche des utilisateurs, avec cache agressif, tandis que le processus a besoin d'une machine qui l'exécute. Séparer permet aussi de faire évoluer, redéployer ou remplacer chaque moitié indépendamment. Pour un projet d'étudiant, les deux choix se défendent ; ce cours sépare pour vous faire pratiquer le cas général.
+</Checkpoint>
+
+## 2. Préparer le backend
+
+Trois habitudes de développement ne survivent pas à la mise en ligne : le port codé en dur, les secrets dans le code, et le CORS grand ouvert. On les corrige avant de déployer.
+
+### 2.1 Le port appartient à l'hôte
+
+En local, on choisit son port. En ligne, c'est l'hébergeur qui l'impose, par la variable d'environnement `PORT`. Le serveur doit la lire :
+
+```js
+// server.js
+const PORT = process.env.PORT ?? 4000;
+
+app.listen(PORT, () => {
+  console.log(`API Bus en vue à l'écoute sur le port ${PORT}`);
+});
+```
+
+Le `?? 4000` conserve le comportement local : si l'hôte ne fournit rien, on retombe sur le port habituel.
+
+### 2.2 Les secrets sortent du code
+
+Le secret qui signe les jetons JWT ne doit exister ni dans le code, ni dans le dépôt. En local, il vit dans `.env` (ignoré par Git) ; en ligne, il sera saisi dans l'interface de l'hébergeur. Le code, lui, ne connait que la variable :
+
+```js
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  console.error("JWT_SECRET manquant : définissez la variable d'environnement.");
+  process.exit(1);
+}
+```
+
+Échouer au démarrage vaut mieux que signer des jetons avec `undefined` : le problème se voit tout de suite, au bon endroit.
+
+<Highlight>
+Règle simple : le dépôt contient du code et de la configuration **par défaut** ; tout ce qui est secret ou propre à un environnement (développement, production) passe par les variables d'environnement.
+</Highlight>
+
+### 2.3 CORS : d'ouvert à restreint
+
+En développement, `app.use(cors())` accepte toutes les origines, ce qui est commode et sans conséquence sur votre machine. En production, l'API ne devrait répondre qu'à votre client :
+
+```js
+import cors from "cors";
+
+const CORS_ORIGIN = process.env.CORS_ORIGIN ?? "http://localhost:5173";
+
+app.use(cors({ origin: CORS_ORIGIN }));
+```
+
+L'origine exacte du client Netlify n'existe pas encore : on la connaitra à la section 5, et on viendra alors remplir cette variable chez Render. C'est un aller-retour normal du déploiement en deux moitiés.
+
+### 2.4 Une route de santé
+
+Une toute petite route qui répond « je vais bien » rend deux services : vérifier le déploiement d'un simple coup d'œil, et donner à l'hébergeur un point à surveiller.
+
+```js
+app.get("/health", (req, res) => {
+  res.json({ data: { status: "ok", uptime: process.uptime() } });
+});
+```
+
+Vérifiez enfin que `package.json` déclare bien le démarrage :
+
+```json
+"scripts": {
+  "start": "node server.js"
+}
+```
+
+## 3. Déployer l'API sur Render
+
+Render exécute un service à partir d'un dépôt Git : à chaque poussée sur la branche choisie, il reconstruit et redéploie. Prérequis : votre Bus en vue est poussé sur GitHub (dépôt avec `backend/` et `client/`, ou deux dépôts, adaptez les chemins).
+
+1. Créez un compte sur render.com et liez-le à votre compte GitHub.
+
+{/* Capture : page d'accueil Render, bouton New + */}
+
+2. Choisissez **New +** puis **Web Service**, et sélectionnez votre dépôt.
+
+3. Configurez le service :
+   - **Name** : `bus-en-vue-api` (ce nom apparaitra dans l'URL) ;
+   - **Root Directory** : `backend` (le dossier du serveur dans votre dépôt) ;
+   - **Language** : Node ;
+   - **Build Command** : `npm install` ;
+   - **Start Command** : `node server.js`.
+
+{/* Capture : formulaire de création du service, champs remplis */}
+
+4. Choisissez l'instance **Free**.
+
+5. Dans **Environment Variables**, ajoutez `JWT_SECRET` avec une longue valeur aléatoire (pas celle de votre `.env` de développement : un secret par environnement). Ajoutez aussi `CORS_ORIGIN`, vide ou temporairement à `*`, on y reviendra.
+
+{/* Capture : section des variables d'environnement */}
+
+6. Lancez la création. Render clone, installe, démarre, et le journal de build défile à l'écran. Le service reçoit une adresse du type `https://bus-en-vue-api.onrender.com`.
+
+{/* Capture : journal de déploiement, statut Live */}
+
+7. Vérifiez : ouvrez `https://bus-en-vue-api.onrender.com/health` dans le navigateur. La réponse JSON de la route de santé doit apparaitre.
+
+<MarginNote type="attention" titre="Le sommeil du plan gratuit">
+Un service gratuit Render s'endort après 15 minutes sans trafic, et la requête suivante paie le réveil, de l'ordre de 30 à 60 secondes. Ce n'est pas une panne : c'est le compromis du gratuit. Reliez cela au chapitre précédent : la disponibilité a un cout, et ce délai de réveil est exactement ce qu'un plan payant achète. Pour une démonstration en classe, visitez votre site quelques minutes avant.
+</MarginNote>
+
+<Checkpoint question="Pourquoi ne pas réutiliser le JWT_SECRET de votre .env local en production ?">
+Parce qu'un secret partagé entre environnements double la surface d'exposition : quiconque obtient le secret de développement (un dépôt cloné, un poste volé, un .env envoyé par erreur) peut alors forger des jetons valides en production. Un secret par environnement limite les dégâts d'une fuite à cet environnement.
+</Checkpoint>
+
+## 4. Préparer le client
+
+Le client de la fiche 6 appelle `/api/...`, et le proxy de Vite redirige vers `localhost:4000` pendant le développement. En production, il n'y a **pas de proxy** : les fichiers sont servis par Netlify, et les appels doivent viser directement l'API Render. L'adresse de l'API devient donc une variable de build.
+
+```js
+// src/api/config.js
+// En production, VITE_API_URL pointe vers l'API (https://....onrender.com).
+// En développement, la variable est absente : on retombe sur le proxy /api.
+export const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
+```
+
+Puis chaque module d'API construit ses URL à partir de cette base. Par exemple :
+
+```js
+// src/api/auth.js
+import { API_BASE } from "./config.js";
+
+export async function login(username, password) {
+  const res = await fetch(`${API_BASE}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password })
+  });
+  // ... le reste ne change pas
+}
+```
+
+Faites le même remplacement partout où une URL commence par `/api` (dans le Bus en vue de la fiche 6 : `api/auth.js`, `api/http.js`, `api/admin.js`). Les préfixes s'alignent bien : en local, `/api/auth/login` passe par le proxy qui retire `/api` ; en production, `https://....onrender.com/auth/login` est appelée directement.
+
+<MarginNote type="astuce" titre="Pourquoi une variable de build ?">
+Les variables `VITE_*` sont injectées **au moment du build** : leur valeur est figée dans les fichiers produits. C'est cohérent avec la nature de l'artefact (des fichiers statiques, sans serveur pour lire un environnement), mais cela signifie qu'un changement d'URL d'API exige un nouveau build, pas juste un redémarrage.
+</MarginNote>
+
+Testez localement le comportement de production :
+
+```bash
+VITE_API_URL=https://bus-en-vue-api.onrender.com npm run build
+npm run preview
+```
+
+## 5. Déployer le client sur Netlify
+
+1. Créez un compte sur netlify.com et liez-le à GitHub.
+
+2. Choisissez **Add new site**, puis **Import an existing project**, et sélectionnez votre dépôt.
+
+{/* Capture : import du dépôt dans Netlify */}
+
+3. Configurez le build :
+   - **Base directory** : `client` ;
+   - **Build command** : `npm run build` ;
+   - **Publish directory** : `client/dist`.
+
+4. Dans les variables d'environnement du site, ajoutez `VITE_API_URL` avec l'adresse Render obtenue à la section 3.
+
+{/* Capture : configuration du build et variable VITE_API_URL */}
+
+5. Lancez le déploiement. Netlify construit puis publie, et attribue une adresse du type `https://bus-en-vue.netlify.app` (le nom se personnalise dans les réglages du site).
+
+6. Ajoutez la redirection d'application monopage : créez `client/public/_redirects` contenant la ligne suivante, puis poussez (Netlify redéploiera).
+
+```
+/*  /index.html  200
+```
+
+Cette règle sert `index.html` pour toute adresse inconnue, afin que le routeur du client prenne la main. Le Bus en vue de la fiche 6 utilise un `MemoryRouter`, qui ne touche pas à la barre d'adresse : la règle ne lui est pas indispensable. Elle le devient dès qu'un routeur écrit de vraies URL (`BrowserRouter`, comme aux fiches 4 et 5) : sans elle, recharger `/admin` demanderait à Netlify un fichier `admin` qui n'existe pas, et produirait une page 404.
+
+<Checkpoint question="Pourquoi la règle _redirects renvoie-t-elle un code 200 et non une redirection 301 ?">
+Parce que l'adresse demandée est la bonne : on ne veut pas envoyer le navigateur ailleurs (ce que ferait un 301, en changeant la barre d'adresse), on veut servir index.html À cette adresse, pour que le routeur client affiche la vue correspondante. C'est une réécriture interne, invisible pour l'utilisateur.
+</Checkpoint>
+
+## 6. Relier les deux moitiés
+
+Il reste à fermer la boucle ouverte à la section 2.3.
+
+1. Chez Render, donnez à `CORS_ORIGIN` sa valeur définitive : l'origine exacte du site Netlify, protocole compris, sans barre oblique finale. Par exemple `https://bus-en-vue.netlify.app`. Le service redémarre avec la nouvelle valeur.
+
+2. Testez le parcours entier depuis l'adresse Netlify : chargement, connexion (`alex` / `user123`), action authentifiée, onglet admin avec `sam` / `admin123`.
+
+3. En cas d'échec, la console du navigateur désigne presque toujours le coupable : une erreur CORS (l'origine configurée ne correspond pas, au caractère près), ou une URL d'API restée en `/api` (la variable `VITE_API_URL` manquait au moment du build).
+
+Liste de vérification finale :
+
+- `GET /health` répond sur l'adresse Render ;
+- le site Netlify charge et affiche l'application ;
+- la connexion fonctionne depuis le site Netlify (pas seulement en local) ;
+- `CORS_ORIGIN` vaut l'origine Netlify exacte, et rien de plus large ;
+- aucun secret dans le dépôt : `git log -p` ne révèle ni `.env` ni valeur de `JWT_SECRET` ;
+- la première visite après une pause est lente (réveil du plan gratuit) : c'est attendu, sachez l'expliquer.
+
+## 7. Voir ce qui se passe : le journal
+
+Votre serveur tourne désormais sur une machine que vous ne verrez jamais. Quand quelque chose ira de travers, et quelque chose ira de travers, vous ne pourrez ni ouvrir un débogueur ni ajouter un `console.log` après coup : il faudra reconstituer les évènements à partir de ce que le serveur aura bien voulu écrire. C'est le rôle du journal.
+
+<MarginNote type="definition" titre="Journal (log)">
+Le journal est la suite des évènements qu'un programme écrit pendant qu'il tourne, horodatés, pour permettre le diagnostic après coup. Chez la plupart des hébergeurs, tout ce que le processus écrit sur sa sortie standard est collecté et consultable.
+</MarginNote>
+
+### 7.1 Des niveaux, pas du bruit
+
+Tout journaliser noie l'important. On classe donc chaque évènement par **niveau** : `debug` (détail utile en développement), `info` (le fonctionnement normal), `warn` (anormal mais géré), `error` (quelque chose a échoué). Un seuil, configuré par l'environnement, décide de ce qui est écrit : `debug` en local, `info` en production.
+
+### 7.2 Structuré plutôt que libre
+
+`console.log("erreur login de " + username)` produit une phrase, agréable à lire, impossible à exploiter : on ne peut ni filtrer, ni compter, ni suivre. Un journal **structuré** écrit une ligne JSON par évènement, avec des champs constants. Une machine peut alors chercher « toutes les requêtes en erreur de la dernière heure », et vous aussi.
+
+### 7.3 Un journal minimal pour Bus en vue
+
+```js
+// journal.js
+import { randomUUID } from "node:crypto";
+
+const NIVEAUX = { debug: 10, info: 20, warn: 30, error: 40 };
+const SEUIL = NIVEAUX[process.env.LOG_LEVEL ?? "info"];
+
+export function log(niveau, message, contexte = {}) {
+  if (NIVEAUX[niveau] < SEUIL) return;
+
+  console.log(JSON.stringify({
+    t: new Date().toISOString(),
+    niveau,
+    message,
+    ...contexte
+  }));
+}
+
+// Middleware : une ligne par requête traitée, avec un identifiant unique.
+export function journalRequetes(req, res, next) {
+  req.id = randomUUID();
+  const debut = Date.now();
+
+  res.on("finish", () => {
+    log("info", "requete", {
+      id: req.id,
+      methode: req.method,
+      chemin: req.path,
+      statut: res.statusCode,
+      duree: Date.now() - debut
+    });
+  });
+
+  next();
+}
+```
+
+Et dans `server.js`, avant les routes :
+
+```js
+import { log, journalRequetes } from "./journal.js";
+
+app.use(journalRequetes);
+```
+
+L'**identifiant de requête** (`req.id`) est la pièce maitresse : si un traitement journalise en plusieurs endroits, toutes les lignes portent le même identifiant, et l'on peut reconstituer le fil d'une requête au milieu de cent autres. Passez-le à vos propres appels :
+
+```js
+app.post("/auth/login", (req, res) => {
+  // ...
+  if (!compte) {
+    log("warn", "login refuse", { id: req.id, username });
+    return res.status(401).json({ error: { code: "AUTH_FAILED" } });
+  }
+});
+```
+
+### 7.4 Ce qu'on ne journalise jamais
+
+Le journal est lisible par quiconque accède au tableau de bord de l'hébergeur, et il est conservé. N'y écrivez **jamais** : les mots de passe (même erronés), les jetons et l'en-tête `Authorization`, ni les données personnelles qui n'ont rien à y faire. Le `username` d'un login refusé se discute ; le mot de passe essayé, jamais.
+
+### 7.5 Où le lire
+
+Chez Render, l'onglet **Logs** du service montre en continu tout ce que le processus écrit sur sa sortie standard : vos lignes JSON s'y retrouvent, filtrables par texte. C'est là que vous verrez le prochain `error` avant l'utilisateur qui vous le signalera.
+
+{/* Capture : onglet Logs du service Render, lignes JSON du journal */}
+
+<MarginNote type="astuce" titre="Et dans un vrai projet ?">
+Ce journal fait main tient en trente lignes et suffit au cours. Les projets réels utilisent une bibliothèque dédiée, comme pino, qui fait la même chose beaucoup plus vite, avec la rotation, la redirection et l'écosystème d'outils autour. Les concepts (niveaux, structure, identifiant de requête) sont exactement les mêmes.
+</MarginNote>
+
+<Checkpoint question="Pourquoi générer l'identifiant de requête côté serveur plutôt que d'utiliser, par exemple, l'horodatage ?">
+Deux requêtes peuvent arriver à la même milliseconde, et l'horodatage ne serait alors plus un identifiant. Un UUID généré à l'entrée garantit l'unicité, et son seul rôle est de relier entre elles toutes les lignes de journal d'une même requête. Dans les architectures à plusieurs services, ce même identifiant voyage d'un service à l'autre dans un en-tête, pour suivre une requête de bout en bout.
+</Checkpoint>
+
+## Pour conclure
+
+Votre Bus en vue est en ligne : un processus chez Render, des fichiers chez Netlify, reliés par CORS, configurés par variables d'environnement, et observables par leur journal. La prochaine étape n'est plus de le faire marcher, mais de le faire **vite** : mesurer ce que coute le chargement, exploiter le cache des deux côtés, et préparer le terrain des applications installables. C'est l'objet de la page suivante, Performance, cache et PWA.

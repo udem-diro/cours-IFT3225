@@ -1,0 +1,230 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Révision de l'examen final : vérifier ses acquis"
+description: "Auto-vérification avant l'examen final : cinq thèmes (HTTP et conception d'API, identité et authentification, interfaces réactives et React, déploiement et évènements poussés, performance et cache), chacun assorti d'un récapitulatif et de questions à réponse révélable."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+
+Cette page permet de **vérifier ses acquis** avant l'examen final, qui est **cumulatif**.
+Le thème 1 condense la matière de l'intra ; les thèmes 2 à 5 portent sur la seconde moitié du trimestre et méritent l'essentiel du temps de révision.
+
+Pour chaque question, essayez d'abord de formuler une réponse en quelques phrases, sans révéler le corrigé. Une bonne réponse devrait généralement **nommer le concept**, **l'appliquer au cas présenté** et **justifier la décision**.
+
+## 1. Protocole, HTTP et conception d'API
+
+- HTTP suit un modèle de **requête et réponse**. Il est **sans état au niveau du protocole** : chaque requête doit porter le contexte nécessaire à son traitement. Le serveur peut évidemment conserver l'état des ressources dans une base de données ; ce qu'HTTP ne fournit pas, c'est une conversation implicite entre deux requêtes.
+- Une méthode **sûre** ne demande pas de modification de l'état de l'application. Une méthode **idempotente** produit le même état final après une ou plusieurs exécutions identiques, même si les réponses obtenues peuvent différer. `POST` n'offre pas cette garantie par défaut, d'où le risque de doublon après une reprise automatique.
+- Le **code de statut** qualifie le résultat et doit dire la vérité : `2xx` pour un succès (`200`, `201`, `204`), `3xx` pour une redirection ou une réponse conditionnelle (`301`, `304`), `4xx` pour une requête que le serveur ne peut accepter telle quelle (`400`, `401`, `403`, `404`, `409`) et `5xx` pour une défaillance du serveur.
+- Le **paramètre de chemin** participe à l'identité de la ressource (`/lieux/bibliotheque-udem`). Le **paramètre de requête**, après `?`, module la représentation demandée, souvent pour filtrer, trier, paginer ou borner une période (`/mesures?lieu=cafe&depuis=2026-07-20T12:00:00Z`).
+- Les paramètres de requête apparaissent fréquemment dans l'historique, les journaux et les outils d'observation. On n'y place donc jamais de mot de passe, de clé ni de jeton d'accès.
+- **REST est un ensemble de contraintes** : séparation client-serveur, absence d'état conversationnel côté serveur, interface uniforme, système en couches et réponses qui indiquent comment elles peuvent être mises en cache. Dans une API REST, l'URI nomme généralement une **ressource** ; la méthode exprime l'opération.
+- Une API se conçoit à partir des **questions et intentions de l'utilisateur**. Un endpoint bien choisi retourne un résultat directement exploitable, plutôt que d'obliger chaque client à reconstruire la même interprétation.
+- L'API **n'est pas le miroir de la base de données**. On imbrique ce qui est toujours lu avec son parent et dont la taille reste bornée ; on référence ce qui est partagé ou **croît** sans limite ; on transmet les filtres à la couche de données afin qu'elle ne retourne que l'information utile.
+
+Ce que porte habituellement chaque méthode :
+
+| Méthode | Cible habituelle | Corps de requête | Paramètres de requête | Sûre | Idempotente | Statuts usuels |
+|---|---|---|---|:---:|:---:|---|
+| `GET` | Collection ou élément | À éviter : aucune sémantique générale | Très courants : filtre, tri, pagination, période | Oui | Oui | `200`, `404` |
+| `POST` | Collection ou traitement | Oui, données à créer ou à traiter | Peu courants | Non | Non, sauf garantie applicative | `201`, `200`, `400`, `409` |
+| `PUT` | Élément précis | Oui, représentation complète de remplacement | Peu courants | Non | Oui | `200` ou `204`, `404` |
+| `PATCH` | Élément précis | Oui, modifications partielles | Peu courants | Non | Pas garanti | `200` ou `204`, `400`, `404`, `409` |
+| `DELETE` | Élément précis | Généralement non | Peu courants | Non | Oui | `204`, `404` |
+
+<Checkpoint question="Quelle est la différence entre un paramètre de chemin et un paramètre de requête ?">
+Le **paramètre de chemin** fait partie de l'identité de la ressource : `/lieux/12` désigne un lieu précis.
+Le **paramètre de requête** module la représentation demandée : `/mesures?lieu=cafe&limite=20` sélectionne et limite un sous-ensemble.
+</Checkpoint>
+
+<Checkpoint question="Un développeur expose GET /lieux/12/supprimer. Qu'est-ce qui ne va pas, au-delà du style ?">
+Deux fautes se cumulent. D'abord, `GET` doit être **sûre** : sa sémantique ne doit demander aucune modification de l'état applicatif. Des effets techniques comme la journalisation restent possibles, mais une suppression viole directement cette garantie. Un préchargement du navigateur ou un robot qui parcourt les liens pourrait donc déclencher des suppressions.
+Ensuite, l'URI doit identifier une **ressource**, pas une action : le verbe appartient à la méthode. La forme correcte est `DELETE /lieux/12`.
+</Checkpoint>
+
+<Checkpoint question="GET /mesures?lieu=inconnu ne trouve aucune mesure. Quel statut retourner ?">
+`200 OK` avec un tableau vide.
+Dans ce contrat d'API, la **collection existe** et le filtre est valide : aucun élément ne correspond, ce qui constitue un résultat légitime.
+`404` est réservé à une ressource adressée qui n'existe pas, par exemple `GET /lieux/9999`. Une API qui exige que `lieu` désigne d'abord une ressource existante pourrait choisir un autre contrat, mais elle doit alors le documenter clairement.
+</Checkpoint>
+
+<Checkpoint question="Pourquoi charger toutes les mesures puis les filtrer dans le code est-il un défaut de conception, et pas seulement une question de performance ?">
+Parce que le filtre exprime une **intention** qui appartient à la requête. Lorsqu'il est passé à la requête, il profite des index en BD et ne fait circuler que l'information utile, plutôt que d'allourdir le travail du code (client).
+Le procédé fonctionne tant que les données sont peu nombreuses, ce qui le rend trompeur : il passe les tests du développement et s'effondre en production.
+Il signale aussi que la responsabilité a été mal placée, la couche d'accès aux données faisant remonter du brut que le contrôleur doit trier.
+</Checkpoint>
+
+## 2. Identité et sécurité
+
+- Trois notions distinctes : l'**identification** annonce qui l'on prétend être, l'**authentification** apporte une preuve reconnue par le système et l'**autorisation** détermine ce que cette identité a le droit de faire.
+- Une **clé API** identifie généralement l'application, le projet ou le service appelant, pas nécessairement l'utilisateur final. Elle est révocable et peut avoir une échéance, mais elle est souvent longue durée. 
+- L'**authentification de base** renvoie les identifiants à chaque requête sous une forme encodée, non chiffrée : elle dépend entièrement de HTTPS.
+- **Le JWT est le mécanisme à maîtriser.** Le serveur l'émet après l'authentification ; le client le renvoie dans `Authorization: Bearer …` ; le serveur vérifie l'algorithme attendu, la signature et les déclarations pertinentes, notamment l'expiration.
+- Un JWT signé courant est **lisible, mais protégé contre la modification**. La signature permet de détecter une altération ; elle ne chiffre pas le contenu. On n'y place donc jamais de secret, et l'on limite sa durée de vie puisque sa révocation immédiate est plus difficile qu'avec une session conservée côté serveur.
+- Un **certificat** lie un nom de domaine à une clé publique. Une autorité de certification atteste cette association en signant le certificat ; le navigateur vérifie la chaîne de confiance, le domaine et la période de validité avant d'établir la connexion TLS.
+
+<Checkpoint question="Une requête arrive avec un jeton valide, mais l'utilisateur n'est pas administrateur. Quel statut, et pourquoi pas l'autre ?">
+`403 Forbidden`.
+Le serveur sait **qui** est l'utilisateur : l'authentification a réussi, et redemander une preuve d'identité n'aurait aucun sens.
+`401 Unauthorized` s'emploie quand aucune preuve n'a été fournie, ou qu'elle est invalide ou expirée : le client peut alors utilement se reconnecter. Confondre les deux envoie l'utilisateur refaire une manœuvre qui ne changera rien à son problème.
+</Checkpoint>
+
+<Checkpoint question="Comment un JWT permet-il une authentification sans état, et que vérifie exactement le serveur ?">
+Le jeton est **autoportant** : il peut contenir un identifiant, des rôles ou permissions et une échéance. Le serveur n'a donc pas besoin d'une session pour retrouver ces informations.
+À chaque appel, il impose l'algorithme attendu, vérifie la **signature** avec la clé appropriée, puis valide les déclarations nécessaires, notamment l'expiration et, selon le système, l'émetteur ou le destinataire.
+La contrepartie est qu'un jeton volé peut rester utilisable jusqu'à son expiration si aucun mécanisme supplémentaire de révocation n'est prévu.
+</Checkpoint>
+
+<Checkpoint question="Peut-on placer une donnée confidentielle dans un JWT, puisqu'il est signé ?">
+Non. **Signé ne veut pas dire chiffré.**
+La signature permet de détecter une modification, mais ne rend pas le contenu secret : toute personne qui obtient le jeton peut généralement en décoder la charge utile.
+Un JWT signé peut porter des déclarations utiles à l'autorisation, mais jamais un mot de passe, une clé ni une donnée personnelle sensible.
+</Checkpoint>
+
+<Checkpoint question="Une équipe protège l'accès à l'administration en masquant le lien et en ajoutant une route protégée côté client. Est-ce suffisant ?">
+Non, et la faille est totale.
+Le code du client est entièrement lisible et modifiable : il suffit d'appeler directement l'endpoint avec un outil de requête, sans passer par l'interface, pour contourner l'ensemble de ces protections.
+Elles n'ont de valeur que pour le **confort** : ne pas montrer une porte qu'on ne peut pas ouvrir. La vérification du jeton et du rôle **sur le serveur**, pour chaque route sensible, est la seule barrière réelle.
+</Checkpoint>
+
+<Checkpoint question="Que vérifie un navigateur quand il valide un certificat, et qu'est-ce que cela ne garantit pas ?">
+Il vérifie que la chaîne de signatures remonte à une **racine de confiance**, que le **nom du domaine** correspond au certificat et que sa **période de validité** couvre l'instant présent. Les navigateurs disposent aussi de mécanismes de révocation, dont l'application dépend du contexte.
+Cette validation permet ensuite d'établir une connexion chiffrée avec le domaine annoncé.
+Elle ne garantit **pas l'honnêteté du site** : un site frauduleux peut obtenir un certificat valide pour son propre domaine.
+</Checkpoint>
+
+## 3. Interfaces réactives et React
+
+
+- Une interface **réactive** rend visibles l’état du système et les conséquences des actions. Elle s’adapte en continue aux états de chargement, de succès, de vide et d’erreur. Elle continue de refléter les changements provenant de l’utilisateur, du temps, du réseau ou du serveur.
+- React est une **librairie JavaScript open source** pour construire des interfaces utilisateur modulaires et réactives à partir de composants réutilisables.
+- **JSX** est une extension de syntaxe qui permet d'écrire un balisage proche du HTML directement dans un fichier JavaScript. C'est la façon standard de décrire l'interface dans React. Les **accolades** ouvrent une expression évaluée au rendu.
+- Un **composant** est une fonction qui reçoit des **props**, en lecture seule, et retourne du JSX. 
+- Le hook `useState` permet à un composant de mémoriser une donnée qui peut changer entre deux rendus. `useState` est notamment utilisé pour créer des champs contrôlés.
+- Le hook `useEffect` synchronise le composant avec un **système extérieur** : réseau, minuterie, abonnement ou API du navigateur. Les dépendances associées au `useEffect` déterminent quand la synchronisation doit être reprise.
+| Forme | Exécution |
+|---|---|
+| `useEffect(() => {...})` | Après **chaque** rendu (risque de boucle infinie si l'effet modifie l'état). |
+| `useEffect(() => {...}, [])` | Une seule fois, à l'apparition du composant. |
+| `useEffect(() => {...}, [x, y])` | À l'apparition, puis chaque fois que `x` ou `y` change. |
+- **Où placer l'état** : le plus près possible de là où il sert. Il remonte à l'ancêtre commun dès que plusieurs composants doivent le lire ou le modifier. 
+- Les **DevTools** répondent chacun à une question : Éléments pour l'affichage, Console pour l'erreur, Réseau pour la requête lente ou inattendue, Performance pour l'interface qui gèle, React DevTools pour le composant qui se rend trop souvent.
+
+<Checkpoint question="Quels états une vue qui charge une liste depuis une API doit-elle prévoir ?">
+Quatre : **chargement**, **succès**, **vide** et **erreur**.
+Le piège le plus courant est de confondre les deux derniers. Une liste vide est un résultat valide, et doit s'expliquer (« aucune mesure pour ce lieu ») ; une erreur est un échec, et doit proposer une suite (réessayer).
+Afficher une page blanche dans les deux cas laisse l'utilisateur incapable de savoir si l'application est cassée ou s'il n'y a rien à voir.
+</Checkpoint>
+
+<Checkpoint question="Quelle est la différence entre onClick={gerer} et onClick={gerer()} ?">
+`onClick={gerer}` **passe la fonction** : React l'appellera lors du clic. C'est la forme voulue.
+`onClick={gerer()}` **appelle la fonction pendant le rendu** et transmet sa valeur de retour, généralement `undefined`. Le gestionnaire s'exécute donc au mauvais moment, et rien ne se produit ensuite au clic.
+Si le gestionnaire modifie un état, cette erreur provoque de surcroît un nouveau rendu, qui rappelle la fonction : une boucle infinie.
+Quand un argument est nécessaire, on enveloppe : `onClick={() => gerer(id)}`.
+</Checkpoint>
+
+<Checkpoint question="On appelle la fonction de mise à jour d'un état, puis on lit cet état sur la ligne suivante : on obtient encore l'ancienne valeur. Pourquoi ?">
+Parce que la fonction de mise à jour ne modifie pas la variable en cours : elle **demande un nouveau rendu**.
+Pendant le rendu courant, `saisie` reste la valeur qu'il avait au départ ; la nouvelle ne sera visible que dans le rendu suivant, où le composant sera rappelé.
+C'est aussi la raison pour laquelle, quand la nouvelle valeur dépend de l'ancienne, on emploie la forme fonctionnelle `setCompte((precedent) => precedent + 1)` : elle reste correcte même si plusieurs mises à jour s'enchaînent avant le rendu.
+</Checkpoint>
+
+<Checkpoint question="Un composant conserve `total` dans un état et utilise un effet pour recalculer `prix * quantite`. Pourquoi cette conception est-elle fragile ?">
+Parce que `total` est une **valeur dérivée** de données déjà disponibles. Le conserver séparément crée deux sources de vérité qui peuvent se désynchroniser et ajoute un rendu ainsi qu'un effet inutiles.
+Il vaut mieux calculer `const total = prix * quantite` pendant le rendu. Un effet sert à synchroniser React avec un système extérieur, pas à maintenir une copie calculée de l'état.
+</Checkpoint>
+
+## 4. Déploiement, DNS et évènements poussés
+
+- Une application produit souvent **deux artefacts de natures différentes** : le backend exige un environnement capable d'exécuter du code — processus continu ou fonctions déclenchées à la demande — tandis que le frontend construit est principalement un ensemble de fichiers statiques. Ils peuvent être hébergés séparément ou exposés sous une même origine au moyen d'un serveur ou d'un proxy.
+- La configuration varie selon l'environnement. Le dépôt ne contient aucun secret ; ceux-ci sont fournis par la plateforme ou un gestionnaire de secrets. Une « variable d'environnement » utilisée pendant la construction du frontend peut être intégrée au code livré au navigateur et doit donc être considérée comme **publique**.
+- La politique de même origine compare le **schéma**, l'**hôte** et le **port**. Avec **CORS**, le serveur autorise le JavaScript d'une autre origine à lire sa réponse. Certaines requêtes sont précédées d'une requête `OPTIONS` de vérification. CORS n'est pas un mécanisme d'authentification : un autre serveur ou un outil de requête n'y est pas soumis.
+- Le **DNS** traduit un nom en enregistrements. Un résolveur récursif consulte, au besoin, les serveurs racine, ceux du domaine de premier niveau puis le serveur **autoritaire**, et met les réponses en cache.
+- Enregistrements à connaître : `A` (IPv4), `AAAA` (IPv6), `CNAME` (alias), `MX` (courrier), `TXT` (texte libre, notamment pour prouver le contrôle d'un domaine). Après une modification, chaque cache conserve l'ancienne réponse jusqu'à l'expiration du **TTL qu'il lui reste** ; la transition est donc progressive.
+- Obtenir un **certificat** consiste notamment à prouver le contrôle du domaine, par un défi HTTP ou DNS. Le renouvellement est généralement automatisé.
+- Dans le modèle HTTP ordinaire, le serveur répond à une initiative du client. Le client peut toutefois ouvrir une requête durable ou négocier un autre canal. Le choix dépend du **sens** des échanges, de leur **fréquence**, du nombre de clients et de la complexité d'exploitation.
+- Les journaux doivent être **structurés**, corrélables au moyen d'un identifiant de requête et exempts de secrets ou de données personnelles inutiles.
+
+| Stratégie | Principe | Coût principal |
+|---|---|---|
+| Interrogation périodique | Le client redemande à intervalle fixe. | Latence moyenne égale à la moitié de l'intervalle, requêtes inutiles. |
+| Interrogation longue | Le serveur retient la requête jusqu'à ce qu'il ait du nouveau. | Connexions maintenues, gestion des délais d'attente. |
+| Évènements envoyés par le serveur | Canal unidirectionnel du serveur vers le client, sur HTTP. | Un seul sens, nombre de connexions à surveiller. |
+| WebSocket | Canal bidirectionnel après négociation de changement de protocole. | Infrastructure plus lourde, état à gérer. |
+
+<Checkpoint question="Pourquoi sépare-t-on souvent l'hébergement du client et du serveur ? Cela implique-t-il nécessairement CORS ?">
+Le backend a besoin d'un environnement d'exécution, tandis que le frontend construit peut être servi comme des fichiers statiques et distribué par un CDN. Des services différents sont donc souvent plus adaptés et moins coûteux.
+Cette séparation physique n'impose pas forcément deux **origines** : un proxy peut exposer le site et l'API sous le même domaine. CORS devient nécessaire seulement lorsque le JavaScript appelle une origine différente.
+En production, on autorise les origines réellement nécessaires plutôt que d'utiliser une règle générale.
+</Checkpoint>
+
+<Checkpoint question="Pourquoi CORS ne protège-t-il pas une API contre un appel non autorisé ?">
+CORS est une politique appliquée par le **navigateur** pour décider si le JavaScript d'une origine peut lire une réponse provenant d'une autre origine.
+Un script côté serveur, une application mobile ou un outil comme `curl` peut appeler directement l'API sans être bloqué par CORS.
+L'API doit donc authentifier et autoriser chaque requête sensible ; CORS ne fait que contrôler certains usages depuis une page web.
+</Checkpoint>
+
+<Checkpoint question="Vous changez l'adresse IP d'un domaine, mais des visiteurs atteignent encore l'ancien serveur. Pourquoi, et qu'aurait-il fallu prévoir ?">
+À cause du **TTL**. Chaque résolveur peut encore conserver l'ancienne réponse pendant le temps qu'il lui reste avant expiration ; les caches n'expirent donc pas tous au même moment.
+Le changement est publié immédiatement sur le serveur autoritaire, mais devient visible progressivement pour les utilisateurs.
+Il faut abaisser le TTL suffisamment tôt avant la migration pour que les anciennes réponses aient le temps d'expirer, puis le remonter une fois la bascule stabilisée.
+</Checkpoint>
+
+<Checkpoint question="Comment une autorité de certification s'assure-t-elle que vous contrôlez bien le domaine pour lequel vous demandez un certificat ?">
+Elle vous demande une **preuve de contrôle**, sous l'une de deux formes : servir un fichier au contenu imposé à une adresse précise du site, ou publier un enregistrement DNS `TXT` contenant une valeur qu'elle fournit.
+Réussir l'une ou l'autre démontre que vous contrôlez le DNS ou le serveur web associé au domaine.
+L'autorité peut alors signer le certificat. Comme les certificats sont renouvelés régulièrement, cette vérification est généralement automatisée.
+</Checkpoint>
+
+<Checkpoint question="Un tableau de bord doit afficher les mesures d'ambiance qui arrivent toutes les quelques secondes, pour une centaine d'utilisateurs. Quelle stratégie choisir ?">
+Les **évènements envoyés par le serveur** conviennent bien ici.
+L'information ne circule que dans un **sens**, du serveur vers les clients, ce qui rend un canal bidirectionnel inutilement lourd. La **fréquence** est trop élevée pour une interrogation périodique, qui gaspillerait des requêtes tout en gardant une latence de plusieurs secondes. Et le **nombre de clients** reste modeste.
+S'y ajoute un avantage pratique : `EventSource` fonctionne sur HTTP et tente normalement de rétablir la connexion après une coupure.
+Un WebSocket se justifierait davantage si les clients devaient eux aussi émettre fréquemment sur le même canal.
+</Checkpoint>
+
+<Checkpoint question="Que doit contenir une ligne de journal utile, et que ne doit-elle jamais contenir ?">
+Elle doit être **structurée** et porter des champs constants : horodatage, niveau, message, et un **identifiant de requête** qui permet de rassembler toutes les lignes d'un même traitement au milieu de milliers d'autres. Le statut, la durée et le chemin complètent utilement l'ensemble.
+Elle ne doit **jamais** contenir de mot de passe, même erroné, de jeton, d'en-tête `Authorization` ni de donnée personnelle superflue.
+Un journal peut être conservé, exporté et consulté par plusieurs intervenants : toute donnée écrite doit donc être considérée comme durablement exposée aux personnes ayant accès à l'exploitation.
+</Checkpoint>
+
+## 5. Performance et cache
+
+<MarginNote type="rappel" titre="Thème survolé">
+Ce thème n'a été abordé qu'en survol. On en retient les principes et les arbitrages, pas le détail des en-têtes.
+</MarginNote>
+
+- Une application peut être lente à cause du **transfert**, de la **latence réseau**, du travail effectué sur le **fil principal** ou de la distance jusqu'au serveur. Il faut diagnostiquer la bonne dimension avant d'optimiser.
+- Les optimisations se ramènent à quelques gestes : **éliminer** ce qui n'est pas nécessaire, **réduire** ce qui reste, **différer** ce qui n'est pas requis pour le premier écran, **devancer** seulement ce qui sera probablement utilisé, **réutiliser** ce qui existe déjà et **rapprocher** les ressources de l'utilisateur.
+- Le cache repose sur deux mécanismes complémentaires. La **fraîcheur** autorise l'usage d'une copie sans contacter le serveur pendant une durée donnée. La **validation** demande ensuite si la copie a changé.
+- Côté application, la stratégie se choisit **donnée par donnée** : **réseau d'abord** pour ce qui doit être à jour, **cache d'abord** pour ce qui change peu, **copie puis mise à jour** pour ce qui tolère un léger retard. 
+
+<Checkpoint question="Quelle est la différence entre fraîcheur et validation, et que coûte chacune à la seconde visite ?">
+La **fraîcheur** est une durée annoncée par le serveur pendant laquelle la copie fait foi : à la seconde visite, le navigateur l'utilise **sans aucune requête**. C'est le cas le plus rapide, et le plus risqué si la ressource a changé entretemps.
+La **validation** intervient quand la copie a expiré : le navigateur demande si elle a changé, et reçoit le cas échéant une réponse « non modifié », **sans corps**. L'aller-retour a lieu, mais il est minuscule comparé à un téléchargement complet.
+Les deux se combinent selon la ressource : une courte période de fraîcheur suivie de revalidations, ou une très longue fraîcheur pour un fichier versionné dont l'URL change avec le contenu.
+</Checkpoint>
+
+<Checkpoint question="La compression divise le poids d'un fichier JavaScript par quatre. Le problème du script trop volumineux est-il réglé ?">
+Non, seulement la moitié.
+La compression agit sur les **octets transmis**, donc sur le temps de transfert. Mais un script doit ensuite être **analysé et exécuté** sur le fil principal, et ce coût dépend de la quantité de code, pas de sa taille compressée.
+C'est pourquoi, pour du JavaScript, **éliminer** et **différer** priment sur **réduire** : ce sont les seuls gestes qui suppriment aussi le travail d'exécution.
+</Checkpoint>
+
+<Checkpoint question="Une application affiche des lieux favoris, qui changent rarement, et l'ambiance actuelle d'un lieu, qui change constamment. Quelle stratégie de cache pour chacun ?">
+Les favoris gagnent à s'afficher instantanément : **copie d'abord, mise à jour en arrière-plan**. Voir pendant une seconde un favori retiré la veille est sans gravité, alors qu'attendre le réseau pour une liste stable l'est davantage.
+L'ambiance actuelle n'a de valeur que **fraîche** : réseau d'abord, avec repli sur la dernière valeur connue et une mention claire de son ancienneté.
+La question à se poser est toujours la même : entre voir vite et voir juste, quelle erreur est la moins grave pour cette donnée ?
+</Checkpoint>
+
+## Autoévaluation rapide
+
+Vous devriez pouvoir, sans consulter les réponses :
+
+- choisir une méthode HTTP et un code de statut en justifiant leur sémantique ;
+- distinguer identification, authentification et autorisation, puis expliquer ce qu'une signature de JWT garantit réellement ;
+- prévoir l'état, les effets et les rendus d'un composant React ;
+- expliquer le trajet d'une requête déployée, du DNS jusqu'à l'API, et choisir entre polling, SSE et WebSocket ;
+- identifier si un problème de performance vient du transfert, de l'exécution ou du cache, puis proposer une stratégie adaptée.

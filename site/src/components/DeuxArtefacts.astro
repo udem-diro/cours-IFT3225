@@ -1,0 +1,130 @@
+---
+/**
+ * DeuxArtefacts.astro
+ *
+ * Schéma statique : le dépôt Bus en vue produit deux artefacts de natures
+ * différentes, qui partent vers deux hébergeurs différents, et se rejoignent
+ * dans le navigateur de l'utilisateur.
+ */
+---
+
+<figure class="da">
+  <svg viewBox="0 0 720 320" role="img" aria-label="Le dépôt produit deux artefacts : l'API Express, un processus hébergé sur Render, et le client React, des fichiers statiques hébergés sur Netlify. Le navigateur charge les fichiers depuis Netlify puis appelle l'API sur Render.">
+    <defs>
+      <marker id="da-fleche" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto">
+        <path d="M0,0 L8,4.5 L0,9 Z" fill="var(--da-trait)"></path>
+      </marker>
+    </defs>
+
+    <!-- Dépôt -->
+    <g>
+      <rect x="20" y="118" width="150" height="84" rx="12" class="da-boite da-depot"></rect>
+      <text x="95" y="152" class="da-titre">Dépôt Git</text>
+      <text x="95" y="172" class="da-sous">backend/ + client/</text>
+      <text x="95" y="188" class="da-sous">votre Bus en vue</text>
+    </g>
+
+    <!-- Flèches de build -->
+    <line x1="170" y1="140" x2="255" y2="78" class="da-lien" marker-end="url(#da-fleche)"></line>
+    <text x="204" y="94" class="da-etiquette">build</text>
+    <line x1="170" y1="180" x2="255" y2="242" class="da-lien" marker-end="url(#da-fleche)"></line>
+    <text x="200" y="230" class="da-etiquette">npm run build</text>
+
+    <!-- Artefact 1 : processus -->
+    <g>
+      <rect x="260" y="36" width="170" height="84" rx="12" class="da-boite da-api"></rect>
+      <text x="345" y="66" class="da-titre">API Express</text>
+      <text x="345" y="86" class="da-sous">un processus qui tourne</text>
+      <text x="345" y="102" class="da-sous">node server.js</text>
+    </g>
+
+    <!-- Artefact 2 : fichiers -->
+    <g>
+      <rect x="260" y="200" width="170" height="84" rx="12" class="da-boite da-client"></rect>
+      <text x="345" y="230" class="da-titre">Client React</text>
+      <text x="345" y="250" class="da-sous">des fichiers statiques</text>
+      <text x="345" y="266" class="da-sous">dist/ (HTML, JS, CSS)</text>
+    </g>
+
+    <!-- Hébergeurs -->
+    <line x1="430" y1="78" x2="500" y2="78" class="da-lien" marker-end="url(#da-fleche)"></line>
+    <g>
+      <rect x="505" y="36" width="140" height="84" rx="12" class="da-boite da-hote"></rect>
+      <text x="575" y="66" class="da-titre">Render</text>
+      <text x="575" y="86" class="da-sous">héberge le processus</text>
+      <text x="575" y="102" class="da-sous">api.….onrender.com</text>
+    </g>
+
+    <line x1="430" y1="242" x2="500" y2="242" class="da-lien" marker-end="url(#da-fleche)"></line>
+    <g>
+      <rect x="505" y="200" width="140" height="84" rx="12" class="da-boite da-hote"></rect>
+      <text x="575" y="230" class="da-titre">Netlify</text>
+      <text x="575" y="250" class="da-sous">sert les fichiers</text>
+      <text x="575" y="266" class="da-sous">….netlify.app</text>
+    </g>
+
+    <!-- Navigateur -->
+    <g>
+      <rect x="560" y="140" width="30" height="0" fill="none"></rect>
+    </g>
+    <line x1="575" y1="200" x2="575" y2="128" class="da-lien da-pointille" marker-end="url(#da-fleche)"></line>
+    <text x="583" y="168" class="da-etiquette" text-anchor="start">fetch vers l'API</text>
+  </svg>
+
+  <figcaption>
+    Un dépôt, deux artefacts, deux hébergeurs. Le navigateur télécharge le client depuis Netlify, puis ce client appelle l'API sur Render. Les deux moitiés ne se rencontrent que dans le navigateur de l'utilisateur.
+  </figcaption>
+</figure>
+
+<style>
+  .da {
+    margin: 1.5rem 0;
+  }
+  .da svg {
+    width: 100%;
+    height: auto;
+    --da-trait: #64748b;
+  }
+  .da-boite {
+    fill: #fff;
+    stroke: #cbd5e1;
+    stroke-width: 1.5;
+  }
+  .da-depot { stroke: #64748b; }
+  .da-api { stroke: #0d7c70; fill: #e9f7f5; }
+  .da-client { stroke: #f0a500; fill: #fff7e6; }
+  .da-hote { stroke: #94a3b8; fill: #f8fafc; }
+  .da-titre {
+    font: 600 0.95rem system-ui, sans-serif;
+    fill: #1a1a2e;
+    text-anchor: middle;
+  }
+  .da-sous {
+    font: 400 0.72rem system-ui, sans-serif;
+    fill: #6b7280;
+    text-anchor: middle;
+  }
+  .da-etiquette {
+    font: 500 0.7rem system-ui, sans-serif;
+    fill: #64748b;
+    text-anchor: middle;
+  }
+  .da-lien {
+    stroke: var(--da-trait);
+    stroke-width: 1.6;
+    fill: none;
+  }
+  .da-pointille { stroke-dasharray: 5 4; }
+  .da figcaption {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    color: #6b7280;
+  }
+
+  :global([data-theme="dark"]) .da-boite { fill: #161b25; stroke: #2a3142; }
+  :global([data-theme="dark"]) .da-api { fill: #10241f; stroke: #0f9b8e; }
+  :global([data-theme="dark"]) .da-client { fill: #241d10; stroke: #f0a500; }
+  :global([data-theme="dark"]) .da-hote { fill: #1c2230; }
+  :global([data-theme="dark"]) .da-titre { fill: #e8e8f0; }
+  :global([data-theme="dark"]) .da svg { --da-trait: #8b93a3; }
+</style>

@@ -1,0 +1,336 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Cache et applications web progressives"
+description: "Réutiliser les ressources et les données à plusieurs niveaux : cache HTTP, cache Redis côté serveur, Cache Storage côté client et applications web progressives."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import SimulateurEnTetes from "../../components/react/deploie/SimulateurEnTetes.jsx";
+import VisualiseurCache from "../../components/react/deploie/VisualiseurCache.jsx";
+import CycleServiceWorker from "../../components/react/deploie/CycleServiceWorker.jsx";
+
+
+Le cache met en œuvre une idée simple : **réutiliser un résultat déjà obtenu plutôt que refaire le même transfert ou le même calcul**. Derrière ce principe se trouvent toutefois plusieurs mécanismes, placés à des endroits différents de l'architecture et contrôlés de manières différentes.
+
+Le navigateur peut réutiliser une réponse HTTP selon les directives envoyées par le serveur. L'API peut conserver dans Redis le résultat d'une requête coûteuse afin de ne pas interroger constamment sa base de données. Enfin, une application peut programmer ses propres stratégies dans le navigateur à l'aide de la Cache Storage et d'un service worker.
+
+Ces caches peuvent se compléter. Une réponse peut être produite rapidement grâce à Redis, transmise une première fois au navigateur, puis réutilisée localement selon sa politique HTTP ou la stratégie du service worker. Il faut donc toujours préciser **quel cache** on désigne, **qui le contrôle** et **comment il est invalidé**.
+
+## 1. Trois couches de cache
+
+| Mécanisme | Où se trouve la copie ? | Qui décide ? | Ce qu'il évite principalement |
+| --- | --- | --- | --- |
+| **Cache HTTP** | Dans le navigateur ou un cache partagé, comme un CDN | Les en-têtes HTTP, interprétés par le cache | Un nouveau transfert de la réponse |
+| **Cache Redis** | Près de l'API, dans l'infrastructure serveur | Le code de l'application et la durée de vie des clés | Une requête répétée vers la base de données ou un service lent |
+| **Cache Storage** | Dans le navigateur, pour une origine donnée | Le code de l'application ou du service worker | Une requête réseau et, éventuellement, l'impossibilité de fonctionner hors ligne |
+
+<MarginNote type="attention" titre="Trois caches, trois invalidations">
+Une ressource peut être périmée dans une couche et encore fraiche dans une autre. Supprimer une clé Redis ne retire pas la copie déjà conservée par le navigateur. Inversement, vider la Cache Storage ne force pas l'API à recalculer une donnée conservée dans Redis. Une stratégie complète doit donc raisonner sur chaque couche séparément.
+</MarginNote>
+
+## 2. Le cache HTTP : piloter les navigateurs et les caches partagés
+
+Le cache HTTP est un mécanisme largement automatique. Le serveur ne conserve pas nécessairement lui-même la copie : il **déclare une politique** dans ses en-têtes de réponse, puis le navigateur, un proxy ou un CDN décide comment réutiliser la réponse.
+
+Son principe tient en une phrase : une ressource déjà obtenue ne devrait pas être retéléchargée tant qu'elle est encore valable. Toute la difficulté est dans ce « tant que ».
+
+<MarginNote type="definition" titre="Fraicheur et validation">
+Une copie est **fraiche** tant que sa durée de vie n'est pas écoulée : le cache peut l'utiliser sans contacter le serveur. Une fois périmée, elle n'est pas nécessairement supprimée. Elle peut être **revalidée** par une requête conditionnelle. Si la ressource n'a pas changé, le serveur répond `304 Not Modified`, sans retransmettre son contenu.
+</MarginNote>
+
+Les directives les plus utiles sont les suivantes :
+
+- `Cache-Control: no-store` : demander aux caches de ne pas stocker la réponse ;
+- `Cache-Control: no-cache` : permettre le stockage, mais exiger une revalidation avant chaque réutilisation ;
+- `Cache-Control: max-age=300` : considérer la copie comme fraiche pendant 300 secondes ;
+- `Cache-Control: private` : autoriser le cache privé du navigateur, mais pas les caches partagés ;
+- `Cache-Control: public` : indiquer que la réponse peut être conservée par un cache partagé ;
+- `ETag: "..."` : associer un identifiant à une version de la ressource afin de permettre sa validation ;
+- `Vary: ...` : préciser quels en-têtes de la requête peuvent produire une représentation différente.
+
+Manipulez les combinaisons ci-dessous : une même ressource peut provoquer un téléchargement complet, une revalidation légère ou aucun échange, selon la politique et le moment de la visite.
+
+<SimulateurEnTetes client:visible />
+
+### L'invalidation des fichiers statiques
+
+Une longue durée de vie rend les visites suivantes très rapides, mais elle crée un problème : comment corriger un fichier déjà conservé pendant un an dans des milliers de navigateurs ?
+
+La solution moderne consiste à **ne jamais modifier une ressource dont le nom promet l'immuabilité**. Les outils de construction ajoutent une empreinte du contenu au nom des fichiers, par exemple `app-3f2a91.js`. La moindre modification produit un nouveau nom et, du point de vue du cache, une nouvelle ressource.
+
+On peut alors utiliser deux politiques complémentaires :
+
+- les fichiers au nom haché reçoivent `Cache-Control: public, max-age=31536000, immutable` ;
+- le document HTML reçoit `Cache-Control: no-cache`, afin d'être revalidé et de toujours référencer les versions courantes.
+
+Le document HTML agit comme une petite table des matières tenue à jour. Les fichiers plus lourds et immuables ne sont transférés qu'une fois.
+
+### Les réponses d'API
+
+Une API demande une politique plus nuancée. Une réponse publique identique pour tous peut être conservée brièvement :
+
+```js
+app.get("/lignes", async (req, res) => {
+  const lignes = await chargerLignes();
+
+  res.set("Cache-Control", "public, max-age=60");
+  res.json({ data: lignes });
+});
+```
+
+Une réponse personnalisée, mais non sensible, peut parfois être conservée uniquement dans le navigateur avec `private`. Une réponse contenant des renseignements sensibles, ou dont la conservation n'est pas souhaitable, devrait plutôt utiliser `no-store`.
+
+L'authentification ne mène donc pas automatiquement à `no-store`. La décision dépend de la nature de la réponse, de sa sensibilité et de la possibilité qu'elle soit partagée entre utilisateurs.
+
+<Checkpoint question="Pourquoi immutable serait-il catastrophique sur le document HTML ?">
+Parce que le document est le point d'entrée qui référence les autres ressources. Conservé sans revalidation, il pourrait continuer d'orienter le navigateur vers une ancienne version de l'application. Le schéma repose sur une asymétrie : le point d'entrée est régulièrement revalidé, tandis que les fichiers dont le nom contient une empreinte peuvent être conservés très longtemps.
+</Checkpoint>
+
+## 3. Le cache côté serveur avec Redis
+
+Le cache HTTP évite principalement de retransmettre une réponse. Il ne réduit cependant pas le coût de la première requête ni celui d'une requête que le navigateur doit revalider. L'API peut encore devoir interroger une base de données, appeler un service externe ou effectuer un calcul coûteux.
+
+Un **cache côté serveur** conserve le résultat de ce travail près de l'API. Redis est couramment utilisé à cette fin : il associe des clés à des valeurs, les lit rapidement et permet de leur attribuer une durée de vie.
+
+<MarginNote type="definition" titre="Redis n'est pas le cache HTTP">
+Redis n'est pas consulté directement par le navigateur et ne remplace pas les en-têtes HTTP. Il accélère la production de la réponse par le serveur. Une réponse produite à partir de Redis peut ensuite recevoir sa propre politique `Cache-Control` et être conservée, ou non, par le navigateur.
+</MarginNote>
+
+### La stratégie cache-aside
+
+La stratégie la plus simple est appelée **cache-aside** :
+
+1. l'API construit une clé représentant la donnée demandée ;
+2. elle cherche cette clé dans Redis ;
+3. si la valeur existe, elle la retourne : c'est un **succès de cache** (*cache hit*) ;
+4. sinon, elle interroge la source principale : c'est un **échec de cache** (*cache miss*) ;
+5. elle place le résultat dans Redis avec une durée de vie, puis retourne la réponse.
+
+Seules les données réellement demandées entrent ainsi dans le cache.
+
+Avec le client `redis` pour Node.js, la connexion est généralement créée au démarrage de l'application :
+
+```js
+import { createClient } from "redis";
+
+const redis = createClient({
+  url: process.env.REDIS_URL,
+});
+
+redis.on("error", (error) => {
+  console.error("Erreur Redis", error);
+});
+
+await redis.connect();
+```
+
+Une route Express peut ensuite consulter Redis avant la base de données :
+
+```js
+app.get("/lignes", async (req, res, next) => {
+  const cle = "lignes:v1";
+
+  try {
+    const valeur = await redis.get(cle);
+
+    if (valeur !== null) {
+      res.set("X-Server-Cache", "HIT");
+      res.set("Cache-Control", "public, max-age=30");
+      return res.json(JSON.parse(valeur));
+    }
+
+    const lignes = await chargerLignesDepuisLaBD();
+    const reponse = { data: lignes };
+
+    await redis.set(cle, JSON.stringify(reponse), {
+      EX: 60,
+    });
+
+    res.set("X-Server-Cache", "MISS");
+    res.set("Cache-Control", "public, max-age=30");
+    return res.json(reponse);
+  } catch (error) {
+    next(error);
+  }
+});
+```
+
+La première requête atteint la base de données. Pendant les 60 secondes suivantes, l'API peut produire la même réponse à partir de Redis. Le navigateur peut, de son côté, la réutiliser pendant 30 secondes sans contacter l'API. Les deux durées de vie répondent à des objectifs différents.
+
+### Choisir les clés et la durée de vie
+
+Une clé doit représenter tout ce qui peut faire varier le résultat. Une recherche dépendant de la page, du filtre et de la langue pourrait utiliser une clé comme :
+
+```text
+recherche:v2:page=3:categorie=bus:langue=fr
+```
+
+Oublier un paramètre peut retourner la réponse d'une autre requête. Inclure directement des renseignements personnels ou des secrets dans les clés peut, à l'inverse, exposer de l'information dans les journaux et les outils d'administration.
+
+La durée de vie, ou **TTL**, limite le temps pendant lequel une valeur peut demeurer périmée :
+
+- quelques secondes pour une donnée fréquemment modifiée ;
+- quelques minutes pour une liste publique assez stable ;
+- davantage pour un résultat coûteux et rarement modifié.
+
+Il n'existe pas de durée universelle. Le bon TTL dépend du compromis entre le coût d'un recalcul et le coût d'une information périmée.
+
+### Invalider après une modification
+
+Attendre l'expiration suffit parfois, mais une opération d'écriture devrait généralement supprimer les clés devenues invalides. La prochaine lecture les reconstruira à partir de la source principale :
+
+```js
+app.put("/lignes/:id", async (req, res, next) => {
+  try {
+    const ligne = await modifierLigneDansLaBD(req.params.id, req.body);
+
+    await redis.del("lignes:v1");
+
+    res.json({ data: ligne });
+  } catch (error) {
+    next(error);
+  }
+});
+```
+
+Cette approche est souvent plus robuste que de tenter de modifier simultanément la base de données et toutes les représentations présentes dans le cache. Le TTL demeure un filet de sécurité au cas où une invalidation serait oubliée.
+
+<MarginNote type="plusloin" titre="L'avalanche de requêtes">
+Si une clé très populaire expire, de nombreuses requêtes peuvent constater le même échec de cache et interroger simultanément la base de données. Ce phénomène est appelé *cache stampede*. Pour les charges importantes, on peut ajouter un verrou de courte durée, une stratégie *single flight*, une légère variation aléatoire des TTL ou un rafraichissement anticipé. Ce problème dépasse toutefois l'introduction au cache-aside.
+</MarginNote>
+
+<Checkpoint question="Redis contient une liste pendant cinq minutes, mais la base de données est modifiée après une minute. Quelles sont les deux manières principales d'éviter de servir cette ancienne liste pendant quatre minutes ?">
+Réduire le TTL limite automatiquement la durée maximale du décalage, mais augmente le nombre de lectures dans la base de données. Invalider la clé immédiatement après la modification permet de conserver un TTL plus long tout en reconstruisant la liste lors de la prochaine lecture. En pratique, on combine souvent invalidation explicite et TTL de sécurité.
+</Checkpoint>
+
+## 4. Le cache applicatif dans le navigateur
+
+Les en-têtes HTTP pilotent un mécanisme géré par le navigateur. La **Cache Storage** offre un autre niveau : l'application peut y stocker explicitement des couples `Request`/`Response`, puis choisir elle-même quand consulter le réseau ou la copie locale.
+
+Ce stockage n'applique pas automatiquement une durée de vie, une revalidation ou une invalidation. L'application doit versionner ses caches, retirer les anciennes entrées et décider de la stratégie appropriée pour chaque type de ressource.
+
+<VisualiseurCache client:visible />
+
+### Réseau d'abord (*network first*)
+
+L'application demande d'abord la ressource au réseau. Si la requête échoue, elle utilise une copie locale. Elle peut aussi programmer un délai maximal avant de se rabattre sur la copie ; ce délai n'apparait pas automatiquement.
+
+**Pour quelles données ?** Celles dont la valeur dépend fortement de leur fraicheur : un solde, un état en direct ou l'heure d'arrivée d'un autobus.
+
+**Le prix.** L'utilisateur attend le réseau à chaque consultation, même lorsqu'une copie utilisable existe déjà.
+
+### Cache d'abord (*cache first*)
+
+L'application retourne la copie si elle existe et ne consulte le réseau qu'en cas d'absence.
+
+**Pour quelles données ?** Les ressources immuables ou versionnées : fichiers JavaScript au nom haché, icônes, polices ou ressources installées avec l'application.
+
+**Le prix.** Sans nouveau nom ou purge explicite, une ressource modifiée peut demeurer périmée indéfiniment.
+
+### Copie immédiate, mise à jour ensuite (*stale-while-revalidate*)
+
+L'application retourne immédiatement la copie disponible et lance en parallèle une requête réseau qui remplacera l'entrée du cache.
+
+**Pour quelles données ?** Une liste, un profil public ou un catalogue qui tolère un léger décalage, mais dont l'affichage ne devrait pas attendre le réseau.
+
+**Le prix.** La requête courante reçoit généralement l'ancienne valeur. Le rafraichissement profite à la prochaine requête. Pour modifier immédiatement l'interface déjà affichée, l'application doit déclencher une nouvelle lecture ou communiquer explicitement la mise à jour à la page.
+
+### Réseau seul et cache seul
+
+**Réseau seul** signifie que la stratégie du service worker ne cherche pas de réponse dans la Cache Storage. Cela ne suffit pas, à lui seul, à interdire le cache HTTP du navigateur : la politique de la réponse et le mode de la requête demeurent distincts.
+
+**Cache seul** signifie que la réponse doit déjà avoir été installée localement. Cette stratégie convient à certaines ressources précachées, mais elle doit prévoir le cas où l'entrée manque.
+
+### Le repli hors ligne
+
+Lorsque le réseau est absent et qu'aucune copie de la ressource demandée n'existe, le service worker peut retourner une réponse de repli : une page expliquant que l'application est hors ligne, une image générique ou une dernière valeur connue accompagnée de sa date.
+
+Un bon repli ne cherche pas à masquer l'incertitude. Il explique ce qui reste disponible et distingue clairement une donnée récente d'une donnée conservée localement.
+
+<Highlight>Il n'existe pas de stratégie universelle. Pour chaque donnée, il faut décider quelle erreur est la moins grave : attendre, afficher une version légèrement périmée, ou ne rien afficher. Cette décision appartient au domaine de l'application autant qu'à son architecture technique.</Highlight>
+
+<Checkpoint question="Une application affiche une liste d'arrêts favoris, qui change rarement, et l'heure d'arrivée du prochain autobus, qui change constamment. Quelles stratégies pour l'une et pour l'autre ?">
+La liste des favoris peut être affichée immédiatement à partir d'une copie, puis mise à jour en arrière-plan. Voir brièvement un favori récemment supprimé a peu de conséquences. L'heure d'arrivée devrait privilégier le réseau, avec un repli sur la dernière valeur connue seulement si son ancienneté est clairement indiquée. Une heure périmée présentée comme actuelle serait plus nuisible qu'une absence de résultat.
+</Checkpoint>
+
+## 5. Les applications web progressives
+
+Le cache applicatif permet d'aller plus loin qu'une simple accélération : l'application peut conserver une expérience utile lorsque le réseau devient lent, instable ou absent. Cette capacité est l'une des caractéristiques importantes des **applications web progressives**.
+
+<MarginNote type="definition" titre="PWA">
+Une Progressive Web App (**PWA**) est une application web qui utilise les technologies du Web et certaines fonctionnalités du navigateur pour offrir une expérience se rapprochant de celle d’une application installée. Elle demeure accessible à partir d’une URL, mais peut notamment être ajoutée à l’écran d’accueil, fonctionner dans des conditions réseau dégradées ou hors ligne, charger rapidement et s’intégrer davantage au système de l’utilisateur.
+
+Une PWA repose généralement sur trois éléments :
+- une connexion sécurisée avec HTTPS;
+- un manifeste Web, qui décrit notamment son nom, ses icônes et son mode d’affichage;
+- un service worker, qui permet d’intercepter les requêtes, de mettre des ressources en cache et d’exécuter certaines tâches en arrière-plan.
+</MarginNote>
+
+### Le manifeste
+
+Le manifeste est un fichier JSON qui décrit notamment le nom, les icônes, les couleurs, l'URL de démarrage et le mode d'affichage souhaité :
+
+```json
+{
+  "name": "Bus en vue",
+  "short_name": "Bus",
+  "id": "/",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f7fa",
+  "theme_color": "#0d7c70",
+  "icons": [
+    { "src": "/icons/bus-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icons/bus-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+```
+
+Il fournit au navigateur les informations nécessaires pour présenter l'application comme une application installée. La disponibilité et l'expérience d'installation varient toutefois selon le navigateur et la plateforme ; la présence du fichier ne garantit pas, à elle seule, une invitation automatique à l'installation.
+
+### Le service worker
+
+Le service worker est un script exécuté séparément des pages. Une fois installé et activé, il peut recevoir les évènements `fetch` produits par les pages qu'il contrôle, dans la portée associée à son enregistrement. Il peut alors laisser passer la requête, consulter le réseau, retourner une copie locale ou combiner plusieurs stratégies.
+
+Son enregistrement se fait généralement depuis le code de l'application :
+
+```js
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/service-worker.js");
+  });
+}
+```
+
+Les stratégies de la section précédente deviennent ensuite du code placé dans le service worker.
+
+### Le cycle de mise à jour
+
+Un nouveau service worker ne remplace généralement pas immédiatement la version qui contrôle déjà des pages ouvertes. Il est installé, puis attend avant de devenir actif. Ce comportement évite que la logique réseau d'une page change au milieu de son utilisation, mais il explique pourquoi une nouvelle version peut sembler tarder à apparaitre.
+
+L'évènement `activate` est également un bon moment pour supprimer les anciennes Cache Storage associées aux versions précédentes. Une application peut proposer à l'utilisateur de recharger la page lorsqu'une mise à jour est prête, plutôt que d'imposer un changement inattendu.
+
+### Ce qu'il faut retenir
+
+- Une PWA reste une application web et suit le même modèle de déploiement. Le service worker exige un contexte sécurisé, avec l'exception habituelle de `localhost` pendant le développement.
+- Le manifeste décrit l'expérience installée ; le service worker contrôle certaines requêtes et permet des stratégies hors ligne. Les deux rôles sont liés, mais distincts.
+- Le service worker ne contrôle que les clients et les requêtes situés dans sa portée.
+- La Cache Storage n'expire pas automatiquement les réponses : l'application est responsable du versionnement, de la suppression et de la cohérence de ses copies.
+- Le hors ligne ne signifie pas nécessairement que toutes les fonctions demeurent possibles. Une bonne PWA définit ce qui reste consultable, ce qui peut être reporté et ce qui nécessite réellement le réseau.
+
+<MarginNote type="plusloin" titre="Pourquoi les PWA n'ont-elles pas remplacé toutes les applications natives ?">
+Le choix dépend autant du produit que de la technologie : soutien et capacités variables selon les plateformes, découverte dans les magasins, intégration au matériel, paiements, notifications, habitudes des utilisateurs et stratégie de distribution. Les PWA sont particulièrement pertinentes lorsque l'accès se fait naturellement par un lien, lorsqu'une seule application doit couvrir plusieurs plateformes, pour des outils internes ou lorsque la connectivité et l'espace de stockage sont contraints. Elles constituent une option architecturale, non un remplacement universel du natif.
+</MarginNote>
+
+<Highlight>Le cache forme une continuité à travers l'architecture. Le cache HTTP évite un transfert, Redis évite de recalculer ou de relire une donnée, et la Cache Storage permet à l'application de choisir sa réponse même lorsque le réseau n'est plus disponible. Les gains viennent de leur combinaison, à condition que chaque couche possède une politique de fraicheur et d'invalidation explicite.</Highlight>
+
+## À retenir
+
+- Le mot *cache* désigne plusieurs mécanismes. Il faut toujours préciser où se trouve la copie, qui décide de l'utiliser et comment elle devient invalide.
+- Le cache HTTP combine fraicheur et validation. Les fichiers au nom haché peuvent être conservés longtemps, tandis que le document HTML doit rester facilement revalidable.
+- Redis est un cache côté serveur : avec la stratégie cache-aside, l'API consulte d'abord Redis, interroge la source principale en cas d'échec, puis conserve temporairement le résultat.
+- Le TTL limite la durée possible d'une incohérence ; l'invalidation après une écriture permet de reconstruire rapidement une valeur correcte.
+- La Cache Storage est programmée explicitement. Les stratégies réseau d'abord, cache d'abord et copie puis mise à jour doivent être choisies selon la tolérance à l'attente et aux données périmées.
+- Une PWA combine une expérience web installable et des capacités progressives. Le manifeste décrit l'application ; le service worker peut contrôler les requêtes, gérer les caches et offrir une expérience utile hors ligne.

@@ -1,0 +1,433 @@
+---
+layout: ../../layouts/DemoLayout.astro
+title: "Refactoring 2 : de la chaine de props au contexte"
+description: "Résolution progressive de l'exercice 2. Quatre faiblesses d'une chaine de props analysées selon les principes de génie logiciel, puis résolues dans l'univers React avec le contexte."
+---
+
+import MarginNote from "../../components/MarginNote.astro";
+import Highlight from "../../components/Highlight.astro";
+import Checkpoint from "../../components/Checkpoint.astro";
+import Etape from "../../components/Etape.astro";
+import PanneauFichiers from "../../components/react/PanneauFichiers.jsx";
+import { projet, etapes } from "../../components/react/Etapes-02.js";
+
+<PanneauFichiers client:visible projet={projet} etapes={etapes} titre="Exercice 2 : structure" />
+
+# Démo 8 : Exercice 2
+
+En règle général, les composants devraient recevoir leurs données en paramètres pour maximiser leur lisibilité et réutilisabilité. 
+Cependant, pour des applications structurellement complexe, ces données doivent descendre un arbre profond et traverser des composants qui ne les utilise pas.
+C'est le problème que nous traitons ici. 
+
+<MarginNote type="astuce" titre="Suivi dans le panneau flottant">
+Le panneau flottant, à droite, suit votre lecture. Il montre l'arborescence complète du projet, 
+l'état de chaque fichier à l'étape courante, et, sur l'icône de code, le contenu du fichier à ce
+moment précis du refactoring.
+</MarginNote>
+
+<Etape id="depart">
+
+## Point de départ
+
+Pour cet exercice, nous partons d'une application simple qui affiche, en haut à droite, l'utilisateur connecté et, s'il est administrateur, un lien vers l'administration. L'information part de la racine et doit atteindre deux petits composants profonds.
+
+#### Fichier `src/App.jsx`
+
+```jsx
+import Layout from "./components/Layout.jsx";
+import AccueilPage from "./pages/AccueilPage.jsx";
+
+// Utilisateur connecté simulé. 
+const utilisateurConnecte = { id: "u1", name: "Alex", role: "admin" };
+
+export default function App() {
+  return (
+    <Layout user={utilisateurConnecte}>
+      <AccueilPage />
+    </Layout>
+  );
+}
+```
+
+#### Fichier `src/components/Layout.jsx`
+
+```jsx
+import Header from "./Header.jsx";
+
+export default function Layout({ user, children }) {
+  return (
+    <div className="app">
+      <Header user={user} />
+      <main>{children}</main>
+    </div>
+  );
+}
+```
+
+#### Fichier `src/components/Header.jsx`
+
+```jsx
+import UserMenu from "./UserMenu.jsx";
+
+export default function Header({ user }) {
+  return (
+    <header className="header">
+      <strong>Bus en vue</strong>
+      <UserMenu user={user} />
+    </header>
+  );
+}
+```
+
+#### Fichier `src/components/UserMenu.jsx`
+
+```jsx
+import UserBadge from "./UserBadge.jsx";
+import AdminLink from "./AdminLink.jsx";
+
+export default function UserMenu({ user }) {
+  return (
+    <nav className="menu">
+      <AdminLink user={user} />
+      <UserBadge user={user} />
+    </nav>
+  );
+}
+```
+
+#### ⭐ Fichier `src/components/UserBadge.jsx`
+
+```jsx
+export default function UserBadge({ user }) {
+  return (
+    <span>
+      {user.name} <em>({user.role})</em>
+    </span>
+  );
+}
+```
+
+#### ⭐ Fichier `src/components/AdminLink.jsx`
+
+```jsx
+export default function AdminLink({ user }) {
+  if (user.role !== "admin") return null;
+  return <a href="#admin">Administration</a>;
+}
+```
+
+Pour transmettre `user` à `UserBadge` et `AdminLink`, il faut traverser `Layout`, `Header` et `UserMenu`,
+qui ne font que transporter la donnée sans jamais la lire.
+
+</Etape>
+
+<Etape id="diagnostic">
+
+## Le diagnostic
+
+Encore une fois le code fonctionne, mais mérite tout de même d'être réusiner.
+
+<MarginNote type="definition" titre="Chaine de props">
+On appelle « chaine de props » (prop drilling) le fait de passer une donnée à travers plusieurs niveaux de composants qui ne s'en servent pas, uniquement pour la faire parvenir à un descendant.
+</MarginNote>
+
+1. **Des composants transportent une donnée qui ne les concerne pas.** `Layout` met en page, `Header` compose une entête, `UserMenu` groupe des éléments. Aucun des trois n'a besoin de savoir qu'il existe un utilisateur, et pourtant tous les trois le savent. Chacun en sait plus que nécessaire pour faire son travail.
+
+2. **Le cout d'un changement est proportionnel à la profondeur.** Ajouter une fonction de déconnexion, renommer un champ, remplacer l'objet par autre chose : il faut ouvrir et modifier tous les niveaux traversés. Le nombre de fichiers touchés ne dépend pas de l'ampleur du changement, mais de la longueur du chemin.
+
+3. **Les intermédiaires perdent leur réutilisabilité.** `Layout` exige maintenant un `user`. Pour le réutiliser sur une page publique (sans utilisateur), il vous faudra inventer une valeur, ou rendre la prop facultative et traiter le cas partout. Une contrainte accidentelle s'est glissée dans son contrat.
+
+4. **Le point de vérité est implicite.** Rien, dans le code, ne dit qui possède l'utilisateur connecté ni comment on y accède. La réponse, « on se le passe de main en main », est une convention orale, pas une structure.
+
+{/* Le problème n'est donc pas la prop en elle-même : c'est que la donnée est **partagée** (elle intéresse des composants dispersés dans l'arbre) alors que le mécanisme de transmission est **local** (de parent à enfant, un niveau à la fois). Il y a désaccord entre la nature de la donnée et le moyen employé. */}
+
+</Etape>
+
+<Etape id="p1">
+
+## 1. Mettre une donnée partagée à disposition sans friction
+
+### Problème
+
+Il faut un moyen de mettre une donnée à la disposition d'un sous-arbre, sans la faire passer par chaque nœud. 
+
+La tentation serait d'en faire une variable globale.
+
+```js
+// À ne pas faire.
+export let utilisateurCourant = { id: "u1", name: "Alex", role: "admin" };
+```
+
+Cependant, on perdrait ainsi le contrôle sur l'accès à la donnée. On aurait résolu la transmission en supprimant la **portée**.
+
+### Résolution
+
+Ce que nous voulons est un intermédiaire : une valeur disponible **dans une portée délimitée**, que seul les composants situés dans cette portée peuvent demander. 
+
+C'est exactement le rôle de `createContext` en React et de son `Provider`. 
+
+#### Fichier `src/context/UserContext.js`
+
+```js
+import { createContext } from "react";
+
+export const UserContext = createContext(undefined);
+```
+
+#### Fichier `src/context/UserProvider.jsx`
+
+```jsx
+import { useState } from "react";
+import { UserContext } from "./UserContext.js";
+
+const UTILISATEUR_DEMO = { id: "u1", name: "Alex", role: "admin" };
+
+export default function UserProvider({ children }) {
+  const [user] = useState(UTILISATEUR_DEMO);
+
+  // Depuis React 19, le contexte se rend directement comme fournisseur.
+  return <UserContext value={{ user }}>{children}</UserContext>;
+}
+```
+
+<MarginNote type="astuce" titre="React 19 : le suffixe .Provider disparait">
+Jusqu'à React 18, il fallait écrire `<UserContext.Provider value={...}>`. 
+Depuis React 19, on rend le contexte lui-même : `<UserContext value={...}>`. 
+La forme `.Provider` fonctionne encore, mais elle est appelée à être dépréciée. 
+
+**Attention à ne pas confondre les deux choses** : ce qui disparait, c'est le suffixe, 
+pas le composant `UserProvider` que nous écrivons ici, qui reste le lieu où vivent l'état et la logique.
+</MarginNote>
+
+La portée, en React, c'est l'arbre lui-même : tout ce qui est rendu sous le fournisseur peut lire la valeur, et rien au-dessus.
+
+Les intermédiaires (`Layout`, `Header` et `UserMenu`) sont ainsi déchargés de la tache de transmission de données. 
+
+<MarginNote type="attention" titre="Un compromis au niveau de l'abstraction et la lisibilité">
+La dépendance devient quoique **implicite**. Avec une prop, la signature du composant annonce potentiellement tout ce dont il a besoin. 
+Cependant, en utilisant le contexte, un composant peut dépendre d'une valeur sans que rien ne le dise dans son en-tête. 
+</MarginNote>
+
+### Utilisation du contexte
+
+Une fois la valeur fournie, un composant peut la lire directement :
+
+```jsx
+import { use } from "react";
+import { UserContext } from "../context/UserContext.js";
+
+export default function UserBadge() {
+  const { user } = use(UserContext);
+  return <span>{user.name} <em>({user.role})</em></span>;
+}
+```
+
+<MarginNote type="astuce" titre="use, depuis React 19">
+`use(UserContext)` remplace `useContext(UserContext)` et se comporte de la même façon pour un contexte. Sa particularité : contrairement aux hooks, il peut être appelé conditionnellement, par exemple après un retour anticipé. En React 18, on écrit `useContext(UserContext)`.
+</MarginNote>
+
+### Optimisation additionnelle
+
+#### Fichier `src/hooks/useUser.js`
+
+```js
+import { use } from "react";
+import { UserContext } from "../context/UserContext.js";
+
+export function useUser() {
+  const contexte = use(UserContext);
+
+  if (contexte === undefined) {
+    throw new Error("useUser doit être utilisé à l'intérieur d'un <UserProvider>.");
+  }
+
+  return contexte;
+}
+```
+
+**Avantages.** Un seul point d'accès, une seule erreur possible, et un message qui nomme la cause. Les composants consommateurs ne connaissent plus ni `use` ni `UserContext` : ils appellent `useUser`. Le jour où l'implémentation change, ils ne s'en apercevront pas.
+
+**Désavantages.** C'est un fichier de plus pour trois lignes, et une indirection supplémentaire à suivre quand on lit le code. La discipline repose de surcroit sur une convention : rien n'empêche d'importer `UserContext` et de le lire directement, en court-circuitant la garde.
+
+<Highlight>Cette étape est facultative. Sur un contexte lu à deux endroits, la lecture directe se défend très bien. Elle se justifie dès que les consommateurs se multiplient, ou que l'on prévoit de changer la source de la donnée.</Highlight>
+
+</Etape>
+
+<Etape id="p3">
+
+## 2. La valeur transmise : stabilité et évolution
+
+### Le problème
+
+Regardez à nouveau le fournisseur écrit plus haut :
+
+```jsx
+<UserContext value={{ user }}>
+```
+
+Cet objet `{ user }` est **reconstruit à chaque rendu** du fournisseur. Même si `user` n'a pas changé d'un iota, la valeur du contexte est une nouvelle référence, et tous les consommateurs se redessinent. Le contexte compare les valeurs par identité, pas par contenu : il ne sait pas que le nouvel objet dit la même chose que l'ancien.
+
+Se pose aussi une question de conception : pourquoi transmettre `{ user }` plutôt que `user` directement ?
+
+### Résolution
+
+Le principe est celui de l'**immuabilité** et de la comparaison par identité. On ne modifie pas la valeur, on la remplace, et l'on ne la remplace que lorsqu'elle change réellement. Les consommateurs peuvent alors se fier à une simple comparaison de référence pour savoir s'ils doivent réagir.
+`useMemo` remplit exactement ce rôle : il conserve la même référence tant que ses dépendances n'ont pas changé.
+
+#### Fichier `src/context/UserProvider.jsx`
+
+```jsx
+import { useMemo, useState } from "react";
+import { UserContext } from "./UserContext.js";
+
+const UTILISATEUR_DEMO = { id: "u1", name: "Alex", role: "admin" };
+
+export default function UserProvider({ children }) {
+  const [user] = useState(UTILISATEUR_DEMO);
+
+  // La valeur reste la même référence tant que `user` ne change pas.
+  const valeur = useMemo(() => ({ user }), [user]);
+
+  return <UserContext value={valeur}>{children}</UserContext>;
+}
+```
+
+Quant à la forme de la valeur, transmettre `{ user }` plutôt que `user` est un choix délibéré. À l'exercice 3, ce contexte devra aussi exposer `login`, `logout` et un indicateur de chargement. Si les consommateurs écrivaient aujourd'hui `const user = useUser()`, il faudrait tous les réécrire. En écrivant dès maintenant `const { user } = useUser()`, l'ajout de nouvelles clés ne cassera personne.
+
+<MarginNote type="astuce" titre="Un contrat qui prévoit sa croissance">
+Choisir la forme d'une interface en pensant à ce qu'elle devra accueillir demain coute une paire d'accolades aujourd'hui, et épargne une réécriture générale plus tard.
+</MarginNote>
+
+**Avantages.** Une ligne (`useMemo`) supprime une classe entière de redessins inutiles. Et la forme en objet rend le contrat extensible sans rupture.
+
+**Désavantages.** C'est une subtilité que rien ne signale : le code sans `useMemo` fonctionne parfaitement, il est simplement plus lent, et le problème ne devient visible qu'à l'échelle. Il faut donc le savoir. Par ailleurs, `useMemo` a lui-même un cout (mémoriser, comparer les dépendances), négligeable ici, mais qui rappelle que l'optimisation n'est jamais gratuite.
+
+</Etape>
+
+<Etape id="p4">
+
+## 3. La chaine dénouée, et ses limites
+
+### Le problème
+
+Il reste à récolter le bénéfice : retirer `user` des trois composants qui ne s'en servaient pas, et laisser les deux consommateurs aller le chercher eux-mêmes.
+
+### En React
+
+#### Fichier `src/App.jsx`
+
+```jsx
+import UserProvider from "./context/UserProvider.jsx";
+import Layout from "./components/Layout.jsx";
+import AccueilPage from "./pages/AccueilPage.jsx";
+
+export default function App() {
+  return (
+    <UserProvider>
+      <Layout>
+        <AccueilPage />
+      </Layout>
+    </UserProvider>
+  );
+}
+```
+
+#### Fichier `src/components/Layout.jsx`
+
+```jsx
+import Header from "./Header.jsx";
+
+export default function Layout({ children }) {
+  return (
+    <div className="app">
+      <Header />
+      <main>{children}</main>
+    </div>
+  );
+}
+```
+
+`Header` et `UserMenu` subissent exactement le même traitement : la prop disparait de leur signature, et ils cessent de la transmettre. Plus une seule mention de `user` dans ces trois fichiers : ils sont redevenus ce qu'ils prétendaient être.
+
+Les deux consommateurs, eux, lisent le contexte. Ils passent ici par le hook `useUser` de l'étape précédente ; si vous avez choisi de vous en passer, remplacez simplement `useUser()` par `use(UserContext)`.
+
+#### Fichier `src/components/UserBadge.jsx`
+
+```jsx
+import { useUser } from "../hooks/useUser.js";
+
+export default function UserBadge() {
+  const { user } = useUser();
+
+  return (
+    <span>
+      {user.name} <em>({user.role})</em>
+    </span>
+  );
+}
+```
+
+#### Fichier `src/components/AdminLink.jsx`
+
+```jsx
+import { useUser } from "../hooks/useUser.js";
+
+export default function AdminLink() {
+  const { user } = useUser();
+
+  if (user.role !== "admin") return null;
+  return <a href="#admin">Administration</a>;
+}
+```
+
+### Ce que le contexte ne résout pas
+
+Il faut nommer tout de suite la limite, car elle décide de la suite du cours.
+
+<Highlight>
+Un contexte notifie **tous** ses consommateurs à chaque changement de valeur, sans distinction. Il n'existe pas de moyen de s'abonner à une partie seulement de la valeur.
+</Highlight>
+
+C'est sans conséquence ici : l'utilisateur connecté change une fois à la connexion, une fois à la déconnexion. Ce sera tout autre chose lorsqu'il faudra partager un état qui **change souvent** et qui est lu **par morceaux**, comme des lignes favorites : chaque clic sur une étoile redessinerait alors tous les consommateurs du contexte, y compris ceux que le changement ne concerne pas. C'est précisément ce qui motivera un store, à l'exercice 5.
+
+Deux autres limites méritent d'être connues :
+
+- **La dépendance implicite**, déjà évoquée : un composant qui appelle `useUser` ne peut plus être monté n'importe où, et sa signature n'en dit rien.
+- **La tentation du contexte fourre-tout** : il est tentant de tout mettre dans un seul contexte « application ». C'est le meilleur moyen de faire redessiner l'écran entier pour un changement mineur. Mieux vaut plusieurs contextes ciblés qu'un seul contexte omniscient.
+
+<Checkpoint question="Faut-il désormais préférer le contexte aux props ?">
+Non. Les props restent le mécanisme par défaut : elles rendent la dépendance visible dans la signature, et le flux facile à suivre. Le contexte se justifie quand une donnée est partagée par des composants dispersés dans l'arbre, et qu'elle change rarement. Passer une donnée à un enfant direct, ou même à deux niveaux, ne justifie pas un contexte : cela ajouterait de l'indirection sans rien résoudre.
+</Checkpoint>
+
+</Etape>
+
+<Etape id="recap">
+
+## Récapitulatif
+
+L'arborescence à l'arrivée. Trois fichiers ont été ajoutés, et trois composants ont été allégés.
+
+```
+src/
+├── context/
+│   ├── UserContext.js      création du contexte, sans JSX
+│   └── UserProvider.jsx    la valeur, mémoïsée, et la portée
+├── hooks/
+│   └── useUser.js          l'accès unique, avec sa garde
+└── components/
+    ├── Layout.jsx          ne connait plus l'utilisateur
+    ├── Header.jsx          ne connait plus l'utilisateur
+    ├── UserMenu.jsx        ne connait plus l'utilisateur
+    ├── UserBadge.jsx       consomme le contexte
+    └── AdminLink.jsx       consomme le contexte
+```
+
+Le prix payé se résume en deux points, qu'il faut avoir en tête avant d'en abuser : la **dépendance devient implicite**, et **tout changement redessine tous les consommateurs**. Le premier point est un compromis assumé. Le second sera le point de départ de l'exercice 5.
+
+Enfin, notez que le fournisseur est désormais le **point d'ancrage de la session** : il tient l'utilisateur, aujourd'hui simulé. À l'exercice 3, il tiendra un utilisateur bien réel et exposera `login` et `logout`, sans qu'aucun consommateur écrit ici ne change d'une ligne.
+
+Pour vous entrainer hors du fil « Bus en vue », reprenez le même geste sur une donnée différente : 
+une chaine de props `theme` (avec sa fonction de changement) traversant une barre d'outils, 
+à migrer vers un `ThemeContext` dont la valeur sera `{ theme, setTheme }`. Vous y retrouverez la forme exacte que prendra le contexte utilisateur à l'exercice suivant.
+
+</Etape>
