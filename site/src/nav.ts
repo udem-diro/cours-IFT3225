@@ -83,10 +83,10 @@ export const navigation: NavGroup[] = [
       },
       {
         label: "Récapitulatif pour le final", href: "/exams/revision-final", 
-        // children: [
-        //   { label: "Formatif pour l'intra", href: "/exams/formatif-intra" },
-        //   { label: "Formatif pour l'intra (corrigé)", href: "/exams/formatif-intra-corrige" },
-        // ]
+        children: [
+          { label: "Formatif pour le final", href: "/exams/formatif-final" },
+          // { label: "Formatif pour l'intra (corrigé)", href: "/exams/formatif-intra-corrige" },
+        ]
       },
     ],
   },

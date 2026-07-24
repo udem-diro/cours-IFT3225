@@ -1,0 +1,178 @@
+---
+layout: ../../layouts/DocLayout.astro
+title: "Examen final : formatif"
+description: "Formatif non noté reproduisant la structure, le style et la durée de l'examen final : dix énoncés à juger, quatre questions à développement, une spécification d'interface réactive et un problème de conception."
+---
+
+## Partie 1 : vrai ou faux, avec justification (20 %)
+
+*Pour chaque énoncé, indiquez s'il est **vrai** ou **faux**, puis justifiez en une à trois phrases. Lorsqu'un énoncé est faux, dites ce qui le rend faux et formulez l'énoncé correct.*
+
+### Énoncé 1
+
+Un client qui n'a pas reçu de réponse à une requête `POST` peut la renvoyer automatiquement sans conséquence : l'absence de réponse indique que la première tentative n'a pas abouti.
+
+### Énoncé 2
+
+Une requête qui répondait en quelques dizaines de millisecondes peut dépasser dix secondes deux ans plus tard, sans qu'une seule ligne de code ait changé entretemps.
+
+### Énoncé 3
+
+Un point d'accès (endpoint) dont le chemin ne correspond à aucune table ni collection de la base de données s'écarte des contraintes REST.
+
+### Énoncé 4
+
+La signature d'un JWT protège son contenu : un intermédiaire qui intercepte le jeton ne peut pas en lire les informations.
+
+### Énoncé 5
+
+Un utilisateur dont l'authentification a parfaitement réussi peut voir sa requête refusée, sans que cela signale la moindre défaillance du système.
+
+### Énoncé 6
+
+Lorsqu'une valeur peut être calculée directement à partir des props ou de l'état pendant le rendu, il est généralement préférable de la conserver dans un nouvel état et de la mettre à jour avec `useEffect`.
+
+### Énoncé 7
+
+Pour qu'un client puisse lire les réponses d'une API située sur une autre origine, il faut ajouter la configuration CORS appropriée dans le code du client.
+
+### Énoncé 8
+
+Après un changement d'adresse IP, une partie du trafic peut continuer d'atteindre l'ancien serveur pendant des heures, sans qu'aucune erreur de configuration ne soit en cause.
+
+---
+
+## Partie 2 : questions à développement (20 %)
+
+*Répondez en quelques paragraphes.
+
+### Question 1
+
+Décrivez la **stratégie d'optimisation** que vous envisagez pour la phase 3 de votre projet. 
+Précisez les métriques qui seront utilisés pour vérifier que l'efficacité de l'approche.
+
+### Question 2
+
+Décrivez l'**architecture client-serveur** d'une application web moderne. Expliquez le rôle du navigateur, du serveur web, du serveur d'application et de la base de données. Illustrez votre réponse avec le cycle complet d'une requête HTTP, de son émission jusqu'à l'affichage du résultat.
+
+### Question 3 
+
+Expliquez comment mettre en œuvre un système d'**authentification** dans une application MERN (MongoDB, Express, React, Node) au moyen de jetons JSON signés. Décrivez le processus de connexion, la protection des routes et les principales mesures de sécurité à adopter.
+
+---
+
+## Partie 3 : interface réactive, spécification et diagnostic (20 %)
+
+### Exercice 1
+
+Une bibliothèque met en service un écran permettant de consulter les **postes de travail libres**, salle par salle, et d'en réserver un pour deux heures. Plusieurs personnes consultent cet écran en même temps, et un poste peut être pris par quelqu'un d'autre pendant qu'on le regarde. La réservation exige d'être connecté.
+
+Rédigez **cinq comportements** qui doivent figurer dans la spécification de cette interface. Chacun s'écrit sous la forme suivante :
+
+> Quand « situation ou évènement », l'interface « réaction observable par l'utilisateur ».
+
+Ajoutez à chaque comportement une phrase indiquant ce qu'il **garantit** ou ce qu'il **évite**.
+
+Vos cinq comportements doivent respecter les contraintes suivantes.
+
+- Ils portent sur cinq situations distinctes.
+- Au moins un concerne un changement qui vient du système, et non d'une action de l'utilisateur.
+- Au moins un concerne une défaillance : réseau absent, requête en échec, ou délai anormalement long.
+
+### Exercice 2
+
+Le composant suivant affiche les mesures d'un lieu et les actualise périodiquement. Il fonctionne « à peu près », mais présente plusieurs défauts.
+
+**Comportement attendu.** Le composant charge les mesures du lieu reçu en prop et les actualise toutes les cinq secondes, y compris lorsque ce lieu change. Le champ de saisie **filtre la liste affichée** : seules demeurent visibles les mesures dont la valeur contient le texte saisi, et la liste complète réapparait dès que le champ est vidé. Ce filtrage s'effectue dans le composant, sans requête supplémentaire. Le nombre affiché en tête est celui des mesures **visibles**, donc filtrées.
+
+```jsx
+function ListeMesures({ lieu }) {
+  const [mesures, setMesures] = useState([]);
+  const [nombre, setNombre] = useState(0);
+  const [filtre, setFiltre] = useState("");
+
+  useEffect(() => {
+    const identifiant = setInterval(() => {
+      fetch("/mesures?lieu=" + lieu)
+        .then((reponse) => reponse.json())
+        .then((donnees) => setMesures(donnees.data));
+    }, 5000);
+  }, []);
+
+  useEffect(() => {
+    setNombre(mesures.length);
+  }, [mesures]);
+
+  function ajouter(mesure) {
+    mesures.push(mesure);
+    setMesures(mesures);
+  }
+
+  return (
+    <section>
+      <p>{nombre} mesures</p>
+
+      <input
+        value={filtre}
+        onChange={(evenement) => setFiltre(evenement.target.value)}
+      />
+
+      <button onClick={ajouter({ valeur: 0 })}>Ajouter une mesure</button>
+
+      <ul>
+        {mesures.map((mesure) => (
+          <li>{mesure.valeur}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+```
+
+**a)** Relevez **au moins quatre défauts** et expliquez, pour chacun, le comportement erroné qu'il produit à l'exécution.
+
+**b)** Réécrivez le composant corrigé. 
+
+**c)** Ce composant n'affiche rien de particulier pendant le chargement, ni lorsque la requête échoue. Quels états manque-t-il, et que devrait afficher chacun ?
+
+---
+
+## Partie 4 : problème de conception (40 %)
+
+### Contexte : « À bord »
+
+Une société de transport exploite une ligne de navettes **automatiques**, sans conducteur, à la manière d'un métro léger. Aux heures de pointe, les passagers s'agglutinent devant la première porte, tandis que l'arrière des véhicules reste souvent à moitié vide : les navettes partent chargées inégalement, les temps d'embarquement s'allongent, et les retards se propagent sur toute la ligne.
+
+Le système que vous concevez s'adresse **uniquement aux passagers**. Il n'y a ni conducteur à informer, ni personnel en station : tout ce que le système sait, il le tient de ses capteurs, et tout ce qu'il produit s'adresse à des voyageurs pressés.
+
+Un passager dispose de peu de temps, souvent d'une seule main libre, et d'un réseau médiocre en station. Il traverse plusieurs moments successifs : préparer son départ, attendre sur le quai, monter, voyager, puis descendre.
+
+### Instruments à votre disposition
+
+Vous concevez le système à partir de cet inventaire, et de lui seul. Vous n'êtes pas tenu de tout employer : un instrument retenu sans nécessité est une faute de conception, au même titre qu'un besoin laissé sans réponse.
+
+| Instrument | Où | Ce qu'il fournit ou permet |
+|---|---|---|
+| Capteurs d'occupation | À bord | Estimation du remplissage par section : avant, milieu, arrière |
+| Position de la navette | À bord | Position transmise en continu, donc temps d'arrivée estimé |
+| Écrans intérieurs | À bord | Un écran au-dessus de chaque porte |
+| Capteur de densité | Sur le quai | Estimation du nombre de personnes en attente |
+| Écran public | Sur le quai | Message visible depuis tout le quai |
+| Position du téléphone | Chez le passager | Localisation approximative de l'appareil |
+| Retour hors écran | Chez le passager | Vibration, notification locale, signal sonore |
+| Horaire et historique | Côté système | Départs planifiés et relevés d'occupation passés |
+| Comptes des passagers | Côté système | Passagers inscrits et leurs préférences |
+
+### Questions
+
+Concevez **trois scénarios réalistes**, chacun décrivant un moment précis vécu par un passager. Pour chaque scénario, fournissez les quatre éléments suivants.
+
+**a) La situation.** Qui, où, quand, quel besoin, et sous quelles contraintes : temps disponible, état du réseau, attention et mains disponibles.
+
+**b) Les instruments mobilisés.** Choisis dans l'inventaire, avec la raison de chaque choix.
+
+**c) Le dialogue avec l'API.** Les échanges nécessaires, dans l'ordre, en précisant pour chacun la méthode, le chemin, les paramètres ou le corps utiles, et le code de statut attendu en cas de succès comme en cas d'échec.
+
+**d) L'interface et la réponse attendue**, au sens large : ce qui s'affiche, mais aussi ce qui vibre, sonne, alerte ou s'allume, à quel moment et pendant combien de temps.
+
+Pour chaque scénario, on évalue le réalisme de la situation, la pertinence des instruments retenus, la justesse du dialogue avec l'API et la précision de la réponse attendue. Une solution qui répond à un besoin inventé pour l'occasion, ou qui mobilise un instrument sans nécessité, est pénalisée.
